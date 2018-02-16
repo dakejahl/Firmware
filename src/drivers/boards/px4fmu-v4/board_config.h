@@ -282,6 +282,10 @@
 #define GPIO_8266_PD                 (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTE|GPIO_PIN5)
 #define GPIO_8266_RST                (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_SET|GPIO_PORTE|GPIO_PIN6)
 
+/* Heater pin */
+#define GPIO_HEATER                  (GPIO_OUTPUT|GPIO_PUSHPULL|GPIO_SPEED_2MHz|GPIO_OUTPUT_CLEAR|GPIO_PORTC|GPIO_PIN6)
+#define GPIO_HEATER_INPUT			 (GPIO_INPUT|GPIO_PULLDOWN|GPIO_PORTC|GPIO_PIN6)
+
 /* Power switch controls ******************************************************/
 
 #define SPEKTRUM_POWER(_on_true)     px4_arch_gpiowrite(GPIO_SPEKTRUM_PWR_EN, (!_on_true))

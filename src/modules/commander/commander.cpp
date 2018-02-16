@@ -1237,6 +1237,7 @@ Commander::run()
 	param_t _param_ef_time_thres = param_find("COM_EF_TIME");
 	param_t _param_rc_in_off = param_find("COM_RC_IN_MODE");
 	param_t _param_rc_arm_hyst = param_find("COM_RC_ARM_HYST");
+	param_t _param_crash_disarm_hyst = param_find("COM_CDISARM_HYST");
 	param_t _param_min_stick_change = param_find("COM_RC_STICK_OV");
 	param_t _param_eph = param_find("COM_HOME_H_T");
 	param_t _param_epv = param_find("COM_HOME_V_T");
@@ -1385,6 +1386,7 @@ Commander::run()
 	unsigned counter = 0;
 	unsigned stick_off_counter = 0;
 	unsigned stick_on_counter = 0;
+	unsigned crashed_counter = 0;
 
 	bool low_battery_voltage_actions_done = false;
 	bool critical_battery_voltage_actions_done = false;
@@ -1461,6 +1463,11 @@ Commander::run()
 	memset(&gps_position, 0, sizeof(gps_position));
 	gps_position.eph = FLT_MAX;
 	gps_position.epv = FLT_MAX;
+
+	/* Subscribe to sensor topic */
+	int sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
+	struct sensor_combined_s sensors;
+	memset(&sensors, 0, sizeof(sensors));
 
 	/* Subscribe to differential pressure topic */
 	int diff_pres_sub = orb_subscribe(ORB_ID(differential_pressure));
@@ -1585,6 +1592,11 @@ Commander::run()
 	param_get(_param_rc_arm_hyst, &rc_arm_hyst);
 	rc_arm_hyst *= COMMANDER_MONITORING_LOOPSPERMSEC;
 
+	// user adjustable durection to auto disarm on crash
+	int32_t crash_disarm_hyst = 2000;
+	param_get(_param_crash_disarm_hyst, &crash_disarm_hyst);
+	crash_disarm_hyst *= COMMANDER_MONITORING_LOOPSPERMSEC;
+
 	transition_result_t arming_ret;
 
 	int32_t datalink_loss_act = 0;
@@ -1701,6 +1713,8 @@ Commander::run()
 			// percentage (* 0.01) needs to be doubled because RC total interval is 2, not 1
 			min_stick_change *= 0.02f;
 			rc_arm_hyst *= COMMANDER_MONITORING_LOOPSPERMSEC;
+			crash_disarm_hyst *= COMMANDER_MONITORING_LOOPSPERMSEC;
+
 			param_get(_param_datalink_regain_timeout, &datalink_regain_timeout);
 			param_get(_param_ef_throttle_thres, &ef_throttle_thres);
 			param_get(_param_ef_current2throttle_thres, &ef_current2throttle_thres);
@@ -1873,6 +1887,12 @@ Commander::run()
 					telemetry_last_heartbeat[i] = telemetry.heartbeat_time;
 				}
 			}
+		}
+
+		orb_check(sensor_sub, &updated);
+
+		if (updated) {
+			orb_copy(ORB_ID(sensor_combined), sensor_sub, &sensors);
 		}
 
 		orb_check(diff_pres_sub, &updated);
@@ -3098,6 +3118,31 @@ Commander::run()
 			}
 
 			arm_tune_played = false;
+		}
+
+		/* crash detection */
+		if (armed.armed) {
+			matrix::Eulerf euler = matrix::Quatf(attitude.q);
+			float accel_magnitude = 0;
+
+			for (int i=0; i<3; i++) {
+				accel_magnitude += sensors.accelerometer_m_s2[i] * sensors.accelerometer_m_s2[i];	
+			}
+			accel_magnitude = sqrtf(accel_magnitude);
+
+			// Check for extreme attitudes and low accelerations
+			if ((fabsf(euler.phi()) > 2.0f || fabsf(euler.theta()) > 2.0f) && 
+			    (accel_magnitude < 9.81f * 1.15f && accel_magnitude > 9.81f * 0.85f)) {
+				crashed_counter++;
+				
+				// Check if counter is above the crashed disarm parameter
+				if (crashed_counter > crash_disarm_hyst) {
+					arm_disarm(false, &mavlink_log_pub, "auto disarm on crash");
+					crashed_counter = 0;
+				}
+			} else {
+				crashed_counter = 0;
+			}
 		}
 
 		/* play sensor failure tunes if we already waited for hotplug sensors to come up and failed */

@@ -427,6 +427,11 @@ PX4FMU::PX4FMU(bool run_as_task) :
 	px4_arch_configgpio(GPIO_SBUS_INV);
 #endif
 
+#ifdef GPIO_FRSKY_INV
+	// this board has a GPIO to control SBUS inversion
+	px4_arch_configgpio(GPIO_FRSKY_INV);
+#endif
+
 	// If there is no safety button, disable it on boot.
 #ifndef GPIO_BTN_SAFETY
 	_safety_off = true;

@@ -142,6 +142,11 @@ public:
 	 */
 	void calc_mag_inconsistency(sensor_preflight_s &preflt);
 
+	/**
+	 * Calculates the magnitude in gauss of the magnetic field magnitude of the primary magnetometer
+	 */
+	void calc_mag_magnitude(struct sensor_preflight_s &preflt);
+
 private:
 
 	struct SensorData {

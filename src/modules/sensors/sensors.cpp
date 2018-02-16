@@ -625,6 +625,8 @@ Sensors::run()
 
 	preflt.mag_inconsistency_ga = 0.0f;
 
+	preflt.mag_magnitude_ga = 0.0f;
+
 	_sensor_preflight = orb_advertise(ORB_ID(sensor_preflight), &preflt);
 
 	/* wakeup source */
@@ -688,6 +690,7 @@ Sensors::run()
 				_voted_sensors_update.calc_accel_inconsistency(preflt);
 				_voted_sensors_update.calc_gyro_inconsistency(preflt);
 				_voted_sensors_update.calc_mag_inconsistency(preflt);
+				_voted_sensors_update.calc_mag_magnitude(preflt);
 				orb_publish(ORB_ID(sensor_preflight), _sensor_preflight, &preflt);
 
 			}

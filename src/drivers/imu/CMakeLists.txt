@@ -31,15 +31,13 @@
 #
 ############################################################################
 
-#add_subdirectory(hc_sr04) # not currently supported
-add_subdirectory(ll40ls)
-add_subdirectory(mb12xx)
-add_subdirectory(pga460)
-add_subdirectory(sf0x)
-add_subdirectory(sf1xx)
-add_subdirectory(srf02)
-add_subdirectory(srf02_i2c)
-add_subdirectory(teraranger)
-add_subdirectory(tfmini)
-add_subdirectory(ulanding)
-add_subdirectory(leddar_one)
+add_subdirectory(adis16448)
+add_subdirectory(bma180)
+add_subdirectory(bmi055)
+add_subdirectory(bmi160)
+add_subdirectory(fxas21002c)
+add_subdirectory(fxos8701cq)
+add_subdirectory(l3gd20)
+add_subdirectory(lsm303d)
+add_subdirectory(mpu6000)
+add_subdirectory(mpu9250)

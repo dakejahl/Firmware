@@ -91,6 +91,8 @@ fi
 # Disable autostart if the script found.
 #
 set FRC /fs/microsd/etc/rc.txt
+#set FRC /etc/init.d/rc.teal
+
 if [ -f $FRC ]
 then
 	sh $FRC

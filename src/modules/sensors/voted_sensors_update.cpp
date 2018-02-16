@@ -1256,3 +1256,15 @@ void VotedSensorsUpdate::calc_mag_inconsistency(sensor_preflight_s &preflt)
 		preflt.mag_inconsistency_ga = sqrtf(mag_diff_sum_max_sq);
 	}
 }
+
+void VotedSensorsUpdate::calc_mag_magnitude(sensor_preflight_s &preflt)
+{
+	float mag_sum_sq = 0.0f;
+
+	for (unsigned axis_index = 0; axis_index < 3; axis_index++) {
+		mag_sum_sq += _last_sensor_data[_mag.last_best_vote].magnetometer_ga[axis_index] *
+			      _last_sensor_data[_mag.last_best_vote].magnetometer_ga[axis_index];
+	}
+
+	preflt.mag_magnitude_ga = sqrtf(mag_sum_sq);
+}

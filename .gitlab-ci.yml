@@ -1,0 +1,29 @@
+stages:
+    - check_format
+    - tests
+    - firmware
+
+check_format:
+    stage: check_format
+    image: px4io/px4-dev-nuttx:2017-06-01
+    tags:
+        - docker
+    script:
+        - make check_format
+
+tests:
+    stage: tests
+    image: px4io/px4-dev-simulation:2017-06-01
+    tags:
+        - docker
+    script:
+        - git submodule update --init --recursive
+        - make tests
+
+firmware:
+    stage: firmware
+    image: px4io/px4-dev-nuttx:2017-06-01
+    tags:
+        - docker
+    script:
+        - make px4fmu-v4_default
