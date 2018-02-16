@@ -267,7 +267,7 @@ transition_result_t arming_state_transition(vehicle_status_s *status,
 								feedback_provided = true;
 								valid_transition = false;
 
-							} else if (avionics_power_rail_voltage < 4.9f) {
+							} else if (avionics_power_rail_voltage < 4.85f) {
 								mavlink_log_critical(mavlink_log_pub, "CAUTION: Avionics power low: %6.2f Volt", (double)avionics_power_rail_voltage);
 								feedback_provided = true;
 

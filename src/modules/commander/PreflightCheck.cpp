@@ -231,14 +231,6 @@ static bool magConsistencyCheck(orb_advert_t *mavlink_log_pub, bool report_statu
 		return false;
 	}
 
-	// Fail if magnetic field magnitude is greater than twice the test limit threshold.
-	if (fabsf(sensors.mag_magnitude_ga) > test_limit * 2.0f) {
-		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: MAGNETIC FIELD INTEFERENCE");
-		}
-		return false;
-	}
-
 	return true;
 }
 

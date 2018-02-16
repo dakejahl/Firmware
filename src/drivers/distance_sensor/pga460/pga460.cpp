@@ -7,6 +7,7 @@
 
 #include <cstring>
 #include <termios.h>
+
 #include "pga460.h"
 
 extern "C" __EXPORT int pga460_main(int argc, char *argv[]);
@@ -453,7 +454,7 @@ bool PGA460::pullUltrasonicMeasResult()
 		}
 
 		uint16_t objDist = (buf_rx[1] << 8) + buf_rx[2];
-		float32 range = (float)objDist / 2.0f * 0.000001f * SPEED_OF_SOUND;
+		float range = (float)objDist / 2.0f * 0.000001f * SPEED_OF_SOUND;
 
 		struct distance_sensor_s report = {};
 		report.timestamp = hrt_absolute_time();
