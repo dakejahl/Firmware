@@ -39,6 +39,8 @@
 
 #include <drivers/drv_hrt.h>
 #include <float.h>
+
+#include <mathlib/mathlib.h>
 #include <px4_config.h>
 #include <px4_defines.h>
 #include <uORB/topics/parameter_update.h>
@@ -53,7 +55,14 @@ Heater::Heater() :
 	_task_should_exit(false),
 	_task_is_running(false),
 	_current_temp(0),
+	_error_temp(0),
 	_target_temp(0),
+	_temp_proportional_gain(0.05),
+	_temp_integrator_gain(0.005),
+	_temp_proportional_value(0),
+	_temp_integrator_value(0),
+	_heater_on_time_sec(0),
+	_heater_on_time_usec(0),
 	_heater_on(false),
 	_sensor_gyro_sub(-1),
 	_sensor_gyro{},
@@ -118,12 +127,24 @@ void Heater::_cycle()
 
 	_current_temp = _sensor_gyro.temperature;
 
-	if ((_current_temp < _target_temp) && ((int8_t)_current_temp != 0)) {
-		if (!_heater_on) {
-			_heater_on = true;
-			px4_arch_gpiowrite(GPIO_HEATER, 1);
-		}
+	_error_temp = _target_temp - _current_temp;
 
+	if (_error_temp > 0 && (int)_current_temp != 0) {
+		
+		_temp_proportional_value = _error_temp * _temp_proportional_gain;
+		_temp_integrator_value += _error_temp * _temp_integrator_gain;
+		_temp_integrator_value = math::max(math::min(_temp_integrator_value, 0.1f), -0.1f);
+
+		_heater_on_time_sec = _temp_proportional_value + _temp_integrator_value;
+		_heater_on_time_usec = (int)(_heater_on_time_sec * 1000000);
+
+		_heater_on = true;
+		px4_arch_gpiowrite(GPIO_HEATER, 1);
+
+		usleep(_heater_on_time_usec);
+
+		px4_arch_gpiowrite(GPIO_HEATER, 0);
+		_heater_on = false;
 	} else {
 		_heater_on = false;
 		px4_arch_gpiowrite(GPIO_HEATER, 0);

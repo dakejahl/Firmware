@@ -46,6 +46,9 @@ set PWM_OUT 1234
 	param set BAT_V_EMPTY 3.6
 	param set BAT_V_OFFS_CURR -0.0045
 
+	# primary accel
+	#param set CAL_ACC_PRIME
+
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027
 	param set CBRK_USB_CHK 197848
@@ -53,7 +56,6 @@ set PWM_OUT 1234
 	# commander
 	param set COM_DISARM_LAND 1
 	param set COM_LOW_BAT_ACT 3
-	param set COM_ARM_EKF_AB 0.004
 
 	# ekf2
 	param set EKF2_ACC_NOISE 0.35

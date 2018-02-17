@@ -124,18 +124,52 @@ private:
 
 	void _check_params(const bool force);
 
+	/** @param _task_should_exit */
 	bool _task_should_exit;
+
+	/** @param _task_is_running */
 	bool _task_is_running;
 
+	/** @param _p_target_temp */
 	param_t _p_target_temp;
+
+	/** @param _current_temp */
 	float _current_temp;
+	
+	/** @param _error_temp The error between current and target temperatures. */
+	float _error_temp;
+
+	/** @param _target_temp */
 	float _target_temp;
+	
+	/** @param _temp_proportional_gain */
+	float _temp_proportional_gain;
+	
+	/** @param _temp_integrator_gain */
+	float _temp_integrator_gain;
+	
+	/** @param _temp_proportional_value */
+	float _temp_proportional_value;
+	
+	/** @param _temp_integrator_value */
+	float _temp_integrator_value;
+	
+	/** @param _heater_on_time */
+	float _heater_on_time_sec;
+
+	/** @param _heater_on_time */
+	int _heater_on_time_usec;
+
+	/** @param _heater_on */
 	bool _heater_on;
 
+	/** @param _sensor_gyro_sub */
 	int _sensor_gyro_sub;
 
+	/** @param _sensor_gyro */
 	struct sensor_gyro_s _sensor_gyro;
 
+	/** @param _work */
 	struct work_s	_work;
 };
 
