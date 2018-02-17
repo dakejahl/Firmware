@@ -130,7 +130,7 @@ void Heater::_cycle()
 	_error_temp = _target_temp - _current_temp;
 
 	if (_error_temp > 0 && (int)_current_temp != 0) {
-		
+
 		_temp_proportional_value = _error_temp * _temp_proportional_gain;
 		_temp_integrator_value += _error_temp * _temp_integrator_gain;
 		_temp_integrator_value = math::max(math::min(_temp_integrator_value, 0.1f), -0.1f);
@@ -145,6 +145,7 @@ void Heater::_cycle()
 
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
 		_heater_on = false;
+
 	} else {
 		_heater_on = false;
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
