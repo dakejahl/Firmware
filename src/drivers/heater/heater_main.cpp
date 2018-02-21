@@ -252,18 +252,18 @@ int heater_main(int argc, char *argv[])
                 return 0;
         }
 
-        if (!strcmp(argv[1], "help")) {
-                PX4_INFO("start:       \n\t- Starts the Heater driver.");
-                PX4_INFO("stop:        \n\t- Stops the Heater driver.");
-                PX4_INFO("status:      \n\t- Displays the current IMU temperature, target temperature, and heater on/off status.");
-                PX4_INFO("temp:        \n\t- Displays the current IMU temperature.");
-                PX4_INFO("target_temp: \n\t- Displays the current IMU temperature.");
-                PX4_INFO("proportional:\n\t- Without argument displays the proportional gain value.");
-                PX4_INFO("             \n\t- With float value argument sets and displays the proportional gain value.");
-                PX4_INFO("integrator:  \n\t- Without argument displays the integrator gain value.");
-                PX4_INFO("             \n\t- With float value argument sets and displays the integrator gain value.");
-                PX4_INFO("feed_forward:\n\t- Without argument displays the feed_forward gain value.");
-                PX4_INFO("             \n\t- With float value argument sets and displays the feed_forward gain value.");
+        if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
+                PX4_INFO("\n\tstart         - Starts the Heater driver."
+                         "\n\tstop          - Stops the Heater driver."
+                         "\n\tstatus        - Displays the current IMU temperature, target temperature, and heater on/off status."
+                         "\n\ttemp          - Displays the current IMU temperature."
+                         "\n\ttarget_temp   - Displays the current IMU temperature."
+                         "\n\tproportional  - Without argument displays the proportional gain value."
+                         "\n\t              - With float value argument sets and displays the proportional gain value."
+                         "\n\tintegrator    - Without argument displays the integrator gain value."
+                         "\n\t              - With float value argument sets and displays the integrator gain value."
+                         "\n\tfeed_forward  - Without argument displays the feed_forward gain value."
+                         "\n\t              - With float value argument sets and displays the feed_forward gain value.");
                 return 0;
         }
 
