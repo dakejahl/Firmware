@@ -62,6 +62,7 @@ Heater::Heater() :
 	_proportional_value(0),
 	_integrator_value(0),
 	_feed_forward(0.5),
+	_duty_cycle(0),
 	_controller_period_usec(100000),
 	_controller_time_on_usec(0),
 	_heater_on(false),
@@ -156,6 +157,9 @@ void Heater::_heater_controller()
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
 		_heater_on = false;
 	}
+
+
+	_duty_cycle = 0.1f * (float)_controller_time_on_usec / (float)_controller_period_usec + 0.9f * _duty_cycle;
 
 	// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
 	if (px4_arch_gpioread(GPIO_HEATER)) {
@@ -291,6 +295,11 @@ int Heater::set_controller_period(int controller_period_usec)
 int Heater::get_controller_period()
 {
 	return _controller_period_usec;
+}
+
+int Heater::get_duty_cycle()
+{
+	return _duty_cycle;
 }
 
 } // namespace heater

@@ -146,6 +146,12 @@ public:
 	 */
 	int get_controller_period();
 
+	/**
+	 * @brief Gets the average heater on duty cycle as a percent. 
+	 * @return Returns the average heater on cycle duty cycle as a percent.
+	 */
+	int get_duty_cycle();
+
 protected:
 
 	/**
@@ -217,6 +223,9 @@ private:
 
 	/** @param _feed_forward The heater controller feedforward value. */
 	float _feed_forward;
+
+	/** @param _duty_cycle The heater on duty cycle value. */
+	float _duty_cycle;
 
 	/** @param _controller_period_usec The heater controller time period in microseconds.*/
 	int _controller_period_usec;

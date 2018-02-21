@@ -280,6 +280,13 @@ int heater_main(int argc, char *argv[])
 		return 0;
 	}
 
+	// Display the heater on duty cycle as a percent.
+	if (!strcmp(argv[1], "duty_cycle")) {
+		float duty_cycle = heater_task->get_duty_cycle();
+		PX4_INFO("Average duty cycle:  %2.5f %", (double)duty_cycle);
+		return 0;
+	}
+
 	// Display the heater driver information/argument list.
 	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
 		PX4_INFO("\n\tstart             - Starts the Heater driver."
@@ -294,12 +301,13 @@ int heater_main(int argc, char *argv[])
 			 "\n\tintegrator        - Without argument displays the integrator gain value."
 			 "\n\t                  - With float value argument sets and displays the integrator gain value."
 			 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
-			 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds).");
+			 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds)."
+			 "\n\tduty_cycle        - Displays the heater duty cycle (%).");
 		return 0;
 	}
 
 exiterr:
-	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|help}");
+	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|duty_cycle|help}");
 	return 1;
 }
 
