@@ -157,7 +157,7 @@ int heater_main(int argc, char *argv[])
 
         if (!strcmp(argv[1], "start")) {
                 if (heater_start() != 0) {
-                        PX4_WARN("heater start failed");
+                        PX4_INFO("heater start failed");
                         return 1;
                 }
 
@@ -176,7 +176,7 @@ int heater_main(int argc, char *argv[])
                                 float target_temperature = heater_task->get_target_temperature();
                                 bool heater_state = heater_task->get_state();
 
-                                PX4_WARN("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
+                                PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
                                          (double)current_temperature,
                                          (double)target_temperature,
                                          heater_state ? "On" : "Off");
@@ -190,45 +190,9 @@ int heater_main(int argc, char *argv[])
                 }
         }
 
-        if (!strcmp(argv[1], "proportional")) {
-                float proportional_gain = 0.f;
-                
-                if (argv[2]) {
-                        proportional_gain = atof(argv[2]);
-                        proportional_gain = heater_task->set_proportional(proportional_gain);
-                } else {
-                        proportional_gain = heater_task->get_proportional();
-                }
-                
-                PX4_WARN("Proportional Gain:  %2.5f", (double)proportional_gain);
-                return 0;
-        }
-
-        if (!strcmp(argv[1], "integrator")) {
-                float integrator_gain = 0.f;
-                
-                if (argv[2]) {
-                        integrator_gain = atof(argv[2]);
-                        integrator_gain = heater_task->set_integrator(integrator_gain);
-                } else {
-                        integrator_gain = heater_task->get_integrator();
-                }
-                
-                PX4_WARN("Integrator Gain:  %2.5f", (double)integrator_gain);
-                return 0;
-        }
-
-        if (!strcmp(argv[1], "feed_forward")) {
-                float feed_forward = 0.f;
-                
-                if (argv[2]) {
-                        feed_forward = atof(argv[2]);
-                        feed_forward = heater_task->set_feed_forward(feed_forward);
-                } else {
-                        feed_forward = heater_task->get_feed_forward();
-                }
-                
-                PX4_WARN("Feed Forward Value:  %2.5f", (double)feed_forward);
+        if (!strcmp(argv[1], "temp")) {
+                float current_temp = heater_task->get_current_temperature();
+                PX4_INFO("Current Temp:  %3.3f", (double)current_temp);
                 return 0;
         }
 
@@ -242,18 +206,69 @@ int heater_main(int argc, char *argv[])
                         target_temp = heater_task->get_target_temperature();
                 }
 
-                PX4_WARN("Target Temp:  %3.3f", (double)target_temp);
+                PX4_INFO("Target Temp:  %3.3f", (double)target_temp);
                 return 0;
         }
 
-        if (!strcmp(argv[1], "temp")) {
-                float current_temp = heater_task->get_current_temperature();
-                PX4_WARN("Current Temp:  %3.3f", (double)current_temp);
+        if (!strcmp(argv[1], "proportional")) {
+                float proportional_gain = 0.f;
+                
+                if (argv[2]) {
+                        proportional_gain = atof(argv[2]);
+                        proportional_gain = heater_task->set_proportional(proportional_gain);
+                } else {
+                        proportional_gain = heater_task->get_proportional();
+                }
+                
+                PX4_INFO("Proportional Gain:  %2.5f", (double)proportional_gain);
+                return 0;
+        }
+
+        if (!strcmp(argv[1], "integrator")) {
+                float integrator_gain = 0.f;
+                
+                if (argv[2]) {
+                        integrator_gain = atof(argv[2]);
+                        integrator_gain = heater_task->set_integrator(integrator_gain);
+                } else {
+                        integrator_gain = heater_task->get_integrator();
+                }
+                
+                PX4_INFO("Integrator Gain:  %2.5f", (double)integrator_gain);
+                return 0;
+        }
+
+        if (!strcmp(argv[1], "feed_forward")) {
+                float feed_forward = 0.f;
+                
+                if (argv[2]) {
+                        feed_forward = atof(argv[2]);
+                        feed_forward = heater_task->set_feed_forward(feed_forward);
+                } else {
+                        feed_forward = heater_task->get_feed_forward();
+                }
+                
+                PX4_INFO("Feed Forward Value:  %2.5f", (double)feed_forward);
+                return 0;
+        }
+
+        if (!strcmp(argv[1], "help")) {
+                PX4_INFO("start:       \n\t- Starts the Heater driver.");
+                PX4_INFO("stop:        \n\t- Stops the Heater driver.");
+                PX4_INFO("status:      \n\t- Displays the current IMU temperature, target temperature, and heater on/off status.");
+                PX4_INFO("temp:        \n\t- Displays the current IMU temperature.");
+                PX4_INFO("target_temp: \n\t- Displays the current IMU temperature.");
+                PX4_INFO("proportional:\n\t- Without argument displays the proportional gain value.");
+                PX4_INFO("             \n\t- With float value argument sets and displays the proportional gain value.");
+                PX4_INFO("integrator:  \n\t- Without argument displays the integrator gain value.");
+                PX4_INFO("             \n\t- With float value argument sets and displays the integrator gain value.");
+                PX4_INFO("feed_forward:\n\t- Without argument displays the feed_forward gain value.");
+                PX4_INFO("             \n\t- With float value argument sets and displays the feed_forward gain value.");
                 return 0;
         }
 
 exiterr:
-        PX4_WARN("usage: heater {start|stop|status}");
+        PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|proportional|integrator|feed_forward|help}");
         return 1;
 }
 
