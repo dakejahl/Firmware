@@ -42,7 +42,7 @@
 #include <px4_workqueue.h>
 #include <systemlib/param/param.h>
 #include <uORB/uORB.h>
-#include <uORB/topics/sensor_gyro.h>
+#include <uORB/topics/sensor_accel.h>
 
 namespace heater
 {
@@ -122,6 +122,16 @@ public:
 	 */
 	float get_feed_forward();
 
+	/**
+	 * @return cycle period value in microseconds.
+	 */
+	int set_cycle_period(int cycle_period_usec);
+
+	/**
+	 * @return cycle period value in microseconds.
+	 */
+	int get_cycle_period();
+
 protected:
 	/**
 	 * Called once to initialize uORB topics.
@@ -192,11 +202,11 @@ private:
 	/** @param _heater_on */
 	bool _heater_on;
 
-	/** @param _sensor_gyro_sub */
-	int _sensor_gyro_sub;
+	/** @param _sensor_accel_sub */
+	int _sensor_accel_sub;
 
-	/** @param _sensor_gyro */
-	struct sensor_gyro_s _sensor_gyro;
+	/** @param _sensor_accel */
+	struct sensor_accel_s _sensor_accel;
 
 	/** @param _work */
 	struct work_s	_work;
