@@ -264,42 +264,42 @@ int heater_main(int argc, char *argv[])
 		return 0;
 	}
 
-	// Display/Set the heater driver cycle period value (usec).
-	if (!strcmp(argv[1], "cycle_period")) {
-		float cycle_period_usec = 0.f;
+	// Display/Set the heater controller period value (usec).
+	if (!strcmp(argv[1], "controller_period")) {
+		float controller_period_usec = 0.f;
 
 		if (argv[2]) {
-			cycle_period_usec = atof(argv[2]);
-			cycle_period_usec = heater_task->set_cycle_period(cycle_period_usec);
+			controller_period_usec = atof(argv[2]);
+			controller_period_usec = heater_task->set_controller_period(controller_period_usec);
 
 		} else {
-			cycle_period_usec = heater_task->get_cycle_period();
+			controller_period_usec = heater_task->get_controller_period();
 		}
 
-		PX4_INFO("Cycle period (usec):  %2.5f", (double)cycle_period_usec);
+		PX4_INFO("Controller period (usec):  %2.5f", (double)controller_period_usec);
 		return 0;
 	}
 
 	// Display the heater driver information/argument list.
 	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
-		PX4_INFO("\n\tstart         - Starts the Heater driver."
-			 "\n\tstop          - Stops the Heater driver."
-			 "\n\tstatus        - Displays the current IMU temperature, target temperature, and heater on/off status."
-			 "\n\ttemp          - Displays the current IMU temperature."
-			 "\n\ttarget_temp   - Displays the current IMU temperature."
-			 "\n\tfeed_forward  - Without argument displays the feed_forward gain value."
-			 "\n\t              - With float value argument sets and displays the feed_forward gain value."
-			 "\n\tproportional  - Without argument displays the proportional gain value."
-			 "\n\t              - With float value argument sets and displays the proportional gain value."
-			 "\n\tintegrator    - Without argument displays the integrator gain value."
-			 "\n\t              - With float value argument sets and displays the integrator gain value."
-			 "\n\tcycle_period  - Without argument displays the heater driver cycle period value (microseconds)."
-			 "\n\t              - With int value argument sets and displays the heater driver cycle period value (microseconds).");
+		PX4_INFO("\n\tstart             - Starts the Heater driver."
+			 "\n\tstop              - Stops the Heater driver."
+			 "\n\tstatus            - Displays the current IMU temperature, target temperature, and heater on/off status."
+			 "\n\ttemp              - Displays the current IMU temperature."
+			 "\n\ttarget_temp       - Displays the current IMU temperature."
+			 "\n\tfeed_forward      - Without argument displays the feed_forward gain value."
+			 "\n\t                  - With float value argument sets and displays the feed_forward gain value."
+			 "\n\tproportional      - Without argument displays the proportional gain value."
+			 "\n\t                  - With float value argument sets and displays the proportional gain value."
+			 "\n\tintegrator        - Without argument displays the integrator gain value."
+			 "\n\t                  - With float value argument sets and displays the integrator gain value."
+			 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
+			 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds).");
 		return 0;
 	}
 
 exiterr:
-	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|help}");
+	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|help}");
 	return 1;
 }
 

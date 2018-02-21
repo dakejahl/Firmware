@@ -57,13 +57,13 @@ Heater::Heater() :
 	_current_temp(0),
 	_error_temp(0),
 	_target_temp(0),
-	_proportional_gain(0.25),
-	_integrator_gain(0.025),
+	_proportional_gain(0.35),
+	_integrator_gain(0.035),
 	_proportional_value(0),
 	_integrator_value(0),
-	_feed_forward(0.4),
-	_cycle_period_usec(500000),
-	_cycle_time_on_usec(0),
+	_feed_forward(0.5),
+	_controller_period_usec(100000),
+	_controller_time_on_usec(0),
 	_heater_on(false),
 	_sensor_accel_sub(-1),
 	_sensor_accel{},
@@ -92,7 +92,7 @@ int Heater::start()
 	}
 
 	// Schedule a cycle to start the driver.
-	work_queue(LPWORK, &_work, (worker_t)&Heater::_cycle_trampoline, this, 0);
+	work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this, 0);
 
 	return 0;
 }
@@ -103,14 +103,14 @@ void Heater::stop()
 }
 
 void
-Heater::_cycle_trampoline(void *arg)
+Heater::_heater_controller_trampoline(void *arg)
 {
 	Heater *dev = reinterpret_cast<Heater *>(arg);
 
-	dev->_cycle();
+	dev->_heater_controller();
 }
 
-void Heater::_cycle()
+void Heater::_heater_controller()
 {
 	if (!_task_is_running) {
 		// Initialize uORB topics.
@@ -139,18 +139,18 @@ void Heater::_cycle()
 		_integrator_value += _error_temp * _integrator_gain;
 		_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
 
-		_cycle_time_on_usec = (int)((_feed_forward + _proportional_value +
-					     _integrator_value) * (float)_cycle_period_usec);
+		_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
+					         _integrator_value) * (float)_controller_period_usec);
 
 		// Ensure the heater time on is clamped within the maximum on time allowed.
-		_cycle_time_on_usec = math::min(_cycle_period_usec, _cycle_time_on_usec);
+		_controller_time_on_usec = math::min(_controller_period_usec, _controller_time_on_usec);
 
 		// Turn the heater on.
 		_heater_on = true;
 		px4_arch_gpiowrite(GPIO_HEATER, 1);
 
 		// Sleep for the appropriate heater time on duration.
-		usleep(_cycle_time_on_usec);
+		usleep(_controller_time_on_usec);
 
 		// Turn the heater off.
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
@@ -169,8 +169,8 @@ void Heater::_cycle()
 	if (!_task_should_exit) {
 
 		// Schedule next cycle.
-		work_queue(LPWORK, &_work, (worker_t)&Heater::_cycle_trampoline, this,
-			   USEC2TICK(_cycle_period_usec - _cycle_time_on_usec));
+		work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
+			   USEC2TICK(_controller_period_usec - _controller_time_on_usec));
 
 	} else {
 		_task_is_running = false;
@@ -282,15 +282,15 @@ float Heater::set_target_temperature(float target_temperature)
 	return _target_temp;
 }
 
-int Heater::set_cycle_period(int cycle_period_usec)
+int Heater::set_controller_period(int controller_period_usec)
 {
-	_cycle_period_usec = cycle_period_usec;
-	return _cycle_period_usec;
+	_controller_period_usec = controller_period_usec;
+	return _controller_period_usec;
 }
 
-int Heater::get_cycle_period()
+int Heater::get_controller_period()
 {
-	return _cycle_period_usec;
+	return _controller_period_usec;
 }
 
 } // namespace heater
