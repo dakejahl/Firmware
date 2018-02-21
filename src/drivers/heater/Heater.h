@@ -73,28 +73,54 @@ public:
 	int start();
 
 	/**
+	 * @return heater state
+	 */
+	bool get_state();
+
+	/**
 	 * @return current temperature
 	 */
-	int get_current_temperature() const
-	{
-		return (int)_current_temp;
-	}
+	float get_current_temperature();
 
 	/**
 	 * @return target temperature
 	 */
-	int get_target_temperature() const
-	{
-		return (int)_target_temp;
-	}
+	float get_target_temperature();
 
 	/**
-	 * @return heater state
+	 * @return target temperature
 	 */
-	bool get_state() const
-	{
-		return _heater_on;
-	}
+	float set_target_temperature(float target_temperature);
+
+	/**
+	 * @return proportional value.
+	 */
+	float set_proportional(float proportional_gain);
+
+	/**
+	 * @return proportional value.
+	 */
+	float get_proportional();
+
+	/**
+	 * @return integrator value.
+	 */
+	float set_integrator(float integrator_gain);
+
+	/**
+	 * @return integrator value.
+	 */
+	float get_integrator();
+
+	/**
+	 * @return feed forward value.
+	 */
+	float set_feed_forward(float feed_forward_gain);
+
+	/**
+	 * @return feed forward value.
+	 */
+	float get_feed_forward();
 
 protected:
 	/**
@@ -142,23 +168,26 @@ private:
 	/** @param _target_temp */
 	float _target_temp;
 
-	/** @param _temp_proportional_gain */
-	float _temp_proportional_gain;
+	/** @param _proportional_gain */
+	float _proportional_gain;
 
-	/** @param _temp_integrator_gain */
-	float _temp_integrator_gain;
+	/** @param _integrator_gain */
+	float _integrator_gain;
 
-	/** @param _temp_proportional_value */
-	float _temp_proportional_value;
+	/** @param _proportional_value */
+	float _proportional_value;
 
-	/** @param _temp_integrator_value */
-	float _temp_integrator_value;
+	/** @param _integrator_value */
+	float _integrator_value;
 
-	/** @param _heater_on_time */
-	float _heater_on_time_sec;
+	/** @param _feed_forward */
+	float _feed_forward;
 
-	/** @param _heater_on_time */
-	int _heater_on_time_usec;
+	/** @param _heater_driver_period_usec */
+	int _cycle_period_usec;
+
+	/** @param _heater_on_time_usec */
+	int _cycle_time_on_usec;
 
 	/** @param _heater_on */
 	bool _heater_on;
