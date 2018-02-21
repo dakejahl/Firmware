@@ -97,7 +97,6 @@
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/battery_status.h>
 #include <uORB/topics/cpuload.h>
-#include <uORB/topics/differential_pressure.h>
 #include <uORB/topics/geofence_result.h>
 #include <uORB/topics/home_position.h>
 #include <uORB/topics/manual_control_setpoint.h>
@@ -108,15 +107,12 @@
 #include <uORB/topics/power_button_state.h>
 #include <uORB/topics/parameter_update.h>
 #include <uORB/topics/safety.h>
-#include <uORB/topics/sensor_combined.h>
 #include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/system_power.h>
 #include <uORB/topics/telemetry_status.h>
-#include <uORB/topics/vehicle_attitude.h>
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vehicle_command_ack.h>
 #include <uORB/topics/vehicle_global_position.h>
-#include <uORB/topics/vehicle_gps_position.h>
 #include <uORB/topics/vehicle_land_detected.h>
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/vehicle_status_flags.h>
@@ -135,8 +131,6 @@ typedef enum VEHICLE_MODE_FLAG
 	VEHICLE_MODE_FLAG_SAFETY_ARMED=128, /* 0b10000000 MAV safety set to armed. Motors are enabled / running / can start. Ready to fly. | */
 	VEHICLE_MODE_FLAG_ENUM_END=129, /*  | */
 } VEHICLE_MODE_FLAG;
-
-static constexpr uint8_t COMMANDER_MAX_GPS_NOISE = 60;		/**< Maximum percentage signal to noise ratio allowed for GPS reception */
 
 /* Decouple update interval and hysteresis counters, all depends on intervals */
 #define COMMANDER_MONITORING_INTERVAL 10000
@@ -678,7 +672,7 @@ bool
 Commander::handle_command(vehicle_status_s *status_local, const safety_s *safety_local,
 		    vehicle_command_s *cmd, actuator_armed_s *armed_local,
 		    home_position_s *home, vehicle_global_position_s *global_pos,
-		    vehicle_local_position_s *local_pos, vehicle_attitude_s *attitude, orb_advert_t *home_pub,
+		    vehicle_local_position_s *local_pos, orb_advert_t *home_pub,
 		    orb_advert_t *command_ack_pub, bool *changed)
 {
 	/* only handle commands that are meant to be handled by this system and component */
@@ -888,7 +882,7 @@ Commander::handle_command(vehicle_status_s *status_local, const safety_s *safety
 						(hrt_absolute_time() > (commander_boot_timestamp + INAIR_RESTART_HOLDOFF_INTERVAL)) &&
 						!home->manual_home) {
 
-						set_home_position(*home_pub, *home, *local_pos, *global_pos, *attitude, false);
+						set_home_position(*home_pub, *home, *local_pos, *global_pos, false);
 					}
 				}
 			}
@@ -925,7 +919,7 @@ Commander::handle_command(vehicle_status_s *status_local, const safety_s *safety
 
 			if (use_current) {
 				/* use current position */
-				if (set_home_position(*home_pub, *home, *local_pos, *global_pos, *attitude, false)) {
+				if (set_home_position(*home_pub, *home, *local_pos, *global_pos, false)) {
 					cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED;
 
 				} else {
@@ -1150,7 +1144,7 @@ Commander::handle_command(vehicle_status_s *status_local, const safety_s *safety
 bool
 Commander::set_home_position(orb_advert_t &homePub, home_position_s &home,
 					const vehicle_local_position_s &localPosition, const vehicle_global_position_s &globalPosition,
-					const vehicle_attitude_s &attitude, bool set_alt_only_to_lpos_ref)
+					bool set_alt_only_to_lpos_ref)
 {
 	if (!set_alt_only_to_lpos_ref) {
 		//Need global and local position fix to be able to set home
@@ -1175,8 +1169,7 @@ Commander::set_home_position(orb_advert_t &homePub, home_position_s &home,
 		home.y = localPosition.y;
 		home.z = localPosition.z;
 
-		matrix::Eulerf euler = matrix::Quatf(attitude.q);
-		home.yaw = euler.psi();
+		home.yaw = localPosition.yaw;
 
 		//Play tune first time we initialize HOME
 		if (!status_flags.condition_home_position_valid) {
@@ -1345,13 +1338,6 @@ Commander::run()
 	status_flags.condition_local_velocity_valid = false;
 	status_flags.condition_local_altitude_valid = false;
 
-	// initialize gps failure to false if circuit breaker enabled
-	if (status_flags.circuit_breaker_engaged_gpsfailure_check) {
-		status_flags.gps_failure = false;
-	} else {
-		status_flags.gps_failure = true;
-	}
-
 	/* publish initial state */
 	status_pub = orb_advertise(ORB_ID(vehicle_status), &status);
 
@@ -1443,36 +1429,9 @@ Commander::run()
 	int local_position_sub = orb_subscribe(ORB_ID(vehicle_local_position));
 	struct vehicle_local_position_s local_position = {};
 
-	/* Subscribe to attitude data */
-	int attitude_sub = orb_subscribe(ORB_ID(vehicle_attitude));
-	struct vehicle_attitude_s attitude = {};
-
 	/* Subscribe to land detector */
 	int land_detector_sub = orb_subscribe(ORB_ID(vehicle_land_detected));
 	land_detector.landed = true;
-
-	/*
-	 * The home position is set based on GPS only, to prevent a dependency between
-	 * position estimator and commander. RAW GPS is more than good enough for a
-	 * non-flying vehicle.
-	 */
-
-	/* Subscribe to GPS topic */
-	int gps_sub = orb_subscribe(ORB_ID(vehicle_gps_position));
-	struct vehicle_gps_position_s gps_position;
-	memset(&gps_position, 0, sizeof(gps_position));
-	gps_position.eph = FLT_MAX;
-	gps_position.epv = FLT_MAX;
-
-	/* Subscribe to sensor topic */
-	int sensor_sub = orb_subscribe(ORB_ID(sensor_combined));
-	struct sensor_combined_s sensors;
-	memset(&sensors, 0, sizeof(sensors));
-
-	/* Subscribe to differential pressure topic */
-	int diff_pres_sub = orb_subscribe(ORB_ID(differential_pressure));
-	struct differential_pressure_s diff_pres;
-	memset(&diff_pres, 0, sizeof(diff_pres));
 
 	/* Subscribe to command topic */
 	int cmd_sub = orb_subscribe(ORB_ID(vehicle_command));
@@ -1496,8 +1455,6 @@ Commander::run()
 
 	/* Subscribe to actuator controls (outputs) */
 	int actuator_controls_sub = orb_subscribe(ORB_ID_VEHICLE_ATTITUDE_CONTROLS);
-	struct actuator_controls_s actuator_controls;
-	memset(&actuator_controls, 0, sizeof(actuator_controls));
 
 	/* Subscribe to vtol vehicle status topic */
 	int vtol_vehicle_status_sub = orb_subscribe(ORB_ID(vtol_vehicle_status));
@@ -1655,7 +1612,7 @@ Commander::run()
 
 	while (!should_exit()) {
 
-		arming_ret = TRANSITION_NOT_CHANGED;
+		transition_result_t arming_ret = TRANSITION_NOT_CHANGED;
 
 		/* update parameters */
 		bool params_updated = false;
@@ -1889,18 +1846,6 @@ Commander::run()
 			}
 		}
 
-		orb_check(sensor_sub, &updated);
-
-		if (updated) {
-			orb_copy(ORB_ID(sensor_combined), sensor_sub, &sensors);
-		}
-
-		orb_check(diff_pres_sub, &updated);
-
-		if (updated) {
-			orb_copy(ORB_ID(differential_pressure), diff_pres_sub, &diff_pres);
-		}
-
 		orb_check(system_power_sub, &updated);
 
 		if (updated) {
@@ -1935,8 +1880,6 @@ Commander::run()
 				status_flags.usb_connected = _usb_telemetry_active;
 			}
 		}
-
-		check_valid(diff_pres.timestamp, DIFFPRESS_TIMEOUT, true, &(status_flags.condition_airspeed_valid), &status_changed);
 
 		/* update safety topic */
 		orb_check(safety_sub, &updated);
@@ -2117,14 +2060,6 @@ Commander::run()
 					check_posvel_validity(local_position.v_xy_valid, local_position.evh, evh_threshold, local_position.timestamp, &last_lvel_fail_time_us, &lvel_probation_time_us, &status_flags.condition_local_velocity_valid, &status_changed);
 				}
 			}
-		}
-
-		/* update attitude estimate */
-		orb_check(attitude_sub, &updated);
-
-		if (updated) {
-			/* attitude changed */
-			orb_copy(ORB_ID(vehicle_attitude), attitude_sub, &attitude);
 		}
 
 		/* update condition_local_altitude_valid */
@@ -2349,64 +2284,6 @@ Commander::run()
 				/* do not complain if not allowed into standby */
 				arming_ret = TRANSITION_NOT_CHANGED;
 			}
-		}
-
-		/*
-		 * Check GPS fix quality. Note that this check augments the position validity
-		 * checks and adds an additional level of protection.
-		 */
-
-		orb_check(gps_sub, &updated);
-
-		if (updated) {
-			orb_copy(ORB_ID(vehicle_gps_position), gps_sub, &gps_position);
-		}
-
-		/* Initialize map projection if gps is valid */
-		if (!map_projection_global_initialized()
-		    && (gps_position.eph < eph_threshold)
-		    && (gps_position.epv < epv_threshold)
-		    && hrt_elapsed_time((hrt_abstime *)&gps_position.timestamp) < 1e6) {
-			/* set reference for global coordinates <--> local coordiantes conversion and map_projection */
-			globallocalconverter_init((double)gps_position.lat * 1.0e-7, (double)gps_position.lon * 1.0e-7,
-						  (float)gps_position.alt * 1.0e-3f, hrt_absolute_time());
-		}
-
-		/* check if GPS is ok */
-		if (!status_flags.circuit_breaker_engaged_gpsfailure_check) {
-			bool gpsIsNoisy = gps_position.noise_per_ms > 0 && gps_position.noise_per_ms < COMMANDER_MAX_GPS_NOISE;
-
-			//Check if GPS receiver is too noisy while we are disarmed
-			if (!armed.armed && gpsIsNoisy) {
-				if (!status_flags.gps_failure) {
-					mavlink_log_critical(&mavlink_log_pub, "GPS signal noisy");
-					set_tune_override(TONE_GPS_WARNING_TUNE);
-
-					//GPS suffers from signal jamming or excessive noise, disable GPS-aided flight
-					status_flags.gps_failure = true;
-					status_changed = true;
-				}
-			}
-
-			// Check fix type and data freshness
-			if (gps_position.fix_type >= 3 && hrt_elapsed_time(&gps_position.timestamp) < FAILSAFE_DEFAULT_TIMEOUT) {
-				/* handle the case where gps was regained */
-				if (status_flags.gps_failure && !gpsIsNoisy) {
-					status_flags.gps_failure = false;
-					status_changed = true;
-					if (status_flags.condition_home_position_valid) {
-						mavlink_log_critical(&mavlink_log_pub, "GPS fix regained");
-					}
-				}
-
-			} else if (!status_flags.gps_failure) {
-				status_flags.gps_failure = true;
-				status_changed = true;
-				if (status.arming_state == vehicle_status_s::ARMING_STATE_ARMED) {
-					mavlink_log_critical(&mavlink_log_pub, "GPS fix lost");
-				}
-			}
-
 		}
 
 		/* start mission result check */
@@ -2812,31 +2689,37 @@ Commander::run()
 			}
 		}
 
-		/* handle commands last, as the system needs to be updated to handle them */
+		// engine failure detection
+		// TODO: move out of commander
 		orb_check(actuator_controls_sub, &updated);
 
 		if (updated) {
-			/* got command */
-			orb_copy(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_controls_sub, &actuator_controls);
-
 			/* Check engine failure
 			 * only for fixed wing for now
 			 */
 			if (!status_flags.circuit_breaker_engaged_enginefailure_check &&
-			    status.is_rotary_wing == false &&
-			    armed.armed &&
-			    ((actuator_controls.control[3] > ef_throttle_thres &&
-			      battery.current_a / actuator_controls.control[3] <
-			      ef_current2throttle_thres) ||
-			     (status.engine_failure))) {
-				/* potential failure, measure time */
-				if (timestamp_engine_healthy > 0 &&
-				    hrt_elapsed_time(&timestamp_engine_healthy) >
-				    ef_time_thres * 1e6f &&
-				    !status.engine_failure) {
-					status.engine_failure = true;
-					status_changed = true;
-					mavlink_log_critical(&mavlink_log_pub, "Engine Failure");
+			    !status.is_rotary_wing && !status.is_vtol && armed.armed) {
+
+				actuator_controls_s actuator_controls = {};
+				orb_copy(ORB_ID_VEHICLE_ATTITUDE_CONTROLS, actuator_controls_sub, &actuator_controls);
+
+				const float throttle = actuator_controls.control[actuator_controls_s::INDEX_THROTTLE];
+				const float current2throttle = battery.current_a / throttle;
+
+				if (((throttle > ef_throttle_thres) && (current2throttle < ef_current2throttle_thres))
+					|| status.engine_failure) {
+
+					const float elapsed = hrt_elapsed_time(&timestamp_engine_healthy) / 1e6f;
+
+					/* potential failure, measure time */
+					if ((timestamp_engine_healthy > 0) && (elapsed > ef_time_thres)
+						&& !status.engine_failure) {
+
+						status.engine_failure = true;
+						status_changed = true;
+
+						PX4_ERR("Engine Failure");
+					}
 				}
 
 			} else {
@@ -2892,8 +2775,7 @@ Commander::run()
 			orb_copy(ORB_ID(vehicle_command), cmd_sub, &cmd);
 
 			/* handle it */
-			if (handle_command(&status, &safety, &cmd, &armed, &_home, &global_position, &local_position,
-					&attitude, &home_pub, &command_ack_pub, &status_changed)) {
+			if (handle_command(&status, &safety, &cmd, &armed, &_home, &global_position, &local_position, &home_pub, &command_ack_pub, &status_changed)) {
 				status_changed = true;
 			}
 		}
@@ -2910,7 +2792,7 @@ Commander::run()
 			    internal_state.main_state != commander_state_s::MAIN_STATE_STAB &&
 			    internal_state.main_state != commander_state_s::MAIN_STATE_ALTCTL &&
 			    internal_state.main_state != commander_state_s::MAIN_STATE_POSCTL &&
-			    ((status.data_link_lost && status_flags.gps_failure))) {
+			    status.data_link_lost) {
 
 				armed.force_failsafe = true;
 				status_changed = true;
@@ -2935,7 +2817,7 @@ Commander::run()
 			     internal_state.main_state == commander_state_s::MAIN_STATE_STAB ||
 			     internal_state.main_state == commander_state_s::MAIN_STATE_ALTCTL ||
 			     internal_state.main_state == commander_state_s::MAIN_STATE_POSCTL) &&
-			    ((status.rc_signal_lost && status_flags.gps_failure))) {
+			    status.rc_signal_lost) {
 
 				armed.force_failsafe = true;
 				status_changed = true;
@@ -2962,7 +2844,7 @@ Commander::run()
 					(now > commander_boot_timestamp + INAIR_RESTART_HOLDOFF_INTERVAL)) {
 
 					/* update home position on arming if at least 500 ms from commander start spent to avoid setting home on in-air restart */
-					set_home_position(home_pub, _home, local_position, global_position, attitude, false);
+					set_home_position(home_pub, _home, local_position, global_position, false);
 				}
 			} else {
 				if (status_flags.condition_home_position_valid) {
@@ -2976,12 +2858,12 @@ Commander::run()
 						if (home_dist_xy > local_position.epv * 2 || home_dist_z > local_position.eph * 2) {
 
 							/* update when disarmed, landed and moved away from current home position */
-							set_home_position(home_pub, _home, local_position, global_position, attitude, false);
+							set_home_position(home_pub, _home, local_position, global_position, false);
 						}
 					}
 				} else {
 					/* First time home position update - but only if disarmed */
-					set_home_position(home_pub, _home, local_position, global_position, attitude, false);
+					set_home_position(home_pub, _home, local_position, global_position, false);
 				}
 			}
 
@@ -2989,7 +2871,7 @@ Commander::run()
 			 * This allows home atitude to be used in the calculation of height above takeoff location when GPS
 			 * use has commenced after takeoff. */
 			if (!_home.valid_alt && local_position.z_global) {
-				set_home_position(home_pub, _home, local_position, global_position, attitude, true);
+				set_home_position(home_pub, _home, local_position, global_position, true);
 
 			}
 		}
@@ -3206,11 +3088,9 @@ Commander::run()
 	px4_close(offboard_control_mode_sub);
 	px4_close(local_position_sub);
 	px4_close(global_position_sub);
-	px4_close(gps_sub);
 	px4_close(safety_sub);
 	px4_close(cmd_sub);
 	px4_close(subsys_sub);
-	px4_close(diff_pres_sub);
 	px4_close(param_changed_sub);
 	px4_close(battery_sub);
 	px4_close(land_detector_sub);
