@@ -150,7 +150,7 @@ public:
 	 * @brief Gets the average heater on duty cycle as a percent. 
 	 * @return Returns the average heater on cycle duty cycle as a percent.
 	 */
-	int get_duty_cycle();
+	float get_duty_cycle();
 
 protected:
 

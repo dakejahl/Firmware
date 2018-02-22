@@ -54,15 +54,15 @@ Heater::Heater() :
 	_parameter_sub(0),
 	_task_should_exit(false),
 	_task_is_running(false),
-	_current_temp(0),
-	_error_temp(0),
-	_target_temp(0),
+	_current_temp(0.f),
+	_error_temp(0.f),
+	_target_temp(0.f),
 	_proportional_gain(0.35),
 	_integrator_gain(0.035),
-	_proportional_value(0),
-	_integrator_value(0),
-	_feed_forward(0.5),
-	_duty_cycle(0),
+	_proportional_value(0.f),
+	_integrator_value(0.f),
+	_feed_forward(0.75),
+	_duty_cycle(0.f),
 	_controller_period_usec(100000),
 	_controller_time_on_usec(0),
 	_heater_on(false),
@@ -297,7 +297,7 @@ int Heater::get_controller_period()
 	return _controller_period_usec;
 }
 
-int Heater::get_duty_cycle()
+float Heater::get_duty_cycle()
 {
 	return _duty_cycle;
 }
