@@ -141,13 +141,13 @@ public:
 	int set_controller_period(int controller_period_usec);
 
 	/**
-	 * @brief Gets the heater cycle period value in microseconds. 
+	 * @brief Gets the heater cycle period value in microseconds.
 	 * @return Returns the heater cycle period value in microseconds.
 	 */
 	int get_controller_period();
 
 	/**
-	 * @brief Gets the average heater on duty cycle as a percent. 
+	 * @brief Gets the average heater on duty cycle as a percent.
 	 * @return Returns the average heater on cycle duty cycle as a percent.
 	 */
 	float get_duty_cycle();
@@ -182,12 +182,12 @@ private:
 	static void _heater_controller_trampoline(void *arg);
 
 	/**
-	 * @brief 
+	 * @brief
 	 */
 	void _heater_controller();
 
 	/**
-	 * @brief Checks 
+	 * @brief Checks
 	 */
 	void _check_params(const bool force);
 

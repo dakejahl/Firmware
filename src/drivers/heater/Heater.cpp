@@ -141,7 +141,7 @@ void Heater::_heater_controller()
 		_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
 
 		_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
-					         _integrator_value) * (float)_controller_period_usec);
+						  _integrator_value) * (float)_controller_period_usec);
 
 		// Ensure the heater time on is clamped within the maximum on time allowed.
 		_controller_time_on_usec = math::min(_controller_period_usec, _controller_time_on_usec);
