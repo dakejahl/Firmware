@@ -283,7 +283,8 @@ int heater_main(int argc, char *argv[])
 	// Display the heater on duty cycle as a percent.
 	if (!strcmp(argv[1], "duty_cycle")) {
 		float duty_cycle = heater_task->get_duty_cycle();
-		PX4_INFO("Average duty cycle:  %2.5f %", (double)duty_cycle);
+		duty_cycle *= 100.f;
+		PX4_INFO("Average duty cycle:  %3.1f%%", (double)duty_cycle);
 		return 0;
 	}
 
