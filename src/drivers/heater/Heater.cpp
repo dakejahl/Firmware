@@ -54,15 +54,15 @@ Heater::Heater() :
 	_parameter_sub(0),
 	_task_should_exit(false),
 	_task_is_running(false),
-	_current_temp(0.f),
-	_error_temp(0.f),
-	_target_temp(0.f),
-	_proportional_gain(0.35),
-	_integrator_gain(0.035),
-	_proportional_value(0.f),
-	_integrator_value(0.f),
+	_current_temp(0.0f),
+	_error_temp(0.0f),
+	_target_temp(0.0f),
+	_proportional_gain(0.25),
+	_integrator_gain(0.025),
+	_proportional_value(0.0f),
+	_integrator_value(0.0f),
 	_feed_forward(0.75),
-	_duty_cycle(0.f),
+	_duty_cycle(0.0f),
 	_controller_period_usec(100000),
 	_controller_time_on_usec(0),
 	_heater_on(false),
@@ -129,35 +129,29 @@ void Heater::_heater_controller()
 	// Determine the current temperature error.
 	_current_temp = _sensor_accel.temperature;
 
-	if ((int)_current_temp == 0) {
-		px4_arch_gpiowrite(GPIO_HEATER, 0);
+	_error_temp = _target_temp - _current_temp;
 
-	} else {
-		_error_temp = _target_temp - _current_temp;
+	// Modulate the heater time on with a feedforward/PI controller.
+	_proportional_value = _error_temp * _proportional_gain;
+	_integrator_value += _error_temp * _integrator_gain;
+	_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
 
-		// Modulate the heater time on with a feedforward/PI controller.
-		_proportional_value = _error_temp * _proportional_gain;
-		_integrator_value += _error_temp * _integrator_gain;
-		_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
+	_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
+					  _integrator_value) * (float)_controller_period_usec);
 
-		_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
-						  _integrator_value) * (float)_controller_period_usec);
+	// Ensure the heater time on is clamped within the maximum on time allowed.
+	_controller_time_on_usec = math::min(_controller_period_usec, _controller_time_on_usec);
 
-		// Ensure the heater time on is clamped within the maximum on time allowed.
-		_controller_time_on_usec = math::min(_controller_period_usec, _controller_time_on_usec);
+	// Turn the heater on.
+	_heater_on = true;
+	px4_arch_gpiowrite(GPIO_HEATER, 1);
 
-		// Turn the heater on.
-		_heater_on = true;
-		px4_arch_gpiowrite(GPIO_HEATER, 1);
+	// Sleep for the appropriate heater time on duration.
+	usleep(_controller_time_on_usec);
 
-		// Sleep for the appropriate heater time on duration.
-		usleep(_controller_time_on_usec);
-
-		// Turn the heater off.
-		px4_arch_gpiowrite(GPIO_HEATER, 0);
-		_heater_on = false;
-	}
-
+	// Turn the heater off.
+	px4_arch_gpiowrite(GPIO_HEATER, 0);
+	_heater_on = false;
 
 	_duty_cycle = 0.1f * ((float)_controller_time_on_usec / (float)_controller_period_usec) + 0.9f * _duty_cycle;
 
