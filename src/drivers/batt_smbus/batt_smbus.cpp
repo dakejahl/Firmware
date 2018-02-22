@@ -557,7 +557,7 @@ BATT_SMBUS::cycle()
 			new_report.temperature = (float)(((float)tmp / 10.0f) - 273.15f);
 		}
 
-		// propagate warning state only if the state is higher, otherwise remain in current warning state
+		// propagate warning state only if the state
 		if (new_report.remaining < _emergency_thr) {
 			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
 
