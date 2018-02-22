@@ -57,8 +57,8 @@ Heater::Heater() :
 	_current_temp(0.f),
 	_error_temp(0.f),
 	_target_temp(0.f),
-	_proportional_gain(0.35),
-	_integrator_gain(0.035),
+	_proportional_gain(0.25),
+	_integrator_gain(0.025),
 	_proportional_value(0.f),
 	_integrator_value(0.f),
 	_feed_forward(0.75),
@@ -129,7 +129,7 @@ void Heater::_heater_controller()
 	// Determine the current temperature error.
 	_current_temp = _sensor_accel.temperature;
 
-	if ((int)_current_temp == 0) {
+	if (_current_temp <= 0.f) {
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
 
 	} else {
