@@ -47,7 +47,7 @@ set PWM_OUT 1234
 	param set BAT_V_OFFS_CURR -0.0045
 
 	# primary accel
-	param set CAL_ACC_PRIME 1442826
+	#param set CAL_ACC_PRIME 1442826
 
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027

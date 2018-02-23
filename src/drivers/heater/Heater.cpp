@@ -65,6 +65,7 @@ Heater::Heater() :
 	_duty_cycle(0.0f),
 	_controller_period_usec(100000),
 	_controller_time_on_usec(0),
+	_controller_min_on_percent(0.01),
 	_heater_on(false),
 	_sensor_accel_sub(-1),
 	_sensor_accel{},
@@ -139,8 +140,9 @@ void Heater::_heater_controller()
 	_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
 					  _integrator_value) * (float)_controller_period_usec);
 
-	// Ensure the heater time on is clamped within the maximum on time allowed.
-	_controller_time_on_usec = math::min(_controller_period_usec, _controller_time_on_usec);
+	// Ensure the heater time on is clamped within the time allowed.
+	_controller_time_on_usec = math::max(math::min(_controller_period_usec, _controller_time_on_usec),
+					     (int)(_controller_min_on_percent * _controller_period_usec));
 
 	// Turn the heater on.
 	_heater_on = true;
