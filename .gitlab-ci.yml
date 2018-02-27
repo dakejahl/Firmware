@@ -13,6 +13,7 @@ check_format:
 
 tests:
     stage: tests
+    allow_failure: true
     image: px4io/px4-dev-simulation:2017-06-01
     tags:
         - docker
