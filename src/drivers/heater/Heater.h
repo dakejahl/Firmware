@@ -233,9 +233,6 @@ private:
 	/** @param _controller_time_on_usec The heater time on in microseconds.*/
 	int _controller_time_on_usec;
 
-	/** @param _controller_min_on_percent The heater minimum on %.*/
-	float _controller_min_on_percent;
-
 	/** @param _heater_on Indicator for the heater on/off status. */
 	bool _heater_on;
 

@@ -61,11 +61,10 @@ Heater::Heater() :
 	_integrator_gain(0.025),
 	_proportional_value(0.0f),
 	_integrator_value(0.0f),
-	_feed_forward(0.75),
-	_duty_cycle(0.0f),
+	_feed_forward(0.15),
+	_duty_cycle(0.15f),
 	_controller_period_usec(100000),
 	_controller_time_on_usec(0),
-	_controller_min_on_percent(0.01),
 	_heater_on(false),
 	_sensor_accel_sub(-1),
 	_sensor_accel{},
@@ -141,8 +140,7 @@ void Heater::_heater_controller()
 					  _integrator_value) * (float)_controller_period_usec);
 
 	// Ensure the heater time on is clamped within the time allowed.
-	_controller_time_on_usec = math::max(math::min(_controller_period_usec, _controller_time_on_usec),
-					     (int)(_controller_min_on_percent * _controller_period_usec));
+	_controller_time_on_usec = math::max(math::min(_controller_period_usec, _controller_time_on_usec), 0);
 
 	// Turn the heater on.
 	_heater_on = true;
@@ -155,7 +153,7 @@ void Heater::_heater_controller()
 	px4_arch_gpiowrite(GPIO_HEATER, 0);
 	_heater_on = false;
 
-	_duty_cycle = 0.1f * ((float)_controller_time_on_usec / (float)_controller_period_usec) + 0.9f * _duty_cycle;
+	_duty_cycle = (0.05f * ((float)_controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
 
 	// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
 	if (px4_arch_gpioread(GPIO_HEATER)) {

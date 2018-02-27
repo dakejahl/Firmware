@@ -303,7 +303,7 @@ int heater_main(int argc, char *argv[])
 			 "\n\t                  - With float value argument sets and displays the integrator gain value."
 			 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
 			 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds)."
-			 "\n\tduty_cycle        - Displays the heater duty cycle (%).");
+			 "\n\tduty_cycle        - Displays the heater duty cycle (%%).");
 		return 0;
 	}
 
