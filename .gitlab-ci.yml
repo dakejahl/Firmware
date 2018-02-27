@@ -23,6 +23,7 @@ tests:
 
 firmware:
     stage: firmware
+    allow_failure: true
     image: px4io/px4-dev-nuttx:2017-06-01
     tags:
         - docker
