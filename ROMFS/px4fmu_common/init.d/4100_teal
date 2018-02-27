@@ -46,6 +46,9 @@ set PWM_OUT 1234
 	param set BAT_V_EMPTY 3.6
 	param set BAT_V_OFFS_CURR -0.0045
 
+	# primary accel
+	#param set CAL_ACC_PRIME 1442826
+
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027
 	param set CBRK_USB_CHK 197848
@@ -161,9 +164,9 @@ set PWM_OUT 1234
 	param set NAV_RCL_LT 120
 
 	# pwm control
-	param set MOT_SLEW_MAX 5000
+	param set MOT_SLEW_MAX 0.01
 	param set PWM_DISARMED 1000
-	param set PWM_MAX 1950
+	param set PWM_MAX 1750
 	param set PWM_MIN 1075
 	param set PWM_RATE 400
 
@@ -174,7 +177,7 @@ set PWM_OUT 1234
 	param set RTL_RETURN_ALT 5
 
 	# sd logging
-	param set SDLOG_PROFILE 4
+	param set SDLOG_PROFILE 127
 	param set SDLOG_RATE 125
 
 	# sensor calibration

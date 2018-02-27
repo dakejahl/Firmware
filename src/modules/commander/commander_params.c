@@ -588,7 +588,7 @@ PARAM_DEFINE_FLOAT(COM_ARM_EKF_GB, 8.7e-4f);
  * @decimal 2
  * @increment 0.05
  */
-PARAM_DEFINE_FLOAT(COM_ARM_IMU_ACC, 0.7f);
+PARAM_DEFINE_FLOAT(COM_ARM_IMU_ACC, 0.8f);
 
 /**
  * Maximum rate gyro inconsistency between IMU units that will allow arming

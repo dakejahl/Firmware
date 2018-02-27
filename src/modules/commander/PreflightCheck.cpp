@@ -231,14 +231,6 @@ static bool magConsistencyCheck(orb_advert_t *mavlink_log_pub, bool report_statu
 		return false;
 	}
 
-	// Fail if magnetic field magnitude is greater than twice the test limit threshold.
-	if (fabsf(sensors.mag_magnitude_ga) > test_limit * 2.0f) {
-		if (report_status) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: MAGNETIC FIELD INTEFERENCE");
-		}
-		return false;
-	}
-
 	return true;
 }
 
@@ -453,42 +445,6 @@ static bool airspeedCheck(orb_advert_t *mavlink_log_pub, bool optional, bool rep
 out:
 	orb_unsubscribe(fd_airspeed);
 	orb_unsubscribe(fd_diffpres);
-	return success;
-}
-
-static bool gnssCheck(orb_advert_t *mavlink_log_pub, bool report_fail, bool &lock_detected)
-{
-	bool success = true;
-	lock_detected = false;
-	int gpsSub = orb_subscribe(ORB_ID(vehicle_gps_position));
-
-	//Wait up to 2000ms to allow the driver to detect a GNSS receiver module
-	px4_pollfd_struct_t fds[1];
-	fds[0].fd = gpsSub;
-	fds[0].events = POLLIN;
-
-	if (px4_poll(fds, 1, 2000) <= 0) {
-		success = false;
-
-	} else {
-		struct vehicle_gps_position_s gps;
-
-		if ((OK != orb_copy(ORB_ID(vehicle_gps_position), gpsSub, &gps)) ||
-		    (hrt_elapsed_time(&gps.timestamp) > 1000000)) {
-			success = false;
-		} else if (gps.fix_type >= 3) {
-			lock_detected = true;
-		}
-	}
-
-	//Report failure to detect module
-	if (!success) {
-		if (report_fail) {
-			mavlink_log_critical(mavlink_log_pub, "PREFLIGHT FAIL: GPS RECEIVER MISSING");
-		}
-	}
-
-	orb_unsubscribe(gpsSub);
 	return success;
 }
 
@@ -783,14 +739,6 @@ bool preflightCheck(orb_advert_t *mavlink_log_pub, bool checkSensors, bool check
 			if (reportFailures) {
 				mavlink_log_critical(mavlink_log_pub, "RC calibration check failed");
 			}
-			failed = true;
-		}
-	}
-
-	/* ---- Global Navigation Satellite System receiver ---- */
-	if (checkGNSS) {
-		bool lock_detected = false;
-		if (!gnssCheck(mavlink_log_pub, reportFailures, lock_detected)) {
 			failed = true;
 		}
 	}
