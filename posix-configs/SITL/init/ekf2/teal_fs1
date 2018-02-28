@@ -2,6 +2,13 @@ uorb start
 param load
 dataman start
 
+set VEHICLE_TYPE mc
+set MIXER quad_x
+set MIXER_AUX none
+set PWM_OUT 1234
+
+param set MAV_TYPE 2
+
 # Configure Teal FS1 Parameters:
 # battery
 param set BAT_CAPACITY 2750
@@ -64,7 +71,6 @@ param set GF_ACTION 1
 param set GF_MAX_HOR_DIST 0
 
 # land detector
-param set LNDMC_POS_UPTHR 0.5
 param set LNDMC_THR_RANGE 0.2
 param set LNDMC_XY_VEL_MAX 1.25
 param set LNDMC_Z_VEL_MAX 0.5
@@ -74,7 +80,7 @@ param set LPE_EPH_MAX 2.5
 param set LPE_EPV_MAX 5.3
 param set LPE_FUSION 145
 
-# mav type
+# mav airframe type
 param set MAV_TYPE 2
 
 # mc_att_control
@@ -116,7 +122,6 @@ param set MPC_ACC_DOWN_MAX 5.0
 param set MPC_ACC_HOR 6.5
 param set MPC_ACC_HOR_MAX 10.0
 param set MPC_ACC_UP_MAX 2.5
-param set MPC_ALTCTL_DZ 0.01
 param set MPC_DEC_HOR_SLOW 5.0 
 param set MPC_HOLD_DZ 0.01
 param set MPC_HOLD_MAX_XY 0.8
@@ -160,7 +165,6 @@ param set NAV_RCL_ACT 1
 param set NAV_RCL_LT 120
 
 # pwm control
-param set MOT_SLEW_MAX 0.01
 param set PWM_DISARMED 1000
 param set PWM_MAX 1750
 param set PWM_MIN 1075
@@ -176,11 +180,6 @@ param set RTL_RETURN_ALT 5
 param set SDLOG_DIRS_MAX 10
 param set SDLOG_PROFILE 127
 param set SDLOG_RATE 125
-
-# sensor calibration
-param set CAL_MAG0_ROT 6
-param set CAL_MAG_SIDES 63
-param set SENS_BOARD_ROT 8
 
 # system
 param set SYS_AUTOSTART 4100
@@ -204,7 +203,7 @@ navigator start
 ekf2 start
 mc_pos_control start
 mc_att_control start
-mixer load /dev/pwm_output0 ROMFS/px4fmu_common/mixers/quad_w.main.mix
+mixer load /dev/pwm_output0 ROMFS/px4fmu_common/mixers/quad_x.main.mix
 mavlink start -x -u 14556 -r 4000000
 mavlink start -x -u 14557 -r 4000000 -m onboard -o 14540
 mavlink stream -r 50 -s POSITION_TARGET_LOCAL_NED -u 14556
