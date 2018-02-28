@@ -159,6 +159,7 @@ set PWM_OUT 1234
 	param set MIS_TAKEOFF_ALT 2.5
 
 	# navigator
+	param set NAV_ACC_RAD 2.5
 	param set NAV_DLL_ACT 1
 	param set NAV_RCL_ACT 1
 	param set NAV_RCL_LT 120
@@ -177,6 +178,7 @@ set PWM_OUT 1234
 	param set RTL_RETURN_ALT 5
 
 	# sd logging
+	param set SDLOG_DIRS_MAX 10
 	param set SDLOG_PROFILE 127
 	param set SDLOG_RATE 125
 
