@@ -183,7 +183,7 @@ param set SDLOG_RATE 125
 
 # system
 param set SYS_AUTOSTART 4100
-param set SYS_COMPANION 921600
+param set SYS_COMPANION 1921600
 param set SYS_LOGGER 1
 param set SYS_MC_EST_GROUP 2
 
@@ -203,6 +203,7 @@ navigator start
 ekf2 start
 mc_pos_control start
 mc_att_control start
+mixer load /dev/pwm_output0 ROMFS/px4fmu_common/mixers/quad_w.main.mix
 mavlink start -x -u 14556 -r 4000000
 mavlink start -x -u 14557 -r 4000000 -m onboard -o 14540
 mavlink stream -r 50 -s POSITION_TARGET_LOCAL_NED -u 14556

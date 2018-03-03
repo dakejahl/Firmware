@@ -187,7 +187,7 @@ set PWM_OUT 1234
 	param set SENS_BOARD_ROT 8
 
 	# system
-	param set SYS_COMPANION 1921600
+	param set SYS_COMPANION 2921600
 	param set SYS_LOGGER 1
 
 	param save
