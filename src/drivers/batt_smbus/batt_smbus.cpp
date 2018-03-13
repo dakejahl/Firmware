@@ -549,7 +549,8 @@ BATT_SMBUS::cycle()
 			}
 
 			// Calculate remaining capacity percent with complementary filter
-			new_report.remaining = (float)(_last_report.remaining * 0.8f) + (float)(0.2f * (float)(1.000f - (((float)_batt_capacity - (float)tmp) / (float)_batt_capacity)));
+			new_report.remaining = (float)(_last_report.remaining * 0.8f) + (float)(0.2f * (float)(1.000f - (((
+						       float)_batt_capacity - (float)tmp) / (float)_batt_capacity)));
 
 			// calculate total discharged amount
 			new_report.discharged_mah = (float)((float)_batt_startup_capacity - (float)tmp);
