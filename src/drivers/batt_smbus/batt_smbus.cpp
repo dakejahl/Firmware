@@ -541,19 +541,18 @@ BATT_SMBUS::cycle()
 		}
 
 		// read remaining capacity
-		if (_batt_capacity > 0) {
-			if (read_reg(BATT_SMBUS_REMAINING_CAPACITY, tmp) == OK) {
+		if (read_reg(BATT_SMBUS_REMAINING_CAPACITY, tmp) == OK) {
 
-				if (tmp > _batt_capacity) {
-					PX4_WARN("Remaining Cap greater than total: Cap:%hu RemainingCap:%hu", (uint16_t)_batt_capacity, (uint16_t)tmp);
-					_batt_capacity = (uint16_t)tmp;
-				}
-
-				new_report.remaining = (float)(1.000f - (((float)_batt_capacity - (float)tmp) / (float)_batt_capacity));
-
-				// calculate total discharged amount
-				new_report.discharged_mah = (float)((float)_batt_startup_capacity - (float)tmp);
+			if (tmp > _batt_capacity) {
+				PX4_WARN("Remaining Cap greater than total: Cap:%hu RemainingCap:%hu", (uint16_t)_batt_capacity, (uint16_t)tmp);
+				_batt_capacity = (uint16_t)tmp;
 			}
+
+			// Calculate remaining capacity percent with complementary filter
+			new_report.remaining = (float)(_last_report.remaining * 0.8f) + (float)(0.2f * (float)(1.000f - (((float)_batt_capacity - (float)tmp) / (float)_batt_capacity)));
+
+			// calculate total discharged amount
+			new_report.discharged_mah = (float)((float)_batt_startup_capacity - (float)tmp);
 		}
 
 		// read battery temperature and covert to Celsius
