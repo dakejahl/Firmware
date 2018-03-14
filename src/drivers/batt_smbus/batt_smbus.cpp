@@ -561,18 +561,30 @@ BATT_SMBUS::cycle()
 			new_report.temperature = (float)(((float)tmp / 10.0f) - 273.15f);
 		}
 
-		// propagate warning state only if the state
-		if (new_report.remaining < _emergency_thr) {
+		//Check if remaining % is out of range
+		if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
 			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+		}
 
-		} else if (new_report.remaining < _crit_thr) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+		//Check if discharged amount is greater than the starting capacity
+		else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
+			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+		}
 
-		} else if (new_report.remaining < _low_thr) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
+		// propagate warning state
+		else {
+			if (new_report.remaining > _low_thr) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
 
-		} else {
-			new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
+			} else if (new_report.remaining > _crit_thr) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
+
+			} else if (new_report.remaining > _emergency_thr) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+
+			} else {
+				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+			}
 		}
 
 		new_report.capacity = _batt_capacity;
