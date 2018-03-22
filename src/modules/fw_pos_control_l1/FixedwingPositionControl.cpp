@@ -36,10 +36,12 @@
 extern "C" __EXPORT int fw_pos_control_l1_main(int argc, char *argv[]);
 
 FixedwingPositionControl::FixedwingPositionControl() :
-	SuperBlock(nullptr, "FW_POS"),
+	ModuleParams(nullptr),
 	_sub_airspeed(ORB_ID(airspeed)),
 	_sub_sensors(ORB_ID(sensor_bias)),
-	_loop_perf(perf_alloc(PC_ELAPSED, "fw l1 control"))
+	_loop_perf(perf_alloc(PC_ELAPSED, "fw l1 control")),
+	_launchDetector(this),
+	_runway_takeoff(this)
 {
 	_parameter_handles.l1_period = param_find("FW_L1_PERIOD");
 	_parameter_handles.l1_damping = param_find("FW_L1_DAMPING");
@@ -219,9 +221,7 @@ FixedwingPositionControl::parameters_update()
 	_fw_pos_ctrl_status.landing_flare_length = _landingslope.flare_length();
 	fw_pos_ctrl_status_publish();
 
-	/* Update Launch Detector Parameters */
-	_launchDetector.updateParams();
-	_runway_takeoff.updateParams();
+	updateParams();
 
 	/* sanity check parameters */
 	if (_parameters.airspeed_max < _parameters.airspeed_min ||
@@ -1866,7 +1866,7 @@ FixedwingPositionControl::tecs_update_pitch_throttle(float alt_sp, float airspee
 			if (PX4_ISFINITE(baro.pressure) && PX4_ISFINITE(_parameters.throttle_alt_scale)) {
 				// scale throttle as a function of sqrt(p0/p) (~ EAS -> TAS at low speeds and altitudes ignoring temperature)
 				const float eas2tas = sqrtf(MSL_PRESSURE_MILLIBAR / baro.pressure);
-				const float scale = constrain(eas2tas * _parameters.throttle_alt_scale, 0.9f, 2.0f);
+				const float scale = constrain((eas2tas - 1.0f) * _parameters.throttle_alt_scale + 1.0f, 1.0f, 2.0f);
 
 				throttle_max = constrain(throttle_max * scale, throttle_min, 1.0f);
 				throttle_cruise = constrain(throttle_cruise * scale, throttle_min + 0.01f, throttle_max - 0.01f);
