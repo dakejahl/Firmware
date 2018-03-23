@@ -57,7 +57,7 @@ param set SYS_AUTOSTART 13006
 param set SYS_MC_EST_GROUP 2
 param set SYS_RESTART_TYPE 2
 param set VT_MOT_COUNT 4
-param set VT_TRANS_THR 0.75
+param set VT_F_TRANS_THR 0.75
 param set VT_TYPE 1
 param set VT_TILT_FW 3.1415
 param set VT_TILT_TRANS 1.2
@@ -81,6 +81,7 @@ mc_pos_control start
 mc_att_control start
 fw_pos_control_l1 start
 fw_att_control start
+wind_estimator start
 mixer load /dev/pwm_output0 ROMFS/sitl/mixers/tiltrotor_sitl.main.mix
 mavlink start -x -u 14556 -r 2000000 -f
 mavlink start -x -u 14557 -r 2000000 -m onboard -o 14540 -f

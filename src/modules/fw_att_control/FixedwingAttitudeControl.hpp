@@ -31,8 +31,6 @@
  *
  ****************************************************************************/
 
-#include <controllib/block/BlockParam.hpp>
-#include <controllib/blocks.hpp>
 #include <px4_module.h>
 #include <drivers/drv_hrt.h>
 #include <ecl/attitude_fw/ecl_pitch_controller.h>
@@ -68,7 +66,7 @@ using matrix::Quatf;
 
 using uORB::Subscription;
 
-class FixedwingAttitudeControl final : public control::SuperBlock, public ModuleBase<FixedwingAttitudeControl>
+class FixedwingAttitudeControl final : public ModuleBase<FixedwingAttitudeControl>
 {
 public:
 	FixedwingAttitudeControl();
@@ -124,7 +122,7 @@ private:
 	vehicle_rates_setpoint_s		_rates_sp {};		/* attitude rates setpoint */
 	vehicle_status_s			_vehicle_status {};	/**< vehicle status */
 
-	Subscription<airspeed_s>			_sub_airspeed;
+	Subscription<airspeed_s>			_airspeed_sub;
 
 	perf_counter_t	_loop_perf;			/**< loop performance counter */
 	perf_counter_t	_nonfinite_input_perf;		/**< performance counter for non finite input */
@@ -136,6 +134,8 @@ private:
 	bool _landed{true};
 
 	float _battery_scale{1.0f};
+
+	bool _flag_control_attitude_enabled_last{false};
 
 	struct {
 		float p_tc;
@@ -172,6 +172,14 @@ private:
 		float trim_roll;
 		float trim_pitch;
 		float trim_yaw;
+		float dtrim_roll_vmin;
+		float dtrim_pitch_vmin;
+		float dtrim_yaw_vmin;
+		float dtrim_roll_vmax;
+		float dtrim_pitch_vmax;
+		float dtrim_yaw_vmax;
+		float dtrim_roll_flaps;
+		float dtrim_pitch_flaps;
 		float rollsp_offset_deg;		/**< Roll Setpoint Offset in deg */
 		float pitchsp_offset_deg;		/**< Pitch Setpoint Offset in deg */
 		float rollsp_offset_rad;		/**< Roll Setpoint Offset in rad */
@@ -233,6 +241,14 @@ private:
 		param_t trim_roll;
 		param_t trim_pitch;
 		param_t trim_yaw;
+		param_t dtrim_roll_vmin;
+		param_t dtrim_pitch_vmin;
+		param_t dtrim_yaw_vmin;
+		param_t dtrim_roll_vmax;
+		param_t dtrim_pitch_vmax;
+		param_t dtrim_yaw_vmax;
+		param_t dtrim_roll_flaps;
+		param_t dtrim_pitch_flaps;
 		param_t rollsp_offset_deg;
 		param_t pitchsp_offset_deg;
 		param_t man_roll_max;
@@ -255,12 +271,6 @@ private:
 		param_t bat_scale_en;
 
 	} _parameter_handles{};		/**< handles for interesting parameters */
-
-	// Rotation matrix and euler angles to extract from control state
-	math::Matrix<3, 3> _R{};
-	float _roll{0.0f};
-	float _pitch{0.0f};
-	float _yaw{0.0f};
 
 	ECL_RollController				_roll_ctrl;
 	ECL_PitchController				_pitch_ctrl;
