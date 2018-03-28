@@ -33,9 +33,9 @@ if [ $AUTOCNF == yes ]
 then
 	# battery
 	param set BAT_CAPACITY 2750
-	param set BAT_CRIT_THR 0.125
-	param set BAT_EMERGEN_THR 0.1
-	param set BAT_LOW_THR 0.15
+	param set BAT_CRIT_THR 0.1
+	param set BAT_EMERGEN_THR 0.05
+	param set BAT_LOW_THR 0.20
 	param set BAT_N_CELLS 4
 	param set BAT_R_INTERNAL 0.00875
 	param set BAT_SOURCE 1
@@ -70,7 +70,7 @@ then
 	param set GF_MAX_HOR_DIST 0
 
 	# land detector
-	param set LNDMC_THR_RANGE 0.2
+	param set LNDMC_THR_RANGE 0.25
 	param set LNDMC_XY_VEL_MAX 1.25
 	param set LNDMC_Z_VEL_MAX 0.5
 
@@ -119,7 +119,7 @@ then
 	param set MPC_LAND_SPEED 0.8
 	param set MPC_MANTHR_MAX 0.85
 	param set MPC_MANTHR_MIN 0.15
-	param set MPC_MAN_TILT_MAX 45.0
+	param set MPC_MAN_TILT_MAX 47.5
 	param set MPC_MAN_Y_MAX 240.0
 	param set MPC_THR_MAX 0.85
 	param set MPC_THR_MIN 0.15
@@ -127,13 +127,13 @@ then
 	param set MPC_TILTMAX_LND 15.0
 	param set MPC_TKO_RAMP_T 0.75
 	param set MPC_TKO_SPEED 0.75
-	param set MPC_VEL_MANUAL 20.0
-	param set MPC_XY_CRUISE 15.0
-	param set MPC_XY_P 1.25
-	param set MPC_XY_VEL_P 0.08
-	param set MPC_XY_VEL_I 0.008
-	param set MPC_XY_VEL_D 0.008
-	param set MPC_XY_VEL_MAX 15
+	param set MPC_VEL_MANUAL 15.0
+	param set MPC_XY_CRUISE 10.0
+	param set MPC_XY_P 1.1
+	param set MPC_XY_VEL_P 0.1
+	param set MPC_XY_VEL_I 0.01
+	param set MPC_XY_VEL_D 0.01
+	param set MPC_XY_VEL_MAX 20
 	param set MPC_Z_P 0.8
 	param set MPC_Z_VEL_P 0.2
 	param set MPC_Z_VEL_I 0.02
@@ -152,14 +152,14 @@ then
 	# pwm control
 	param set MOT_SLEW_MAX 0.1
 	param set PWM_DISARMED 1000
-	param set PWM_MAX 1800
-	param set PWM_MIN 1080
+	param set PWM_MAX 1850
+	param set PWM_MIN 1050
 	param set PWM_RATE 400
 
 	# rtl
 	param set RTL_DESCEND_ALT 5
 	param set RTL_LAND_DELAY 5
-	param set RTL_MIN_DIST 7.5
+	param set RTL_MIN_DIST 10
 	param set RTL_RETURN_ALT 5
 
 	# sd logging
