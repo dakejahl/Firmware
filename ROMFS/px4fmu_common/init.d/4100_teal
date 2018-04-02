@@ -74,23 +74,12 @@ then
 	param set LNDMC_XY_VEL_MAX 1.25
 	param set LNDMC_Z_VEL_MAX 0.5
 
-	# local position estimator
-	param set LPE_EPH_MAX 2.5
-	param set LPE_EPV_MAX 5.3
-	param set LPE_FUSION 145
-
-	# mav airframe type
-	param set MAV_TYPE 2
-
 	# mc_att_control
-	param set MC_BAT_SCALE_EN 1
 	param set MC_ACRO_P_MAX 540.0
 	param set MC_ACRO_R_MAX 540.0
 	param set MC_ACRO_Y_MAX 360.0
-	param set MC_BAT_SCALE_EN 0
 
 	param set MC_ROLL_P 6.0
-	param set MC_ROLL_TC 0.2
 	param set MC_ROLLRATE_P 0.055
 	param set MC_ROLLRATE_I 0.2
 	param set MC_ROLLRATE_D 0.0012
@@ -99,7 +88,6 @@ then
 	param set MC_RR_INT_LIM 0.3
 
 	param set MC_PITCH_P 6.5
-	param set MC_PITCH_TC 0.2
 	param set MC_PITCHRATE_P 0.06
 	param set MC_PITCHRATE_I 0.2
 	param set MC_PITCHRATE_D 0.0012
@@ -121,8 +109,7 @@ then
 	param set MPC_ACC_HOR 6.5
 	param set MPC_ACC_HOR_MAX 10.0
 	param set MPC_ACC_UP_MAX 2.5
-	param set MPC_DEC_HOR_SLOW 5.0 
-	param set MPC_HOLD_DZ 0.01
+	param set MPC_DEC_HOR_SLOW 5.0
 	param set MPC_HOLD_MAX_XY 0.8
 	param set MPC_HOLD_MAX_Z 0.6
 	param set MPC_JERK_MAX 7.5
@@ -138,10 +125,10 @@ then
 	param set MPC_THR_MIN 0.15
 	param set MPC_TILTMAX_AIR 45.0
 	param set MPC_TILTMAX_LND 15.0
-	param set MPC_TKO_RAMP_T 1.0
+	param set MPC_TKO_RAMP_T 0.75
 	param set MPC_TKO_SPEED 0.75
-	param set MPC_VEL_MANUAL 15.0
-	param set MPC_XY_CRUISE 10.0
+	param set MPC_VEL_MANUAL 20.0
+	param set MPC_XY_CRUISE 15.0
 	param set MPC_XY_P 1.1
 	param set MPC_XY_VEL_P 0.1
 	param set MPC_XY_VEL_I 0.01
@@ -161,7 +148,6 @@ then
 	param set NAV_ACC_RAD 2.5
 	param set NAV_DLL_ACT 1
 	param set NAV_RCL_ACT 1
-	param set NAV_RCL_LT 120
 
 	# pwm control
 	param set MOT_SLEW_MAX 0.1
@@ -173,13 +159,12 @@ then
 	# rtl
 	param set RTL_DESCEND_ALT 5
 	param set RTL_LAND_DELAY 5
-	param set RTL_MIN_DIST 10
+	param set RTL_MIN_DIST 7.5
 	param set RTL_RETURN_ALT 5
 
 	# sd logging
 	param set SDLOG_DIRS_MAX 10
 	param set SDLOG_PROFILE 127
-	param set SDLOG_RATE 125
 
 	# sensor calibration
 	param set CAL_MAG0_ROT 6

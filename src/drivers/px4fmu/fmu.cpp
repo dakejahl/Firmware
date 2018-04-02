@@ -275,6 +275,7 @@ private:
 
 	float _mot_t_max;	// maximum rise time for motor (slew rate limiting)
 	float _thr_mdl_fac;	// thrust to pwm modelling factor
+	bool _airmode; 		// multicopter air-mode
 
 	perf_counter_t	_ctl_latency;
 
@@ -385,6 +386,7 @@ PX4FMU::PX4FMU(bool run_as_task) :
 	_to_mixer_status(nullptr),
 	_mot_t_max(0.0f),
 	_thr_mdl_fac(0.0f),
+	_airmode(false),
 	_ctl_latency(perf_alloc(PC_ELAPSED, "ctl_lat"))
 {
 	for (unsigned i = 0; i < _max_actuators; i++) {
@@ -1365,6 +1367,8 @@ PX4FMU::cycle()
 							 ORB_PRIO_DEFAULT);
 				}
 
+				_mixers->set_airmode(_airmode);
+
 				perf_end(_ctl_latency);
 			}
 		}
@@ -1689,12 +1693,10 @@ PX4FMU::cycle()
 				px4_arch_configgpio(GPIO_PPM_IN);
 				rc_io_invert(false);
 
-			} else if (_rc_scan_locked
-				   || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
+			} else if (_rc_scan_locked || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
 
 				// see if we have new PPM input data
-				if ((ppm_last_valid_decode != _rc_in.timestamp_last_signal)
-				    && ppm_decoded_channels > 3) {
+				if ((ppm_last_valid_decode != _rc_in.timestamp_last_signal) && ppm_decoded_channels > 3) {
 					// we have a new PPM frame. Publish it.
 					rc_updated = true;
 					_rc_in.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_PPM;
@@ -1723,12 +1725,12 @@ PX4FMU::cycle()
 #ifdef HRT_PPM_CHANNEL
 
 		// see if we have new PPM input data
-		if ((ppm_last_valid_decode != _rc_in.timestamp_last_signal)
-		    && ppm_decoded_channels > 3) {
+		if ((ppm_last_valid_decode != _rc_in.timestamp_last_signal) && ppm_decoded_channels > 3) {
 			// we have a new PPM frame. Publish it.
 			rc_updated = true;
-			fill_rc_in(ppm_decoded_channels, ppm_buffer, hrt_absolute_time(),
-				   false, false, 0);
+			fill_rc_in(ppm_decoded_channels, ppm_buffer, _cycle_timestamp, false, false, 0);
+			_rc_in.rc_ppm_frame_length = ppm_frame_length;
+			_rc_in.timestamp_last_signal = ppm_last_valid_decode;
 		}
 
 #endif  // HRT_PPM_CHANNEL
@@ -1789,6 +1791,16 @@ void PX4FMU::update_params()
 
 	if (param_handle != PARAM_INVALID) {
 		param_get(param_handle, &_thr_mdl_fac);
+	}
+
+	// multicopter air-mode
+	param_handle = param_find("MC_AIRMODE");
+
+	if (param_handle != PARAM_INVALID) {
+		int32_t val;
+		param_get(param_handle, &val);
+		_airmode = val > 0;
+		PX4_DEBUG("%s: %d", "MC_AIRMODE", _airmode);
 	}
 }
 

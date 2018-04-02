@@ -65,7 +65,7 @@
 #include <dataman/dataman.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_tone_alarm.h>
-#include <geo/geo.h>
+#include <lib/ecl/geo/geo.h>
 #include <mathlib/mathlib.h>
 #include <navigator/navigation.h>
 #include <px4_defines.h>
@@ -1529,13 +1529,11 @@ Commander::run()
 	if (status.hil_state == vehicle_status_s::HIL_STATE_ON) {
 		// HIL configuration selected: real sensors will be disabled
 		status_flags.condition_system_sensors_initialized = false;
-		set_tune_override(TONE_STARTUP_TUNE); //normal boot tune
 	} else {
 			// sensor diagnostics done continuously, not just at boot so don't warn about any issues just yet
 			status_flags.condition_system_sensors_initialized = Preflight::preflightCheck(&mavlink_log_pub, true,
 				checkAirspeed, (status.rc_input_mode == vehicle_status_s::RC_IN_MODE_DEFAULT), !status_flags.circuit_breaker_engaged_gpsfailure_check,
 				false, is_vtol(&status), false, false, hrt_elapsed_time(&commander_boot_timestamp));
-			set_tune_override(TONE_STARTUP_TUNE); //normal boot tune
 	}
 
 	// user adjustable duration required to assert arm/disarm via throttle/rudder stick
@@ -2818,7 +2816,7 @@ Commander::run()
 		/* Get current timestamp */
 		const hrt_abstime now = hrt_absolute_time();
 
-		// automaticcally set or update home position
+		// automatically set or update home position
 		if (!_home.manual_home) {
 			if (armed.armed) {
 				if ((!was_armed || (was_landed && !land_detector.landed)) &&
@@ -2833,10 +2831,11 @@ Commander::run()
 						/* distance from home */
 						float home_dist_xy = -1.0f;
 						float home_dist_z = -1.0f;
-						mavlink_wpm_distance_to_point_local(_home.x, _home.y, _home.z, local_position.x, local_position.y,
-										   local_position.z, &home_dist_xy, &home_dist_z);
+						mavlink_wpm_distance_to_point_local(_home.x, _home.y, _home.z,
+								local_position.x, local_position.y, local_position.z,
+								&home_dist_xy, &home_dist_z);
 
-						if (home_dist_xy > local_position.epv * 2 || home_dist_z > local_position.eph * 2) {
+						if ((home_dist_xy > local_position.eph * 2) || (home_dist_z > local_position.epv * 2)) {
 
 							/* update when disarmed, landed and moved away from current home position */
 							set_home_position(home_pub, _home, local_position, global_position, false);

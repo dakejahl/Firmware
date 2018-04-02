@@ -78,6 +78,7 @@ set(config_module_list
 	modules/attitude_estimator_q
 	modules/position_estimator_inav
 	modules/local_position_estimator
+	modules/landing_target_estimator
 	modules/ekf2
 
 	#
@@ -111,8 +112,6 @@ set(config_module_list
 	lib/conversion
 	lib/DriverFramework/framework
 	lib/ecl
-	lib/geo
-	lib/geo_lookup
 	lib/led
 	lib/mathlib
 	lib/mixer
