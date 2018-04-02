@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2014 MAV GEO Library (MAVGEO). All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,7 +12,7 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name MAVGEO nor the names of its contributors may be
+ * 3. Neither the name PX4 nor the names of its contributors may be
  *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,16 +32,67 @@
  ****************************************************************************/
 
 /**
-* @file geo_mag_declination.h
-*
-* Calculation / lookup table for earth magnetic field declination.
-*
-*/
+ * @file px4_module_params.h
+ *
+ * C++ base class for modules/classes using configuration parameters
+ */
 
 #pragma once
 
-__BEGIN_DECLS
+#include <containers/List.hpp>
 
-__EXPORT float get_mag_declination(float lat, float lon);
+#include "px4_param.h"
 
-__END_DECLS
+class ModuleParams : public ListNode<ModuleParams *>
+{
+public:
+
+	ModuleParams(ModuleParams *parent)
+	{
+		setParent(parent);
+	}
+
+	/**
+	 * Set the parent module. This is typically not required, only in cases where
+	 * the parent cannot be set via constructor.
+	 */
+	void setParent(ModuleParams *parent)
+	{
+		if (parent) {
+			parent->_children.add(this);
+		}
+	}
+
+	virtual ~ModuleParams() = default;
+
+	// no copy, assignment, move, move assignment
+	ModuleParams(const ModuleParams &) = delete;
+	ModuleParams &operator=(const ModuleParams &) = delete;
+	ModuleParams(ModuleParams &&) = delete;
+	ModuleParams &operator=(ModuleParams &&) = delete;
+
+protected:
+	/**
+	 * Call this whenever the module gets a parameter change notification. It will automatically
+	 * call updateParams() for all children, which then call updateParamsImpl().
+	 */
+	void updateParams()
+	{
+		ModuleParams *child = _children.getHead();
+
+		while (child) {
+			child->updateParams();
+			child = child->getSibling();
+		}
+
+		updateParamsImpl();
+	}
+
+	/**
+	 * The implementation for this is generated with the macro DEFINE_PARAMETERS()
+	 */
+	virtual void updateParamsImpl() {}
+
+private:
+	List<ModuleParams *> _children;
+};

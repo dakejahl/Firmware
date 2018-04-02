@@ -57,7 +57,7 @@
 #include <arch/board/board.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_pwm_output.h>
-#include <lib/geo/geo.h>
+#include <lib/ecl/geo/geo.h>
 #include <lib/mathlib/mathlib.h>
 #include <systemlib/param/param.h>
 
@@ -180,7 +180,6 @@ private:
 		param_t idle_pwm_mc;
 		param_t vtol_motor_count;
 		param_t vtol_fw_permanent_stab;
-		param_t fw_pitch_trim;
 		param_t vtol_type;
 		param_t elevons_mc_lock;
 		param_t fw_min_alt;
@@ -192,6 +191,15 @@ private:
 		param_t wv_takeoff;
 		param_t wv_loiter;
 		param_t wv_land;
+		param_t front_trans_duration;
+		param_t back_trans_duration;
+		param_t transition_airspeed;
+		param_t front_trans_throttle;
+		param_t back_trans_throttle;
+		param_t airspeed_blend;
+		param_t airspeed_mode;
+		param_t front_trans_timeout;
+		param_t mpc_xy_cruise;
 	} _params_handles{};
 
 	/* for multicopters it is usual to have a non-zero idle speed of the engines
