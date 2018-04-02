@@ -159,7 +159,7 @@ then
 	# rtl
 	param set RTL_DESCEND_ALT 5
 	param set RTL_LAND_DELAY 5
-	param set RTL_MIN_DIST 10
+	param set RTL_MIN_DIST 7.5
 	param set RTL_RETURN_ALT 5
 
 	# sd logging
