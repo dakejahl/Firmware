@@ -91,6 +91,7 @@ fi
 # Disable autostart if the script found.
 #
 set FRC /fs/microsd/etc/rc.txt
+
 if [ -f $FRC ]
 then
 	sh $FRC
@@ -196,6 +197,11 @@ then
 	set FAILSAFE none
 	set USE_IO no
 	set LOGGER_BUF 14
+
+	#
+	# Enforce the default airframe as a Teal 1
+	#
+	param set SYS_AUTOSTART	4100
 
 	if ver hwcmp PX4FMU_V5
 	then
