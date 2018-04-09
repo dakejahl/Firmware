@@ -18,6 +18,7 @@
 # @output AUX4 feed-through of RC FLAPS channel
 #
 # @maintainer Mark Sauder <mark.sauder@tealdrones.com>
+# @maintainer Alex Klimaj <alex.klimaj@tealdrones.com>
 #
 
 echo "Executing 4100_teal script."
@@ -70,8 +71,8 @@ then
 	param set GF_MAX_HOR_DIST 0
 
 	# land detector
-	param set LNDMC_THR_RANGE 0.25
-	param set LNDMC_XY_VEL_MAX 1.25
+	param set LNDMC_THR_RANGE 0.35
+	param set LNDMC_XY_VEL_MAX 1.5
 	param set LNDMC_Z_VEL_MAX 0.5
 
 	# mc_att_control
