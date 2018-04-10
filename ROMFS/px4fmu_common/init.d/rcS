@@ -91,6 +91,7 @@ fi
 # Disable autostart if the script found.
 #
 set FRC /fs/microsd/etc/rc.txt
+
 if [ -f $FRC ]
 then
 	sh $FRC
@@ -196,6 +197,15 @@ then
 	set FAILSAFE none
 	set USE_IO no
 	set LOGGER_BUF 14
+
+	#
+	# Enforce the default airframe as a Teal 1 if no airframe has been set
+	#
+	if param compare SYS_AUTOSTART 0
+	then
+		param set SYS_AUTOSTART	4100
+		set AUTOCNF yes
+	fi
 
 	if ver hwcmp PX4FMU_V5
 	then
@@ -550,6 +560,12 @@ then
 			set MAVLINK_F "-r 1200 -d /dev/ttyS1"
 			# Start MAVLink on Wifi (ESP8266 port)
 			mavlink start -r 20000 -b 921600 -d /dev/ttyS0
+		fi
+
+		# Use ttyS3 (TELEM4) for MAVLink on FMUv5 in addition to ttyS1 (TELEM1) and ttyS2 (TELEM2)
+		if ver hwcmp PX4FMU_V5
+		then
+			mavlink start -r 2000 -b 57600 -d /dev/ttyS3
 		fi
 
 		if ver hwcmp AEROFC_V1
