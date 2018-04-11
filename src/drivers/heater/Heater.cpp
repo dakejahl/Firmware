@@ -123,52 +123,60 @@ void Heater::_heater_controller()
 		_task_is_running = true;
 	}
 
-	_check_params(false);
-	_update_topics();
-
-	// Determine the current temperature error.
-	_current_temp = _sensor_accel.temperature;
-
-	_error_temp = _target_temp - _current_temp;
-
-	// Modulate the heater time on with a feedforward/PI controller.
-	_proportional_value = _error_temp * _proportional_gain;
-	_integrator_value += _error_temp * _integrator_gain;
-	_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
-
-	_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
-					  _integrator_value) * (float)_controller_period_usec);
-
-	// Ensure the heater time on is clamped within the time allowed.
-	_controller_time_on_usec = math::max(math::min(_controller_period_usec, _controller_time_on_usec), 0);
-
-	// Turn the heater on.
-	_heater_on = true;
-	px4_arch_gpiowrite(GPIO_HEATER, 1);
-
-	// Sleep for the appropriate heater time on duration.
-	usleep(_controller_time_on_usec);
-
-	// Turn the heater off.
-	px4_arch_gpiowrite(GPIO_HEATER, 0);
-	_heater_on = false;
-
-	_duty_cycle = (0.05f * ((float)_controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
-
-	// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
-	if (px4_arch_gpioread(GPIO_HEATER)) {
-		px4_arch_configgpio(GPIO_HEATER_INPUT);
-		usleep(50000);
-		px4_arch_configgpio(GPIO_HEATER);
-		usleep(50000);
+	if (_heater_on) {
+		// Turn the heater off.
 		px4_arch_gpiowrite(GPIO_HEATER, 0);
+		_heater_on = false;
+
+		// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
+		if (px4_arch_gpioread(GPIO_HEATER)) {
+			px4_arch_configgpio(GPIO_HEATER_INPUT);
+			usleep(50000);
+			px4_arch_configgpio(GPIO_HEATER);
+			usleep(50000);
+			px4_arch_gpiowrite(GPIO_HEATER, 0);
+		}
 	}
+
+	else {
+		_check_params(false);
+		_update_topics();
+
+		// Determine the current temperature error.
+		_current_temp = _sensor_accel.temperature;
+
+		_error_temp = _target_temp - _current_temp;
+
+		// Modulate the heater time on with a feedforward/PI controller.
+		_proportional_value = _error_temp * _proportional_gain;
+		_integrator_value += _error_temp * _integrator_gain;
+		_integrator_value = math::max(math::min(_integrator_value, 0.25f), -0.25f);
+
+		_controller_time_on_usec = (int)((_feed_forward + _proportional_value +
+						  _integrator_value) * (float)_controller_period_usec);
+
+		// Ensure the heater time on is clamped within the time allowed.
+		_controller_time_on_usec = math::max(math::min(_controller_period_usec, _controller_time_on_usec), 0);
+
+		_duty_cycle = (0.05f * ((float)_controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
+
+		// Turn the heater on.
+		_heater_on = true;
+		px4_arch_gpiowrite(GPIO_HEATER, 1);
+	}
+
 
 	if (!_task_should_exit) {
 
 		// Schedule next cycle.
-		work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
-			   USEC2TICK(_controller_period_usec - _controller_time_on_usec));
+		if (_heater_on) {
+			work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
+				   USEC2TICK(_controller_time_on_usec));
+
+		} else {
+			work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
+				   USEC2TICK(_controller_period_usec - _controller_time_on_usec));
+		}
 
 	} else {
 		_task_is_running = false;
