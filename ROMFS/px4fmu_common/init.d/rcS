@@ -201,9 +201,12 @@ then
 	#
 	# Enforce the default airframe as a Teal 1 if no airframe has been set
 	#
-	if param compare SYS_AUTOSTART 0
+	if param compare SYS_AUTOSTART 4100
+		echo "SYS_AUTOSTART already 4100"
 	then
-		param set SYS_AUTOSTART	4100
+	else
+		echo "SYS_AUTOSTART not 4100, setting to 4100"
+		param set SYS_AUTOSTART 4100
 		set AUTOCNF yes
 	fi
 
