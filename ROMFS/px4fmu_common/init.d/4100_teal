@@ -23,8 +23,6 @@
 
 echo "Executing 4100_teal script."
 
-sh /etc/init.d/rc.teal
-
 set VEHICLE_TYPE mc
 set MIXER quad_x
 set MIXER_AUX none
@@ -178,3 +176,11 @@ then
 
 	param save
 fi
+
+###########################################################
+# Module Drivers
+###########################################################
+
+heater start
+
+batt_smbus start
