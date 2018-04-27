@@ -222,6 +222,12 @@ then
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
 
+	if mpu9250 -S -R 2 start
+	then
+		# mpu9250 external SPI bus mpu9250 is rotated 90 deg yaw
+	else
+	fi
+
 	if mpu9250 -R 2 start
 	then
 		# mpu9250 internal SPI bus mpu9250 is rotated 90 deg yaw
