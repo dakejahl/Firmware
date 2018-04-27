@@ -185,7 +185,8 @@ void Heater::_heater_controller()
 
 void Heater::_initialize_topics()
 {
-	_sensor_accel_sub = orb_subscribe(ORB_ID(sensor_accel));
+	// @TODO Update to support loading in sensor ID's. Add PARAM to select which sensor is read from.
+	_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), 1);
 }
 
 void Heater::_update_topics()

@@ -194,5 +194,3 @@ fi
 heater start
 
 batt_smbus start
-
-mpu9250 -S -R 2 start
