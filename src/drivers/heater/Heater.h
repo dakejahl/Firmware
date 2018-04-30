@@ -40,7 +40,7 @@
 #pragma once
 
 #include <px4_workqueue.h>
-#include <systemlib/param/param.h>
+#include <parameters/param.h>
 #include <uORB/uORB.h>
 #include <uORB/topics/sensor_accel.h>
 
