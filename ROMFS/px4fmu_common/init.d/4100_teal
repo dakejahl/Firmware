@@ -44,7 +44,16 @@ then
 	param set BAT_V_OFFS_CURR -0.0045
 
 	# primary accel
-	#param set CAL_ACC_PRIME 1442826
+	param set CAL_ACC_PRIME 1442826 #mpu6500
+	#param set CAL_ACC_PRIME 1445386 #mpu9250
+
+	# primary gyro
+	param set CAL_GYRO_PRIME 2360330 #mpu6500
+	#param set CAL_GYRO_PRIME 2362890 #mpu9250
+
+	#primary Mag
+	param set CAL_MAG_PRIME 335369 #LIS3MDL
+	#param set CAL_MAG_PRIME 265738 #mpu9250
 
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027
@@ -169,6 +178,7 @@ then
 	param set CAL_MAG0_ROT 6
 	param set CAL_MAG_SIDES 63
 	param set SENS_BOARD_ROT 8
+	param set COM_ARM_MAG 1.5
 
 	# system
 	param set SYS_COMPANION 2921600
