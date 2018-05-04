@@ -190,14 +190,14 @@ void Heater::_initialize_topics()
 {
 	int32_t _sensor_id;
 	param_get(_p_sensor_id, &_sensor_id);
- 
+
 	size_t num_of_imu = orb_group_count(ORB_ID(sensor_accel));
 	PX4_INFO("num_of_imu:  %u", num_of_imu);
- 
- 	for (size_t x = 0; x < num_of_imu; x++) {
+
+	for (size_t x = 0; x < num_of_imu; x++) {
 		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
-		while (_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true){
+		while (_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true) {
 			usleep(1000);
 		}
 
@@ -209,9 +209,9 @@ void Heater::_initialize_topics()
 	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
 	PX4_INFO("temperature_raw:  %d", _sensor_accel.temperature_raw);
 
-/* 	if (_sensor_accel.device_id != (uint32_t)_sensor_id) {
-		_task_should_exit = true;
-	} */
+	/* 	if (_sensor_accel.device_id != (uint32_t)_sensor_id) {
+			_task_should_exit = true;
+		} */
 }
 
 void Heater::_update_topics()
