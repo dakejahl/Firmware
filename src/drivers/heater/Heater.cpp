@@ -71,6 +71,7 @@ Heater::Heater() :
 	_work{}
 {
 	_p_target_temp = param_find("SENS_IMU_TEMP");
+	_p_sensor_id = param_find("SENS_TEMP_CONTROL_ID");
 	px4_arch_configgpio(GPIO_HEATER);
 	px4_arch_gpiowrite(GPIO_HEATER, 0);
 }
@@ -79,6 +80,7 @@ Heater::~Heater()
 {
 	work_cancel(LPWORK, &_work);
 	_task_should_exit = true;
+	px4_arch_configgpio(GPIO_HEATER_INPUT);
 }
 
 int Heater::start()
@@ -101,6 +103,7 @@ int Heater::start()
 void Heater::stop()
 {
 	_task_should_exit = true;
+	px4_arch_configgpio(GPIO_HEATER_INPUT);
 }
 
 void
@@ -185,8 +188,30 @@ void Heater::_heater_controller()
 
 void Heater::_initialize_topics()
 {
-	// @TODO Update to support loading in sensor ID's. Add PARAM to select which sensor is read from.
-	_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), 1);
+	int32_t _sensor_id;
+	param_get(_p_sensor_id, &_sensor_id);
+ 
+	size_t num_of_imu = orb_group_count(ORB_ID(sensor_accel));
+	PX4_INFO("num_of_imu:  %u", num_of_imu);
+ 
+ 	for (size_t x = 0; x < num_of_imu; x++) {
+		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
+
+		while (_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true){
+			usleep(1000);
+		}
+
+		if (_sensor_accel.device_id == (uint32_t)_sensor_id) {
+			break;
+		}
+	}
+
+	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
+	PX4_INFO("temperature_raw:  %d", _sensor_accel.temperature_raw);
+
+/* 	if (_sensor_accel.device_id != (uint32_t)_sensor_id) {
+		_task_should_exit = true;
+	} */
 }
 
 void Heater::_update_topics()

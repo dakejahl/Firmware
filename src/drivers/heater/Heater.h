@@ -200,6 +200,9 @@ private:
 	/** @param _p_target_temp The heater controller temperature setpoint target parameter. */
 	param_t _p_target_temp;
 
+	/** @param _p_sensor_id The ID of sensor to control parameter. */
+	param_t _p_sensor_id;
+
 	/** @param _current_temp The accelerometer measured current temperature. */
 	float _current_temp;
 
