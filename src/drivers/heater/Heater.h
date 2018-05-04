@@ -93,6 +93,12 @@ public:
 	float get_target_temperature();
 
 	/**
+	 * @brief Gets the heater target sensor.
+	 * @return Returns the id of the target sensor
+	 */
+	uint32_t get_target_id();
+
+	/**
 	 * @brief Sets the heater target temperature.
 	 * @return Returns the heater target temperature.
 	 */
@@ -179,6 +185,7 @@ protected:
 	int _parameter_sub;
 
 private:
+
 	static void _heater_controller_trampoline(void *arg);
 
 	/**
