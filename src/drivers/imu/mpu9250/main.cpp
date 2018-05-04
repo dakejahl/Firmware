@@ -73,7 +73,7 @@
 
 #define MPU_DEVICE_PATH_ACCEL		"/dev/mpu9250_accel"
 #define MPU_DEVICE_PATH_GYRO		"/dev/mpu9250_gyro"
-#define MPU_DEVICE_PATH_MAG			"/dev/mpu9250_mag"
+#define MPU_DEVICE_PATH_MAG		"/dev/mpu9250_mag"
 
 #define MPU_DEVICE_PATH_ACCEL_1		"/dev/mpu9250_accel1"
 #define MPU_DEVICE_PATH_GYRO_1		"/dev/mpu9250_gyro1"
@@ -132,7 +132,7 @@ struct mpu9250_bus_option {
 #ifdef PX4_SPIDEV_MPU2
 	{ MPU9250_BUS_SPI_INTERNAL2, MPU_DEVICE_PATH_ACCEL_1, MPU_DEVICE_PATH_GYRO_1, MPU_DEVICE_PATH_MAG_1, &MPU9250_SPI_interface, true, PX4_SPI_BUS_SENSORS, PX4_SPIDEV_MPU2, NULL },
 #endif
-#if defined(PX4_SPI_BUS_EXT)
+#if defined(PX4_SPI_BUS_EXT) && defined(PX4_SPIDEV_EXT_MPU)
 	{ MPU9250_BUS_SPI_EXTERNAL, MPU_DEVICE_PATH_ACCEL_EXT, MPU_DEVICE_PATH_GYRO_EXT, MPU_DEVICE_PATH_MAG_EXT, &MPU9250_SPI_interface, true, PX4_SPI_BUS_EXT, PX4_SPIDEV_EXT_MPU, NULL },
 #endif
 };
@@ -463,10 +463,15 @@ testerror(enum MPU9250_BUS busid)
 void
 usage()
 {
-	warnx("missing command: try 'start', 'info', 'test', 'stop',\n'reset', 'regdump', 'testerror'");
-	warnx("options:");
-	warnx("    -X    (external bus)");
-	warnx("    -R rotation");
+	PX4_INFO("missing command: try 'start', 'info', 'test', 'stop',\n'reset', 'regdump', 'testerror'");
+	PX4_INFO("options:");
+	PX4_INFO("    -X    (i2c external bus)");
+	PX4_INFO("    -I    (i2c internal bus)");
+	PX4_INFO("    -s    (spi internal bus)");
+	PX4_INFO("    -S    (spi external bus)");
+	PX4_INFO("    -t    (spi internal bus, 2nd instance)");
+	PX4_INFO("    -R rotation");
+
 }
 
 } // namespace
