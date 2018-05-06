@@ -55,6 +55,12 @@ then
 	param set CAL_MAG_PRIME 335369 #LIS3MDL
 	#param set CAL_MAG_PRIME 265738 #mpu9250
 
+	# sensor calibration
+	param set CAL_MAG0_ROT 6
+	param set CAL_MAG_SIDES 63
+	param set SENS_BOARD_ROT 8
+	param set COM_ARM_MAG 1.5
+
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027
 	param set CBRK_USB_CHK 197848
@@ -173,12 +179,6 @@ then
 	# sd logging
 	param set SDLOG_DIRS_MAX 10
 	param set SDLOG_PROFILE 127
-
-	# sensor calibration
-	param set CAL_MAG0_ROT 6
-	param set CAL_MAG_SIDES 63
-	param set SENS_BOARD_ROT 8
-	param set COM_ARM_MAG 1.5
 
 	# system
 	param set SYS_COMPANION 2921600

@@ -209,7 +209,7 @@ MPU9250_mag::_measure(struct ak8963_regs data)
 
 	/*
 	 * Align axes - note the accel & gryo are also re-aligned so this
-	 *              doesn't look obvious with the datasheet
+	 *              doesn't look obvious without the datasheet
 	 */
 	mrb.x_raw =  data.y;
 	mrb.y_raw = -data.x;

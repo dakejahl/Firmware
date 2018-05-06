@@ -940,15 +940,12 @@ LIS3MDL::collect()
 
 	/*
 	 * RAW outputs
-	 *
 	 */
 	new_report.x_raw = report.x;
 	new_report.y_raw = report.y;
 	new_report.z_raw = report.z;
 
-	/* the LIS3MDL mag on Pixhawk Pro by Drotek has x pointing towards,
-	 * y pointing to the right, and z down, therefore no switch needed,
-	 * it is better to have no artificial rotation inside the
+	/* It is best to have no artificial rotation inside the
 	 * driver and then use the startup script with -R command with the
 	 * real rotation between the sensor and body frame */
 	xraw_f = report.x;

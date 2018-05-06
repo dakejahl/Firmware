@@ -1403,6 +1403,10 @@ MPU9250::measure()
 	arb.y_raw = report.accel_y;
 	arb.z_raw = report.accel_z;
 
+	/* It is best to have no artificial rotation inside the
+	 * driver and then use the startup script with -R command with the
+	 * real rotation between the sensor and body frame */
+	
 	float xraw_f = report.accel_x;
 	float yraw_f = report.accel_y;
 	float zraw_f = report.accel_z;
