@@ -189,8 +189,10 @@ void Heater::_initialize_topics()
 	int32_t sensor_id;
 	param_get(_p_sensor_id, &sensor_id);
 
+	// Get the total number of accelerometer instances
 	size_t num_of_imu = orb_group_count(ORB_ID(sensor_accel));
 
+	// Check each instance for the correct ID
 	for (size_t x = 0; x < num_of_imu; x++) {
 		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
@@ -198,6 +200,7 @@ void Heater::_initialize_topics()
 			usleep(200000);
 		}
 
+		// If the correct ID is found, exit the for loop leaving _sensor_accel_sub pointing to the correct instance
 		if (_sensor_accel.device_id == (uint32_t)sensor_id) {
 			PX4_INFO("Found Sensor to Temp Compensate");
 			break;
@@ -206,6 +209,7 @@ void Heater::_initialize_topics()
 
 	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
 
+	// Exit the driver if the sensor ID does not match the desired sensor
 	if (_sensor_accel.device_id != (uint32_t)sensor_id) {
 		_task_should_exit = true;
 		PX4_INFO("Could not find sensor to control temperature");
