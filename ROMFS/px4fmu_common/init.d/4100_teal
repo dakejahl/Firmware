@@ -191,6 +191,4 @@ fi
 # Module Drivers
 ###########################################################
 
-heater start
-
 batt_smbus start

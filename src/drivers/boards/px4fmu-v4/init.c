@@ -237,6 +237,10 @@ stm32_boardinitialize(void)
 
 	stm32_spiinitialize(PX4_SPI_BUS_RAMTRON | PX4_SPI_BUS_SENSORS);
 
+	/* configure heater GPIO */
+
+	stm32_configgpio(GPIO_HEATER);
+
 }
 
 /****************************************************************************
