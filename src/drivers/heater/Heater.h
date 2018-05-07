@@ -93,6 +93,12 @@ public:
 	float get_target_temperature();
 
 	/**
+	 * @brief Gets the heater target sensor.
+	 * @return Returns the id of the target sensor
+	 */
+	uint32_t get_target_id();
+
+	/**
 	 * @brief Sets the heater target temperature.
 	 * @return Returns the heater target temperature.
 	 */
@@ -179,6 +185,7 @@ protected:
 	int _parameter_sub;
 
 private:
+
 	static void _heater_controller_trampoline(void *arg);
 
 	/**
@@ -199,6 +206,9 @@ private:
 
 	/** @param _p_target_temp The heater controller temperature setpoint target parameter. */
 	param_t _p_target_temp;
+
+	/** @param _p_sensor_id The ID of sensor to control parameter. */
+	param_t _p_sensor_id;
 
 	/** @param _current_temp The accelerometer measured current temperature. */
 	float _current_temp;
