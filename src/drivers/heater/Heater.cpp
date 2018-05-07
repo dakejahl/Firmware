@@ -205,7 +205,6 @@ void Heater::_initialize_topics()
 	}
 
 	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
-	PX4_INFO("temperature_raw:  %d", _sensor_accel.temperature_raw);
 
 	if (_sensor_accel.device_id != (uint32_t)sensor_id) {
 		_task_should_exit = true;
