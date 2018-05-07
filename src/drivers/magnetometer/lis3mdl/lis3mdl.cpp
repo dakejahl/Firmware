@@ -369,9 +369,9 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
 
-	_cntl_reg1 = 0xFC;
-	_cntl_reg4 = 0x0C; // Z-axis ultra high performance mode
-	_cntl_reg5 = 0x40; // block data update for magnetic data
+	_cntl_reg1 = 0xFC; // 11111100 TEMP_EN on | Ultra-high-performance mode XY | 80 Hz data | Fast_ODR disabled | self-test disabled
+	_cntl_reg4 = 0x0C; // 00001100 Z-axis ultra high performance mode | data LSb at lower address
+	_cntl_reg5 = 0x40; // 01000000 FAST_READ disabled | output registers not updated until MSb and LSb have been read
 
 }
 
