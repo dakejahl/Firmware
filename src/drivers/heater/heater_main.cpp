@@ -216,6 +216,13 @@ int heater_main(int argc, char *argv[])
 		return 0;
 	}
 
+	// Display the id of the sensor we are controlling temperature on.
+	if (!strcmp(argv[1], "sensor_id")) {
+		uint32_t id = heater_task->get_target_id();
+		PX4_INFO("Sensor ID:  %d", id);
+		return 0;
+	}
+
 	// Display/Set the heater driver feed forward value.
 	if (!strcmp(argv[1], "feed_forward")) {
 		float feed_forward = 0.f;
@@ -295,6 +302,7 @@ int heater_main(int argc, char *argv[])
 			 "\n\tstatus            - Displays the current IMU temperature, target temperature, and heater on/off status."
 			 "\n\ttemp              - Displays the current IMU temperature."
 			 "\n\ttarget_temp       - Displays the current IMU temperature."
+			 "\n\tsensor_id         - Displays the current IMU the heater is temperature controlling."
 			 "\n\tfeed_forward      - Without argument displays the feed_forward gain value."
 			 "\n\t                  - With float value argument sets and displays the feed_forward gain value."
 			 "\n\tproportional      - Without argument displays the proportional gain value."
@@ -308,7 +316,7 @@ int heater_main(int argc, char *argv[])
 	}
 
 exiterr:
-	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|duty_cycle|help}");
+	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|duty_cycle|sensor_id|help}");
 	return 1;
 }
 

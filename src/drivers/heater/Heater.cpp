@@ -71,14 +71,22 @@ Heater::Heater() :
 	_work{}
 {
 	_p_target_temp = param_find("SENS_IMU_TEMP");
+	_p_sensor_id = param_find("SENS_TEMP_ID");
 	px4_arch_configgpio(GPIO_HEATER);
-	px4_arch_gpiowrite(GPIO_HEATER, 0);
 }
 
 Heater::~Heater()
 {
 	work_cancel(LPWORK, &_work);
 	_task_should_exit = true;
+	px4_arch_gpiowrite(GPIO_HEATER, 0);
+
+	// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
+	if (px4_arch_gpioread(GPIO_HEATER)) {
+		px4_arch_configgpio(GPIO_HEATER_INPUT);
+		px4_arch_configgpio(GPIO_HEATER);
+		px4_arch_gpiowrite(GPIO_HEATER, 0);
+	}
 }
 
 int Heater::start()
@@ -86,11 +94,6 @@ int Heater::start()
 	_task_should_exit = false;
 
 	_check_params(true);
-
-	if (px4_arch_gpioread(GPIO_HEATER)) {
-		_heater_on = false;
-		px4_arch_gpiowrite(GPIO_HEATER, 0);
-	}
 
 	// Schedule a cycle to start the driver.
 	work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this, 0);
@@ -131,9 +134,7 @@ void Heater::_heater_controller()
 		// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
 		if (px4_arch_gpioread(GPIO_HEATER)) {
 			px4_arch_configgpio(GPIO_HEATER_INPUT);
-			usleep(50000);
 			px4_arch_configgpio(GPIO_HEATER);
-			usleep(50000);
 			px4_arch_gpiowrite(GPIO_HEATER, 0);
 		}
 	}
@@ -185,8 +186,34 @@ void Heater::_heater_controller()
 
 void Heater::_initialize_topics()
 {
-	// @TODO Update to support loading in sensor ID's. Add PARAM to select which sensor is read from.
-	_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), 1);
+	int32_t sensor_id;
+	param_get(_p_sensor_id, &sensor_id);
+
+	// Get the total number of accelerometer instances
+	size_t num_of_imu = orb_group_count(ORB_ID(sensor_accel));
+
+	// Check each instance for the correct ID
+	for (size_t x = 0; x < num_of_imu; x++) {
+		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
+
+		while (_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true) {
+			usleep(200000);
+		}
+
+		// If the correct ID is found, exit the for loop leaving _sensor_accel_sub pointing to the correct instance
+		if (_sensor_accel.device_id == (uint32_t)sensor_id) {
+			PX4_INFO("Found Sensor to Temp Compensate");
+			break;
+		}
+	}
+
+	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
+
+	// Exit the driver if the sensor ID does not match the desired sensor
+	if (_sensor_accel.device_id != (uint32_t)sensor_id) {
+		_task_should_exit = true;
+		PX4_INFO("Could not find sensor to control temperature");
+	}
 }
 
 void Heater::_update_topics()
@@ -281,6 +308,11 @@ float Heater::get_current_temperature()
 float Heater::get_target_temperature()
 {
 	return _target_temp;
+}
+
+uint32_t Heater::get_target_id()
+{
+	return _sensor_accel.device_id;
 }
 
 float Heater::set_target_temperature(float target_temperature)
