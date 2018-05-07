@@ -70,11 +70,13 @@ then
 	param set COM_LOW_BAT_ACT 3
 
 	# ekf2
-	param set EKF2_ACC_NOISE 0.35
+	param set EKF2_ACC_NOISE 0.035   #default EKF2_ACC_NOISE 3.5e-1f
+	param set EKF2_ACC_B_NOISE 0.35  #default EKF2_ACC_B_NOISE 3.0e-3f
+	param set EKF2_GYR_B_NOISE 0.1   #default EKF2_GYR_B_NOISE 1.0e-3f
+	param set EKF2_MAG_B_NOISE 0.005 #default EKF2_MAG_B_NOISE 1.0e-4f
 	param set EKF2_GPS_CHECK 511
-	param set EKF2_GYR_NOISE 0.025
-	param set EKF2_GPS_POS_X -0.045
-	param set EKF2_IMU_POS_X -0.075
+	param set EKF2_GPS_POS_X -0.04
+	param set EKF2_IMU_POS_X -0.06
 
 	# gps
 	param set GPS_UBX_DYNMODEL 7
@@ -178,7 +180,7 @@ then
 
 	# sd logging
 	param set SDLOG_DIRS_MAX 10
-	param set SDLOG_PROFILE 127
+	param set SDLOG_PROFILE 109
 
 	# system
 	param set SYS_COMPANION 2921600

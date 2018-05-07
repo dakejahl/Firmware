@@ -212,12 +212,12 @@ MPU9250_mag::_measure(struct ak8963_regs data)
 	 *              doesn't look obvious without the datasheet
 	 */
 	mrb.x_raw =  data.y;
-	mrb.y_raw = -data.x;
-	mrb.z_raw =  data.z;
+	mrb.y_raw =  data.x;
+	mrb.z_raw = -data.z;
 
 	float xraw_f =  data.y;
-	float yraw_f = -data.x;
-	float zraw_f =  data.z;
+	float yraw_f =  data.x;
+	float zraw_f = -data.z;
 
 	/* apply user specified rotation */
 	rotate_3f(_parent->_rotation, xraw_f, yraw_f, zraw_f);
