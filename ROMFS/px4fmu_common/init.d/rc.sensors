@@ -182,7 +182,7 @@ if ver hwcmp PX4FMU_V4
 then
 	# External I2C bus
 	hmc5883 -C -T -X start
-	lis3mdl -X start
+	lis3mdl -X -R 6 start
 	bmp280 -I start
 
 	# expansion i2c used for BMM150 rotated by 90deg
@@ -222,9 +222,9 @@ then
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
 
-	mpu9250 -t -R 2 start
+	mpu9250 -t -R 8 start
 
-	if mpu9250 -s -R 2 start
+	if mpu9250 -s -R 8 start
 	then
 		# mpu9250 internal SPI bus mpu9250 is rotated 90 deg yaw
 	else

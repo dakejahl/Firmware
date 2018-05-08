@@ -1351,19 +1351,19 @@ MPU9250::measure()
 	/*
 	 * Swap axes and negate y
 	 */
-	int16_t accel_xt = report.accel_y;
-	int16_t accel_yt = ((report.accel_x == -32768) ? 32767 : -report.accel_x);
+	// int16_t accel_xt = report.accel_y;
+	// int16_t accel_yt = ((report.accel_x == -32768) ? 32767 : -report.accel_x);
 
-	int16_t gyro_xt = report.gyro_y;
-	int16_t gyro_yt = ((report.gyro_x == -32768) ? 32767 : -report.gyro_x);
+	// int16_t gyro_xt = report.gyro_y;
+	// int16_t gyro_yt = ((report.gyro_x == -32768) ? 32767 : -report.gyro_x); */
 
 	/*
 	 * Apply the swap
 	 */
-	report.accel_x = accel_xt;
-	report.accel_y = accel_yt;
-	report.gyro_x = gyro_xt;
-	report.gyro_y = gyro_yt;
+	// report.accel_x = accel_xt;
+	// report.accel_y = accel_yt;
+	// report.gyro_x = gyro_xt;
+	// report.gyro_y = gyro_yt;
 
 	/*
 	 * Report buffers.
@@ -1402,6 +1402,10 @@ MPU9250::measure()
 	arb.x_raw = report.accel_x;
 	arb.y_raw = report.accel_y;
 	arb.z_raw = report.accel_z;
+
+	/* It is best to have no artificial rotation inside the
+	 * driver and then use the startup script with -R command with the
+	 * real rotation between the sensor and body frame */
 
 	float xraw_f = report.accel_x;
 	float yraw_f = report.accel_y;
