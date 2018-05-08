@@ -79,9 +79,14 @@ then
 	#param set EKF2_MAG_NOISE 0.005      #default EKF2_MAG_NOISE 5.0e-2f
 	#param set EKF2_HEAD_NOISE 0.3       #default EKF2_HEAD_NOISE 0.3
 	#param set EKF2_MAG_TYPE 0           #default EKF2_MAG_TYPE 0
+
 	param set EKF2_GPS_CHECK 511
 	param set EKF2_GPS_POS_X -0.04
 	param set EKF2_IMU_POS_X -0.06
+	param set EKF2_RNG_POS_X 0.065
+	param set EKF2_RNG_POS_Z 0.025
+	param set EKF2_RNG_A_VMAX 2.0
+	param set EKF2_MIN_RNG 0.05
 
 	# gps
 	param set GPS_UBX_DYNMODEL 7
@@ -162,6 +167,10 @@ then
 	param set MPC_Z_VEL_MAX_DN 4.0
 	param set MPC_Z_VEL_MAX_UP 6.0
 
+	#sensors
+	param set SENS_EN_PGA460 1
+
+
 	# mission
 	param set MIS_TAKEOFF_ALT 2.5
 
@@ -199,3 +208,5 @@ fi
 ###########################################################
 
 batt_smbus start
+
+mpu9250 -S -R 2 start
