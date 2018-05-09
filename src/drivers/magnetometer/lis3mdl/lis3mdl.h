@@ -86,6 +86,12 @@
 #define MODE_REG_CONTINOUS_MODE         (0 << 0)
 #define MODE_REG_SINGLE_MODE            (1 << 0) /* default */
 
+#define CNTL_REG1_DEFAULT 0xFC
+#define CNTL_REG2_DEFAULT 0x00
+#define CNTL_REG3_DEFAULT 0x00
+#define CNTL_REG4_DEFAULT 0x0C
+#define CNTL_REG5_DEFAULT 0x00
+
 /* interface factories */
 extern device::Device *LIS3MDL_SPI_interface(int bus);
 extern device::Device *LIS3MDL_I2C_interface(int bus);
@@ -130,7 +136,7 @@ public:
 	/**
 	 * Configures the device with default register values.
 	 */
-	int set_register_default_values();
+	int set_default_register_values();
 
 protected:
 	Device *_interface;

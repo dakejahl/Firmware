@@ -69,11 +69,12 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_range_ga(4.0f),
 	_range_scale(0), /* default range scale from counts to gauss */
 	_check_state_cnt(0),
-	_cntl_reg1(0xFC), // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
-	_cntl_reg2(0x00), // 4 gauss FS range, reboot settings default
-	_cntl_reg3(0x00), // operating mode CONTINUOUS!
-	_cntl_reg4(0x0C), // Z-axis ultra high performance mode
-	_cntl_reg5(0x00), // fast read disabled, continious update disabled (block data update)
+	_cntl_reg1(
+		CNTL_REG1_DEFAULT), // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
+	_cntl_reg2(CNTL_REG2_DEFAULT), // 4 gauss FS range, reboot settings default
+	_cntl_reg3(CNTL_REG3_DEFAULT), // operating mode CONTINUOUS!
+	_cntl_reg4(CNTL_REG4_DEFAULT), // Z-axis ultra high performance mode
+	_cntl_reg5(CNTL_REG5_DEFAULT), // fast read disabled, continious update disabled (block data update)
 	_range_bits(0),
 	_temperature_counter(0),
 	_temperature_error_count(0)
@@ -386,7 +387,7 @@ LIS3MDL::start()
 	/* reset the report ring and state machine */
 	_reports->flush();
 
-	set_register_default_values();
+	set_default_register_values();
 
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&LIS3MDL::cycle_trampoline, this, 1);
@@ -407,7 +408,7 @@ LIS3MDL::reset()
 {
 	int ret = 0;
 
-	ret = set_register_default_values();
+	ret = set_default_register_values();
 
 	if (ret != OK) {
 		return PX4_ERROR;
@@ -762,24 +763,12 @@ LIS3MDL::calibrate(struct file *filp, unsigned enable)
 out:
 
 	/* set back to normal mode */
-	if (OK != ::ioctl(fd, MAGIOCSRANGE, 4)) {
-		PX4_WARN("FAILED: MAGIOCSRANGE 4 Ga");
-	}
-
-	if (OK != ::ioctl(fd, MAGIOCEXSTRAP, 0)) {
-		PX4_WARN("FAILED: MAGIOCEXSTRAP 0");
-	}
+	set_default_register_values();
 
 	usleep(20000);
 
 	return ret;
 }
-
-// int
-// LIS3MLD::set_default_register_values()
-// {
-
-// }
 
 
 int
@@ -849,10 +838,7 @@ LIS3MDL::set_excitement(unsigned enable)
 
 	_cntl_reg1 &= ~0x01; // reset previous excitement mode
 
-	if (((int)enable) < 0) {
-		PX4_WARN("WARN: set_excitement negative not supported\n");
-
-	} else if (enable > 0) {
+	if (enable > 0) {
 		_cntl_reg1 |= 0x01;
 	}
 
@@ -873,13 +859,13 @@ LIS3MDL::set_excitement(unsigned enable)
 }
 
 int
-LIS3MDL::set_register_default_values()
+LIS3MDL::set_default_register_values()
 {
-	write_reg(ADDR_CTRL_REG1, _cntl_reg1);
-	write_reg(ADDR_CTRL_REG2, _cntl_reg2);
-	write_reg(ADDR_CTRL_REG3, _cntl_reg3);
-	write_reg(ADDR_CTRL_REG4, _cntl_reg4);
-	write_reg(ADDR_CTRL_REG5, _cntl_reg5);
+	write_reg(ADDR_CTRL_REG1, CNTL_REG1_DEFAULT);
+	write_reg(ADDR_CTRL_REG2, CNTL_REG2_DEFAULT);
+	write_reg(ADDR_CTRL_REG3, CNTL_REG3_DEFAULT);
+	write_reg(ADDR_CTRL_REG4, CNTL_REG4_DEFAULT);
+	write_reg(ADDR_CTRL_REG5, CNTL_REG5_DEFAULT);
 
 	return OK;
 }
