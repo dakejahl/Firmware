@@ -87,6 +87,7 @@ then
 	param set EKF2_RNG_POS_Z 0.025
 	param set EKF2_RNG_A_VMAX 2.0
 	param set EKF2_MIN_RNG 0.05
+	param set EKF2_RNG_AID 1
 
 	# gps
 	param set GPS_UBX_DYNMODEL 7
