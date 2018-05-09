@@ -84,33 +84,38 @@
  */
 
 /* Max measurement rate is 80Hz */
-#define LIS3MDL_CONVERSION_INTERVAL	(1000000 / 80)	/* 12,500 microseconds */
+#define LIS3MDL_CONVERSION_INTERVAL     (1000000 / 80)  /* 12,500 microseconds */
 
 
-#define ADDR_CTRL_REG1		0x20
-#define ADDR_CTRL_REG2		0x21
-#define ADDR_CTRL_REG3		0x22
-#define ADDR_CTRL_REG4		0x23
-#define ADDR_CTRL_REG5		0x24
+#define ADDR_CTRL_REG1          0x20
+#define ADDR_CTRL_REG2          0x21
+#define ADDR_CTRL_REG3          0x22
+#define ADDR_CTRL_REG4          0x23
+#define ADDR_CTRL_REG5          0x24
 
-#define ADDR_STATUS_REG		0x27
-#define ADDR_OUT_X_L		0x28
-#define ADDR_OUT_X_H		0x29
-#define ADDR_OUT_Y_L		0x2a
-#define ADDR_OUT_Y_H		0x2b
-#define ADDR_OUT_Z_L		0x2c
-#define ADDR_OUT_Z_H		0x2d
-#define ADDR_OUT_T_L		0x2e
-#define ADDR_OUT_T_H		0x2f
+#define ADDR_STATUS_REG         0x27
+#define ADDR_OUT_X_L            0x28
+#define ADDR_OUT_X_H            0x29
+#define ADDR_OUT_Y_L            0x2a
+#define ADDR_OUT_Y_H            0x2b
+#define ADDR_OUT_Z_L            0x2c
+#define ADDR_OUT_Z_H            0x2d
+#define ADDR_OUT_T_L            0x2e
+#define ADDR_OUT_T_H            0x2f
 
-#define MODE_REG_CONTINOUS_MODE		(0 << 0)
-#define MODE_REG_SINGLE_MODE		(1 << 0) /* default */
+#define MODE_REG_CONTINOUS_MODE         (0 << 0)
+#define MODE_REG_SINGLE_MODE            (1 << 0) /* default */
 
 enum LIS3MDL_BUS {
 	LIS3MDL_BUS_ALL = 0,
 	LIS3MDL_BUS_I2C_INTERNAL,
 	LIS3MDL_BUS_I2C_EXTERNAL,
 	LIS3MDL_BUS_SPI
+};
+
+enum OPERATING_MODE {
+	CONTINUOUS = 0,
+	SINGLE
 };
 
 #ifndef CONFIG_SCHED_WORKQUEUE
@@ -123,58 +128,62 @@ public:
 	LIS3MDL(device::Device *interface, const char *path, enum Rotation rotation);
 	virtual ~LIS3MDL();
 
-	virtual int		init();
+	virtual int             init();
 
-	virtual ssize_t		read(struct file *filp, char *buffer, size_t buflen);
-	virtual int		ioctl(struct file *filp, int cmd, unsigned long arg);
+	virtual ssize_t         read(struct file *filp, char *buffer, size_t buflen);
+	virtual int             ioctl(struct file *filp, int cmd, unsigned long arg);
 
 	/**
 	 * Stop the automatic measurement state machine.
 	 */
-	void			stop();
+	void                    stop();
 
 	/**
 	 * Diagnostics - print some basic information about the driver.
 	 */
-	void			print_info();
+	void                    print_info();
 
 protected:
-	Device			*_interface;
+	Device                  *_interface;
 
 private:
-	work_s			_work;
-	unsigned		_measure_ticks;
+	work_s                  _work;
+	unsigned                _measure_ticks;
 
-	ringbuffer::RingBuffer	*_reports;
-	struct mag_calibration_s	_scale;
-	float 			_range_scale;
-	float 			_range_ga;
-	bool			_collect_phase;
-	int			_class_instance;
-	int			_orb_class_instance;
+	ringbuffer::RingBuffer  *_reports;
+	struct mag_calibration_s        _scale;
+	float                   _range_scale;
+	float                   _range_ga;
+	bool                    _measurement_ready;
+	int                     _class_instance;
+	int                     _orb_class_instance;
 
-	orb_advert_t		_mag_topic;
+	orb_advert_t            _mag_topic;
 
-	perf_counter_t		_sample_perf;
-	perf_counter_t		_comms_errors;
-	perf_counter_t		_range_errors;
-	perf_counter_t		_conf_errors;
+	perf_counter_t          _sample_perf;
+	perf_counter_t          _comms_errors;
+	perf_counter_t          _range_errors;
+	perf_counter_t          _conf_errors;
 
 	/* status reporting */
-	bool			_sensor_ok;		/**< sensor was found and reports ok */
-	bool			_calibrated;		/**< the calibration is valid */
+	bool                    _sensor_ok;             /**< sensor was found and reports ok */
+	bool                    _calibrated;            /**< the calibration is valid */
+	bool 			_continuous_mode_set;
 
-	enum Rotation		_rotation;
+	enum Rotation           _rotation;
+	enum OPERATING_MODE	_mode;
 
-	struct mag_report	_last_report {};          /**< used for info() */
+	struct mag_report       _last_report {};          /**< used for info() */
 
-	uint8_t			_range_bits;
-	uint8_t			_cntl_reg1;
-	uint8_t			_cntl_reg4;
-	uint8_t			_cntl_reg5;
-	uint8_t			_temperature_counter;
-	uint8_t			_temperature_error_count;
-	uint8_t			_check_state_cnt;
+	uint8_t                 _range_bits;
+	uint8_t                 _cntl_reg1;
+	uint8_t			_cntl_reg2;
+	uint8_t			_cntl_reg3;
+	uint8_t                 _cntl_reg4;
+	uint8_t                 _cntl_reg5;
+	uint8_t                 _temperature_counter;
+	uint8_t                 _temperature_error_count;
+	uint8_t                 _check_state_cnt;
 
 	/**
 	 * Initialise the automatic measurement state machine and start it.
@@ -182,51 +191,42 @@ private:
 	 * @note This function is called at open and error time.  It might make sense
 	 *       to make it more aggressive about resetting the bus in case of errors.
 	 */
-	void			start();
+	void                    start();
 
 	/**
 	 * Reset the device
 	 */
-	int			reset();
+	int                     reset();
 
 	/**
 	 * Perform the on-sensor scale calibration routine.
 	 *
 	 * @note The sensor will continue to provide measurements, these
-	 *	 will however reflect the uncalibrated sensor state until
-	 *	 the calibration routine has been completed.
+	 *       will however reflect the uncalibrated sensor state until
+	 *       the calibration routine has been completed.
 	 *
 	 * @param enable set to 1 to enable self-test strap, 0 to disable
 	 */
-	int			calibrate(struct file *filp, unsigned enable);
+	int                     calibrate(struct file *filp, unsigned enable);
 
 	/**
 	 * Perform the on-sensor scale calibration routine.
 	 *
 	 * @note The sensor will continue to provide measurements, these
-	 *	 will however reflect the uncalibrated sensor state until
-	 *	 the calibration routine has been completed.
+	 *       will however reflect the uncalibrated sensor state until
+	 *       the calibration routine has been completed.
 	 *
 	 * @param enable set to 1 to enable self-test positive strap, -1 to enable
 	 *        negative strap, 0 to set to normal mode
 	 */
-	int			set_excitement(unsigned enable);
+	int                     set_excitement(unsigned enable);
 
 	/**
 	 * Set the sensor range.
 	 *
 	 * Sets the internal range to handle at least the argument in Gauss.
 	 */
-	int 			set_range(unsigned range);
-
-	/**
-	 * check the sensor configuration.
-	 *
-	 * checks that the config of the sensor is correctly set, to
-	 * cope with communication errors causing the configuration to
-	 * change
-	 */
-	void 			check_conf(void);
+	int                     set_range(unsigned range);
 
 	/**
 	 * Perform a poll cycle; collect from the previous measurement
@@ -241,74 +241,68 @@ private:
 	 * and measurement to provide the most recent measurement possible
 	 * at the next interval.
 	 */
-	void			cycle();
+	void                    cycle();
 
 	/**
 	 * Static trampoline from the workq context; because we don't have a
 	 * generic workq wrapper yet.
 	 *
-	 * @param arg		Instance pointer for the driver that is polling.
+	 * @param arg           Instance pointer for the driver that is polling.
 	 */
-	static void		cycle_trampoline(void *arg);
+	static void             cycle_trampoline(void *arg);
 
 	/**
 	 * Write a register.
 	 *
-	 * @param reg		The register to write.
-	 * @param val		The value to write.
-	 * @return		OK on write success.
+	 * @param reg           The register to write.
+	 * @param val           The value to write.
+	 * @return              OK on write success.
 	 */
-	int			write_reg(uint8_t reg, uint8_t val);
+	int                     write_reg(uint8_t reg, uint8_t val);
 
 	/**
 	 * Read a register.
 	 *
-	 * @param reg		The register to read.
-	 * @param val		The value read.
-	 * @return		OK on read success.
+	 * @param reg           The register to read.
+	 * @param val           The value read.
+	 * @return              OK on read success.
 	 */
-	int			read_reg(uint8_t reg, uint8_t &val);
+	int                     read_reg(uint8_t reg, uint8_t &val);
+
+	int 			set_register_default_values();
 
 	/**
 	 * Issue a measurement command.
 	 *
-	 * @return		OK if the measurement command was successful.
+	 * @return              OK if the measurement command was successful.
 	 */
-	int			measure();
+	int                     measure();
 
 	/**
 	 * Collect the result of the most recent measurement.
 	 */
-	int			collect();
-
-	/**
-	 * Convert a big-endian signed 16-bit value to a float.
-	 *
-	 * @param in		A signed 16-bit big-endian value.
-	 * @return		The floating-point representation of the value.
-	 */
-	float			meas_to_float(uint8_t in[2]);
+	int                     collect();
 
 	/**
 	 * Check the current calibration and update device status
 	 *
 	 * @return 0 if calibration is ok, 1 else
 	 */
-	int 			check_calibration();
+	int                     check_calibration();
 
 	/**
 	* Check the current scale calibration
 	*
 	* @return 0 if scale calibration is ok, 1 else
 	*/
-	int 			check_scale();
+	int                     check_scale();
 
 	/**
 	* Check the current offset calibration
 	*
 	* @return 0 if offset calibration is ok, 1 else
 	*/
-	int 			check_offset();
+	int                     check_offset();
 
 	/* this class has pointer data members, do not allow copying it */
 	LIS3MDL(const LIS3MDL &);
@@ -330,7 +324,7 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_scale{},
 	_range_scale(0), /* default range scale from counts to gauss */
 	_range_ga(4.0f),
-	_collect_phase(false),
+	_measurement_ready(false),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_mag_topic(nullptr),
@@ -340,7 +334,9 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_conf_errors(perf_alloc(PC_COUNT, "lis3mdl_conf_errors")),
 	_sensor_ok(false),
 	_calibrated(false),
+	_continuous_mode_set(false),
 	_rotation(rotation),
+	_mode(CONTINUOUS),
 	_range_bits(0),
 	_cntl_reg1(0),
 	_cntl_reg4(0),
@@ -369,9 +365,11 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
 
-	_cntl_reg1 = 0xFC;
+	_cntl_reg1 = 0xFC; // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
+	_cntl_reg2 = 0x00; // 4 gauss FS range, reboot settings default
+	_cntl_reg3 = 0x00; // operating mode CONTINUOUS!
 	_cntl_reg4 = 0x0C; // Z-axis ultra high performance mode
-	_cntl_reg5 = 0x40; // block data update for magnetic data
+	_cntl_reg5 = 0x00; // fast read disabled, continious update disabled (block data update)
 
 }
 
@@ -404,14 +402,14 @@ LIS3MDL::init()
 
 	if (ret != OK) {
 		DEVICE_DEBUG("CDev init failed");
-		goto out;
+		return ret;
 	}
 
 	/* allocate basic report buffers */
 	_reports = new ringbuffer::RingBuffer(2, sizeof(mag_report));
 
 	if (_reports == nullptr) {
-		goto out;
+		return ret;
 	}
 
 	/* reset the device configuration */
@@ -422,7 +420,7 @@ LIS3MDL::init()
 	ret = OK;
 	/* sensor is ok, but not calibrated */
 	_sensor_ok = true;
-out:
+
 	return ret;
 }
 
@@ -468,98 +466,6 @@ int LIS3MDL::set_range(unsigned range)
 	}
 
 	return !(range_bits_in == (_range_bits << 5));
-}
-
-/**
-   check that the configuration register has the right value. This is
-   done periodically to cope with I2C bus noise causing the
-   configuration of the compass to change.
- */
-void LIS3MDL::check_conf(void)
-{
-	int ret;
-	uint8_t reg_in = 0;
-
-	switch (_check_state_cnt++) {
-	case 0:
-		ret = read_reg(ADDR_CTRL_REG1, reg_in);
-
-		if (OK != ret) {
-			perf_count(_comms_errors);
-			return;
-		}
-
-		if (reg_in != _cntl_reg1) {
-			perf_count(_conf_errors);
-			ret = write_reg(ADDR_CTRL_REG1, _cntl_reg1);
-
-			if (OK != ret) {
-				perf_count(_comms_errors);
-			}
-		}
-
-		break;
-
-	case 50:
-		ret = read_reg(ADDR_CTRL_REG4, reg_in);
-
-		if (OK != ret) {
-			perf_count(_comms_errors);
-			return;
-		}
-
-		if (reg_in != _cntl_reg4) {
-			perf_count(_conf_errors);
-			ret = write_reg(ADDR_CTRL_REG4, _cntl_reg4);
-
-			if (OK != ret) {
-				perf_count(_comms_errors);
-			}
-		}
-
-		break;
-
-	case 100:
-		ret = read_reg(ADDR_CTRL_REG5, reg_in);
-
-		if (OK != ret) {
-			perf_count(_comms_errors);
-			return;
-		}
-
-		if (reg_in != _cntl_reg5) {
-			perf_count(_conf_errors);
-			ret = write_reg(ADDR_CTRL_REG5, _cntl_reg5);
-
-			if (OK != ret) {
-				perf_count(_comms_errors);
-			}
-		}
-
-		break;
-
-	case 150:
-		ret = read_reg(ADDR_CTRL_REG2, reg_in);
-
-		if (OK != ret) {
-			perf_count(_comms_errors);
-			return;
-		}
-
-		if (reg_in != (_range_bits << 5)) {
-			perf_count(_range_errors);
-			ret = write_reg(ADDR_CTRL_REG2, (_range_bits << 5));
-
-			if (OK != ret) {
-				perf_count(_comms_errors);
-			}
-		}
-
-		break;
-
-	default:
-		break;
-	}
 }
 
 ssize_t
@@ -635,48 +541,38 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 				_measure_ticks = 0;
 				return OK;
 
-			/* external signalling (DRDY) not supported */
-			case SENSOR_POLLRATE_EXTERNAL:
-
 			/* zero would be bad */
 			case 0:
 				return -EINVAL;
 
-			/* set default/max polling rate */
-			case SENSOR_POLLRATE_MAX:
 			case SENSOR_POLLRATE_DEFAULT: {
 					/* do we need to start internal polling? */
-					bool want_start = (_measure_ticks == 0);
+					bool not_started = (_measure_ticks == 0);
 
 					/* set interval for next measurement to minimum legal value */
 					_measure_ticks = USEC2TICK(LIS3MDL_CONVERSION_INTERVAL);
 
 					/* if we need to start the poll state machine, do it */
-					if (want_start) {
+					if (not_started) {
 						start();
 					}
 
 					return OK;
 				}
 
-			/* adjust to a legal polling interval in Hz */
+			/* Uses arg (hz) for a custom poll rate */
 			default: {
 					/* do we need to start internal polling? */
-					bool want_start = (_measure_ticks == 0);
+					bool not_started = (_measure_ticks == 0);
 
 					/* convert hz to tick interval via microseconds */
 					unsigned ticks = USEC2TICK(1000000 / arg);
-
-					/* check against maximum rate */
-					if (ticks < USEC2TICK(LIS3MDL_CONVERSION_INTERVAL)) {
-// RobD: quick fix for Phil's testing						return -EINVAL;
-					}
 
 					/* update interval for next measurement */
 					_measure_ticks = ticks;
 
 					/* if we need to start the poll state machine, do it */
-					if (want_start) {
+					if (not_started) {
 						start();
 					}
 
@@ -684,13 +580,6 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 				}
 			}
 		}
-
-	case SENSORIOCGPOLLRATE:
-		if (_measure_ticks == 0) {
-			return SENSOR_POLLRATE_MANUAL;
-		}
-
-		return 1000000 / TICK2USEC(_measure_ticks);
 
 	case SENSORIOCSQUEUEDEPTH: {
 			/* lower bound is mandatory, upper bound is a sanity check */
@@ -713,31 +602,8 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 	case SENSORIOCRESET:
 		return reset();
 
-	case MAGIOCSSAMPLERATE:
-		/* same as pollrate because device is in single measurement mode*/
-		return ioctl(filp, SENSORIOCSPOLLRATE, arg);
-
-	case MAGIOCGSAMPLERATE:
-		/* same as pollrate because device is in single measurement mode*/
-		return 1000000 / TICK2USEC(_measure_ticks);
-
 	case MAGIOCSRANGE:
 		return set_range(arg);
-
-	case MAGIOCGRANGE:
-		return _range_ga;
-
-	case MAGIOCSSCALE:
-		/* set new scale factors */
-		memcpy(&_scale, (struct mag_calibration_s *)arg, sizeof(_scale));
-		/* check calibration, but not actually return an error */
-		(void)check_calibration();
-		return 0;
-
-	case MAGIOCGSCALE:
-		/* copy out scale factors */
-		memcpy((struct mag_calibration_s *)arg, &_scale, sizeof(_scale));
-		return 0;
 
 	case MAGIOCCALIBRATE:
 		return calibrate(filp, arg);
@@ -745,14 +611,8 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 	case MAGIOCEXSTRAP:
 		return set_excitement(arg);
 
-	case MAGIOCSELFTEST:
-		return check_calibration();
-
 	case MAGIOCGEXTERNAL:
 		DEVICE_DEBUG("MAGIOCGEXTERNAL in main driver");
-		return _interface->ioctl(cmd, dummy);
-
-	case DEVIOCGDEVICEID:
 		return _interface->ioctl(cmd, dummy);
 
 	default:
@@ -765,8 +625,10 @@ void
 LIS3MDL::start()
 {
 	/* reset the report ring and state machine */
-	_collect_phase = false;
+	_measurement_ready = false;
 	_reports->flush();
+
+	set_register_default_values();
 
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&LIS3MDL::cycle_trampoline, this, 1);
@@ -804,43 +666,22 @@ LIS3MDL::cycle()
 		return;
 	}
 
-	/* collection phase? */
-	if (_collect_phase) {
+	/* Collect last measurement at the start of every cycle */
+	if (_measurement_ready) {
 
-		/* perform collection */
 		if (OK != collect()) {
 			DEVICE_DEBUG("collection error");
 			/* restart the measurement state machine */
 			start();
 			return;
 		}
-
-		/* next phase is measurement */
-		_collect_phase = false;
-
-		/*
-		 * Is there a collect->measure gap?
-		 */
-		if (_measure_ticks > USEC2TICK(LIS3MDL_CONVERSION_INTERVAL)) {
-
-			/* schedule a fresh cycle call when we are ready to measure again */
-			work_queue(HPWORK,
-				   &_work,
-				   (worker_t)&LIS3MDL::cycle_trampoline,
-				   this,
-				   _measure_ticks - USEC2TICK(LIS3MDL_CONVERSION_INTERVAL));
-
-			return;
-		}
 	}
 
-	/* measurement phase */
 	if (OK != measure()) {
 		DEVICE_DEBUG("measure error");
 	}
 
-	/* next phase is collection */
-	_collect_phase = true;
+	_measurement_ready = true;
 
 	if (_measure_ticks > 0) {
 		/* schedule a fresh cycle call when the measurement is done */
@@ -855,12 +696,20 @@ LIS3MDL::cycle()
 int
 LIS3MDL::measure()
 {
-	int ret;
+	int ret = 0;
 
 	/*
 	 * Send the command to begin a measurement.
 	 */
-	ret = write_reg(ADDR_CTRL_REG3, MODE_REG_SINGLE_MODE);
+	if ((_mode == CONTINUOUS) && !_continuous_mode_set) {
+		ret = write_reg(ADDR_CTRL_REG3, MODE_REG_CONTINOUS_MODE);
+		_continuous_mode_set = true;
+
+	} else if (_mode == SINGLE) {
+		ret = write_reg(ADDR_CTRL_REG3, MODE_REG_SINGLE_MODE);
+		_continuous_mode_set = false;
+	}
+
 
 	if (OK != ret) {
 		perf_count(_comms_errors);
@@ -873,23 +722,22 @@ int
 LIS3MDL::collect()
 {
 #pragma pack(push, 1)
-	struct { /* status register and data as read back from the device */
-		uint8_t		x[2];
-		uint8_t		y[2];
-		uint8_t		z[2];
-		uint8_t		t[2];
-	}	lis_report;
+	struct { /* X, Y, and Z data. */
+		uint8_t         x[2];
+		uint8_t         y[2];
+		uint8_t         z[2];
+	}       lis_report;
 
 	struct {
-		int16_t		x;
-		int16_t		y;
-		int16_t		z;
-		int16_t		t;
+		int16_t         x;
+		int16_t         y;
+		int16_t         z;
+		int16_t         t;
 	} report;
 #pragma pack(pop)
 
-	int	ret;
-//	uint8_t check_counter;
+	int     ret;
+	uint8_t buf_rx[2] = {0};
 
 	perf_begin(_sample_perf);
 	struct mag_report new_report;
@@ -915,22 +763,25 @@ LIS3MDL::collect()
 
 	/* get measurements from the device */
 	ret = _interface->read(ADDR_OUT_X_L, (uint8_t *)&lis_report, sizeof(lis_report));
+	/* Weird behavior: the X axis will be read instead of the temperature registers if you use a pointer to a packed struct...not sure why*/
+	ret = _interface->read(ADDR_OUT_T_L, (uint8_t *)&buf_rx, sizeof(buf_rx));
 
 	if (ret != OK) {
 		perf_count(_comms_errors);
 		DEVICE_DEBUG("data/status read error");
-		goto out;
+		return ret;
 	}
 
 	/* convert the data we just received */
-	report.x = (((int16_t)lis_report.x[1]) << 8) + lis_report.x[0];
-	report.y = (((int16_t)lis_report.y[1]) << 8) + lis_report.y[0];
-	report.z = (((int16_t)lis_report.z[1]) << 8) + lis_report.z[0];
-	report.t = (((int16_t)lis_report.t[1]) << 8) + lis_report.t[0];
+	report.x = (int16_t)((lis_report.x[1] << 8) | lis_report.x[0]);
+	report.y = (int16_t)((lis_report.y[1] << 8) | lis_report.y[0]);
+	report.z = (int16_t)((lis_report.z[1] << 8) | lis_report.z[0]);
 
-	/* get measurements from the device */
-	new_report.temperature = report.t;
-	new_report.temperature = 25 + (report.t / (16 * 8.0f));
+	report.t = (int16_t)((buf_rx[1] << 8) | buf_rx[0]);
+
+	float temperature = report.t;
+	/* get measurements from the device.  */
+	new_report.temperature = 25.0f + (temperature / 8.0f);
 
 	// XXX revisit for SPI part, might require a bus type IOCTL
 
@@ -988,11 +839,8 @@ LIS3MDL::collect()
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
 
-	check_conf();
-
 	ret = OK;
 
-out:
 	perf_end(_sample_perf);
 	return ret;
 }
@@ -1002,6 +850,7 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 	struct mag_report report;
 	ssize_t sz;
 	int ret = 1;
+	uint8_t num_samples = 10;
 
 	// XXX do something smarter here
 	int fd = (int)enable;
@@ -1016,7 +865,7 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 		goto out;
 	}
 
-	/* Set to 4 Gauss */
+	/* Set to 12 Gauss */
 	if (OK != ioctl(filp, MAGIOCSRANGE, 12)) {
 		warnx("FAILED: MAGIOCSRANGE 12 Ga");
 		ret = 1;
@@ -1025,8 +874,8 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 
 	usleep(20000);
 
-	// discard 10 samples to let the sensor settle
-	for (uint8_t i = 0; i < 10; i++) {
+	/* discard 10 samples to let the sensor settle */
+	for (uint8_t i = 0; i < num_samples; i++) {
 		struct pollfd fds;
 
 		/* wait for data to be ready */
@@ -1050,7 +899,7 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 	}
 
 	/* read the sensor up to 10x */
-	for (uint8_t i = 0; i < 10; i++) {
+	for (uint8_t i = 0; i < num_samples; i++) {
 		struct pollfd fds;
 
 		/* wait for data to be ready */
@@ -1077,11 +926,11 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 		sum_non_excited[2] += report.z;
 	}
 
-	sum_non_excited[0] /= 10.0f;
-	sum_non_excited[1] /= 10.0f;
-	sum_non_excited[2] /= 10.0f;
+	sum_non_excited[0] /= num_samples;
+	sum_non_excited[1] /= num_samples;
+	sum_non_excited[2] /= num_samples;
 
-
+	/* excite strap and take measurements */
 	if (OK != ioctl(filp, MAGIOCEXSTRAP, 1)) {
 		warnx("FAILED: MAGIOCEXSTRAP 1");
 		ret = 1;
@@ -1090,8 +939,8 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 
 	usleep(60000);
 
-	// discard 10 samples to let the sensor settle
-	for (uint8_t i = 0; i < 10; i++) {
+	/* discard 10 samples to let the sensor settle */
+	for (uint8_t i = 0; i < num_samples; i++) {
 		struct pollfd fds;
 
 		/* wait for data to be ready */
@@ -1142,9 +991,9 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 		sum_excited[2] += report.z;
 	}
 
-	sum_excited[0] /= 10.0f;
-	sum_excited[1] /= 10.0f;
-	sum_excited[2] /= 10.0f;
+	sum_excited[0] /= num_samples;
+	sum_excited[1] /= num_samples;
+	sum_excited[2] /= num_samples;
 
 	if (1.0f < fabsf(sum_excited[0] - sum_non_excited[0]) && fabsf(sum_excited[0] - sum_non_excited[0]) < 3.0f &&
 	    1.0f < fabsf(sum_excited[1] - sum_non_excited[1]) && fabsf(sum_excited[1] - sum_non_excited[1]) < 3.0f &&
@@ -1156,12 +1005,9 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 		goto out;
 	}
 
-	ret = OK;
-
 out:
 
 	/* set back to normal mode */
-	/* Set to 4 Gauss */
 	if (OK != ::ioctl(fd, MAGIOCSRANGE, 4)) {
 		warnx("FAILED: MAGIOCSRANGE 4 Ga");
 	}
@@ -1174,6 +1020,11 @@ out:
 
 	return ret;
 }
+
+// int LIS3MLD::set_default_register_values() {
+
+// }
+
 
 int LIS3MDL::check_scale()
 {
@@ -1261,6 +1112,17 @@ int LIS3MDL::set_excitement(unsigned enable)
 	return !(_cntl_reg1 == conf_reg_ret);
 }
 
+int LIS3MDL::set_register_default_values()
+{
+	write_reg(ADDR_CTRL_REG1, _cntl_reg1);
+	write_reg(ADDR_CTRL_REG2, _cntl_reg2);
+	write_reg(ADDR_CTRL_REG3, _cntl_reg3);
+	write_reg(ADDR_CTRL_REG4, _cntl_reg4);
+	write_reg(ADDR_CTRL_REG5, _cntl_reg5);
+
+	return OK;
+}
+
 int
 LIS3MDL::write_reg(uint8_t reg, uint8_t val)
 {
@@ -1277,19 +1139,6 @@ LIS3MDL::read_reg(uint8_t reg, uint8_t &val)
 	return ret;
 }
 
-float
-LIS3MDL::meas_to_float(uint8_t in[2])
-{
-	union {
-		uint8_t	b[2];
-		int16_t	w;
-	} u;
-
-	u.b[0] = in[1];
-	u.b[1] = in[0];
-
-	return (float) u.w;
-}
 
 void
 LIS3MDL::print_info()
@@ -1315,7 +1164,7 @@ struct lis3mdl_bus_option {
 	const char *devpath;
 	LIS3MDL_constructor interface_constructor;
 	uint8_t busnum;
-	LIS3MDL	*dev;
+	LIS3MDL *dev;
 } bus_options[] = {
 #ifdef PX4_I2C_BUS_EXPANSION
 	{ LIS3MDL_BUS_I2C_EXTERNAL, "/dev/lis3mdl_ext", &LIS3MDL_I2C_interface, PX4_I2C_BUS_EXPANSION, NULL },
@@ -1329,15 +1178,16 @@ struct lis3mdl_bus_option {
 };
 #define NUM_BUS_OPTIONS (sizeof(bus_options)/sizeof(bus_options[0]))
 
-void	start(enum LIS3MDL_BUS busid, enum Rotation rotation);
-int		stop();
-bool	start_bus(struct lis3mdl_bus_option &bus, enum Rotation rotation);
+void    start(enum LIS3MDL_BUS busid, enum Rotation rotation);
+int     stop();
+bool    start_bus(struct lis3mdl_bus_option &bus, enum Rotation rotation);
+bool	init(enum LIS3MDL_BUS busid);
 struct lis3mdl_bus_option &find_bus(enum LIS3MDL_BUS busid);
-void	test(enum LIS3MDL_BUS busid);
-void	reset(enum LIS3MDL_BUS busid);
-int	info(enum LIS3MDL_BUS busid);
-int	calibrate(enum LIS3MDL_BUS busid);
-void	usage();
+void    test(enum LIS3MDL_BUS busid);
+void    reset(enum LIS3MDL_BUS busid);
+int     info(enum LIS3MDL_BUS busid);
+int     calibrate(enum LIS3MDL_BUS busid);
+void    usage();
 
 /**
  * start driver for a specific bus option
@@ -1365,7 +1215,16 @@ start_bus(struct lis3mdl_bus_option &bus, enum Rotation rotation)
 		return false;
 	}
 
-	int fd = open(bus.devpath, O_RDONLY);
+	return true;
+}
+
+// initialize driver -- sets defaults and starts a cycle
+bool init(enum LIS3MDL_BUS busid)
+{
+	struct lis3mdl_bus_option &bus = find_bus(busid);
+	const char *path = bus.devpath;
+
+	int fd = open(path, O_RDONLY);
 
 	if (fd < 0) {
 		return false;
@@ -1379,22 +1238,23 @@ start_bus(struct lis3mdl_bus_option &bus, enum Rotation rotation)
 	/* start the sensor polling at 50 Hz */
 	if (OK != ioctl(fd, SENSORIOCSPOLLRATE, 50)) {
 		warn("FAILED: SENSORIOCSPOLLRATE 50Hz");
-	}
 
-	printf("set poll rate to 50Hz\n");
+	} else {
+		printf("Poll rate set to 50Hz\n");
+	}
 
 	/* Set to 4 Gauss */
 	if (OK != ioctl(fd, MAGIOCSRANGE, 4)) {
 		warnx("FAILED: MAGIOCSRANGE 4 Ga");
-	}
 
-	printf("set range to 4 Ga\n");
+	} else {
+		printf("set range to 4 Ga\n");
+	}
 
 	close(fd);
 
 	return true;
 }
-
 
 /**
  * Start the driver.
@@ -1419,6 +1279,7 @@ start(enum LIS3MDL_BUS busid, enum Rotation rotation)
 		}
 
 		started |= start_bus(bus_options[i], rotation);
+		init(busid);
 	}
 
 	if (!started) {
@@ -1669,9 +1530,14 @@ lis3mdl_main(int argc, char *argv[])
 	if (!strcmp(verb, "start")) {
 		lis3mdl::start(busid, rotation);
 
-		if (calibrate && lis3mdl::calibrate(busid) != 0) {
-			errx(1, "calibration failed");
+		if (calibrate) {
+			if (OK != lis3mdl::calibrate(busid)) {
+				errx(1, "calibration failed");
+			}
+
 		}
+
+		lis3mdl::init(busid);
 
 		exit(0);
 	}
