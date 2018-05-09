@@ -39,285 +39,7 @@
  * Based on the hmc5883 driver.
  */
 
-#include <errno.h>
-#include <fcntl.h>
-#include <float.h>
-#include <getopt.h>
-#include <math.h>
-#include <poll.h>
-#include <semaphore.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <board_config.h>
-
-#include <drivers/device/i2c.h>
-#include <drivers/device/ringbuffer.h>
-#include <drivers/drv_device.h>
-#include <drivers/drv_hrt.h>
-#include <drivers/drv_mag.h>
-
-#include <lib/conversion/rotation.h>
-
-#include <nuttx/arch.h>
-#include <nuttx/wqueue.h>
-#include <nuttx/clock.h>
-
-#include <px4_config.h>
-#include <px4_defines.h>
-
-#include <perf/perf_counter.h>
-#include <systemlib/err.h>
-
-#include <uORB/uORB.h>
-
 #include "lis3mdl.h"
-
-/*
- * LIS3MDL internal constants and data structures.
- */
-
-/* Max measurement rate is 80Hz */
-#define LIS3MDL_CONVERSION_INTERVAL     (1000000 / 80)  /* 12,500 microseconds */
-
-#define NUM_BUS_OPTIONS 		(sizeof(bus_options)/sizeof(bus_options[0]))
-
-
-#define ADDR_CTRL_REG1                  0x20
-#define ADDR_CTRL_REG2                  0x21
-#define ADDR_CTRL_REG3                  0x22
-#define ADDR_CTRL_REG4                  0x23
-#define ADDR_CTRL_REG5                  0x24
-
-#define ADDR_STATUS_REG                 0x27
-#define ADDR_OUT_X_L                    0x28
-#define ADDR_OUT_X_H                    0x29
-#define ADDR_OUT_Y_L                    0x2a
-#define ADDR_OUT_Y_H                    0x2b
-#define ADDR_OUT_Z_L                    0x2c
-#define ADDR_OUT_Z_H                    0x2d
-#define ADDR_OUT_T_L                    0x2e
-#define ADDR_OUT_T_H                    0x2f
-
-#define MODE_REG_CONTINOUS_MODE         (0 << 0)
-#define MODE_REG_SINGLE_MODE            (1 << 0) /* default */
-
-enum LIS3MDL_BUS {
-	LIS3MDL_BUS_ALL = 0,
-	LIS3MDL_BUS_I2C_INTERNAL,
-	LIS3MDL_BUS_I2C_EXTERNAL,
-	LIS3MDL_BUS_SPI
-};
-
-enum OPERATING_MODE {
-	CONTINUOUS = 0,
-	SINGLE
-};
-
-#ifndef CONFIG_SCHED_WORKQUEUE
-# error This requires CONFIG_SCHED_WORKQUEUE.
-#endif
-
-class LIS3MDL : public device::CDev
-{
-public:
-	LIS3MDL(device::Device *interface, const char *path, enum Rotation rotation);
-
-	virtual ~LIS3MDL();
-
-	virtual int init();
-
-	virtual ssize_t read(struct file *filp, char *buffer, size_t buflen);
-
-	virtual int ioctl(struct file *filp, int cmd, unsigned long arg);
-
-	/**
-	 * Stop the automatic measurement state machine.
-	 */
-	void stop();
-
-	/**
-	 * Diagnostics - print some basic information about the driver.
-	 */
-	void print_info();
-
-	/**
-	 * Configures the device with default register values.
-	 */
-	int set_register_default_values();
-
-protected:
-	Device *_interface;
-
-private:
-	work_s _work;
-
-	ringbuffer::RingBuffer *_reports;
-
-	struct mag_calibration_s _scale;
-
-	struct mag_report _last_report {};      /**< used for info() */
-
-	orb_advert_t _mag_topic;
-
-	perf_counter_t _comms_errors;
-	perf_counter_t _conf_errors;
-	perf_counter_t _range_errors;
-	perf_counter_t _sample_perf;
-
-	/* status reporting */
-	bool _calibrated;                       /**< the calibration is valid */
-	bool _continuous_mode_set;
-
-	enum OPERATING_MODE _mode;
-	enum Rotation _rotation;
-
-	unsigned int _measure_ticks;
-
-	int _class_instance;
-	int _orb_class_instance;
-
-	float _range_ga;
-	float _range_scale;
-
-	uint8_t _check_state_cnt;
-	uint8_t _cntl_reg1;
-	uint8_t _cntl_reg2;
-	uint8_t _cntl_reg3;
-	uint8_t _cntl_reg4;
-	uint8_t _cntl_reg5;
-	uint8_t _range_bits;
-	uint8_t _temperature_counter;
-	uint8_t _temperature_error_count;
-
-
-	/**
-	 * @brief Initialises the automatic measurement state machine and start it.
-	 *
-	 * @note This function is called at open and error time.  It might make sense
-	 *       to make it more aggressive about resetting the bus in case of errors.
-	 */
-	void start();
-
-	/**
-	 * @brief Resets the device
-	 */
-	int reset();
-
-	/**
-	 * @brief Performs the on-sensor scale calibration routine.
-	 *
-	 * @note The sensor will continue to provide measurements, these
-	 *       will however reflect the uncalibrated sensor state until
-	 *       the calibration routine has been completed.
-	 *
-	 * @param enable set to 1 to enable self-test strap, 0 to disable
-	 */
-	int calibrate(struct file *filp, unsigned enable);
-
-	/**
-	 * @brief Performs the on-sensor scale calibration routine.
-	 *
-	 * @note The sensor will continue to provide measurements, these
-	 *       will however reflect the uncalibrated sensor state until
-	 *       the calibration routine has been completed.
-	 *
-	 * @param enable set to 1 to enable self-test positive strap, -1 to enable
-	 *        negative strap, 0 to set to normal mode
-	 */
-	int set_excitement(unsigned enable);
-
-	/**
-	 * @brief Sets the sensor internal range to handle at least the argument in Gauss.
-	 *
-	 * @param range The sensor range value to be set.
-	 */
-	int set_range(unsigned range);
-
-	/**
-	 * @brief Performs a poll cycle; collect from the previous measurement
-	 *        and start a new one.
-	 *
-	 * This is the heart of the measurement state machine.  This function
-	 * alternately starts a measurement, or collects the data from the
-	 * previous measurement.
-	 *
-	 * When the interval between measurements is greater than the minimum
-	 * measurement interval, a gap is inserted between collection
-	 * and measurement to provide the most recent measurement possible
-	 * at the next interval.
-	 */
-	void cycle();
-
-	/**
-	 * @brief Static trampoline from the workq context; because we don't have a
-	 *         generic workq wrapper yet.
-	 *
-	 * @param arg Instance pointer for the driver that is polling.
-	 */
-	static void cycle_trampoline(void *arg);
-
-	/**
-	 * @brief  Writes a register.
-	 *
-	 * @param reg           The register to write.
-	 * @param val           The value to write.
-	 * @return              OK on write success.
-	 */
-	int write_reg(uint8_t reg, uint8_t val);
-
-	/**
-	 * @brief Reads a register.
-	 *
-	 * @param reg           The register to read.
-	 * @param val           The value read.
-	 * @return              OK on read success.
-	 */
-	int read_reg(uint8_t reg, uint8_t &val);
-
-	/**
-	 * Issue a measurement command.
-	 *
-	 * @return              OK if the measurement command was successful.
-	 */
-	int measure();
-
-	/**
-	 * Collect the result of the most recent measurement.
-	 */
-	int collect();
-
-	/**
-	 * Check the current calibration and update device status
-	 *
-	 * @return 0 if calibration is ok, 1 else
-	 */
-	int check_calibration();
-
-	/**
-	* Check the current scale calibration
-	*
-	* @return 0 if scale calibration is ok, 1 else
-	*/
-	int check_scale();
-
-	/**
-	* Check the current offset calibration
-	*
-	* @return 0 if offset calibration is ok, 1 else
-	*/
-	int check_offset();
-
-	/* this class has pointer data members, do not allow copying it */
-	LIS3MDL(const LIS3MDL &);
-
-	LIS3MDL operator=(const LIS3MDL &);
-};
 
 /*
  * Driver 'main' command.
@@ -331,7 +53,7 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_work{},
 	_reports(nullptr),
 	_scale{},
-	// _last_report{},
+	_last_report{},
 	_mag_topic(nullptr),
 	_comms_errors(perf_alloc(PC_COUNT, "lis3mdl_comms_errors")),
 	_conf_errors(perf_alloc(PC_COUNT, "lis3mdl_conf_errors")),
@@ -651,7 +373,6 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 	case DEVIOCGDEVICEID:
 		return _interface->ioctl(cmd, dummy);
-
 
 	default:
 		/* give it to the superclass */
@@ -1217,8 +938,6 @@ struct lis3mdl_bus_option {
 #endif /* PX4_SPIDEV_LIS */
 };
 
-struct 	lis3mdl_bus_option &find_bus(enum LIS3MDL_BUS busid);
-
 void    start(enum LIS3MDL_BUS busid, enum Rotation rotation);
 
 int     stop();
@@ -1236,6 +955,8 @@ void    test(enum LIS3MDL_BUS busid);
 void    reset(enum LIS3MDL_BUS busid);
 
 void    usage();
+
+struct 	lis3mdl_bus_option &find_bus(enum LIS3MDL_BUS busid);
 
 /**
  * start driver for a specific bus option
