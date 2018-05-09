@@ -234,7 +234,7 @@ private:
 
 	/**
 	 * @brief Sets the sensor internal range to handle at least the argument in Gauss.
-	 * 
+	 *
 	 * @param range The sensor range value to be set.
 	 */
 	int set_range(unsigned range);
@@ -608,8 +608,32 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 	case SENSORIOCRESET:
 		return reset();
 
+	case MAGIOCSSAMPLERATE:
+		/* same as pollrate because device is in single measurement mode*/
+		return ioctl(filp, SENSORIOCSPOLLRATE, arg);
+
+	case MAGIOCGSAMPLERATE:
+		/* same as pollrate because device is in single measurement mode*/
+		return 1000000 / TICK2USEC(_measure_ticks);
+
 	case MAGIOCSRANGE:
 		return set_range(arg);
+
+	case MAGIOCGRANGE:
+		return _range_ga;
+
+	case MAGIOCSSCALE:
+		/* set new scale factors */
+		memcpy(&_scale, (struct mag_calibration_s *)arg, sizeof(_scale));
+		/* check calibration, but not actually return an error */
+		(void)check_calibration();
+		return 0;
+
+	case MAGIOCGSCALE:
+		/* copy out scale factors */
+		memcpy((struct mag_calibration_s *)arg, &_scale, sizeof(_scale));
+		return 0;
+
 
 	case MAGIOCCALIBRATE:
 		return calibrate(filp, arg);
@@ -617,9 +641,17 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 	case MAGIOCEXSTRAP:
 		return set_excitement(arg);
 
+	case MAGIOCSELFTEST:
+		return check_calibration();
+
+
 	case MAGIOCGEXTERNAL:
 		DEVICE_DEBUG("MAGIOCGEXTERNAL in main driver");
 		return _interface->ioctl(cmd, dummy);
+
+	case DEVIOCGDEVICEID:
+		return _interface->ioctl(cmd, dummy);
+
 
 	default:
 		/* give it to the superclass */
@@ -1264,14 +1296,6 @@ init(enum LIS3MDL_BUS busid)
 
 	} else {
 		PX4_INFO("Set mag range to 4 Gauss");
-	}
-
-	/* Set register default values */
-	if (OK != bus.dev->set_register_default_values()) {
-		PX4_WARN("Failed to set register default values");
-
-	} else {
-		PX4_INFO("Register default values set");
 	}
 
 	close(fd);
