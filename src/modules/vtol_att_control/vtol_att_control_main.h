@@ -59,7 +59,7 @@
 #include <drivers/drv_pwm_output.h>
 #include <lib/ecl/geo/geo.h>
 #include <lib/mathlib/mathlib.h>
-#include <systemlib/param/param.h>
+#include <parameters/param.h>
 
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/airspeed.h>
@@ -200,6 +200,7 @@ private:
 		param_t airspeed_mode;
 		param_t front_trans_timeout;
 		param_t mpc_xy_cruise;
+		param_t fw_motors_off;
 	} _params_handles{};
 
 	/* for multicopters it is usual to have a non-zero idle speed of the engines

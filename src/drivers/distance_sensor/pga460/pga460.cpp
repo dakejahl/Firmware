@@ -1,408 +1,946 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
 /**
  * @file pga460.cpp
- * @author Khoi Tran <khoi@tealdrones.com>
+ * @author Jacob Dahl <jacob.dahl@tealdrones.com>
  *
  * Driver for the TI PGA460 Ultrasonic Signal Processor and Transducer Driver
  */
 
 #include <cstring>
 #include <termios.h>
+#include <math.h>
 
 #include "pga460.h"
 
+
 extern "C" __EXPORT int pga460_main(int argc, char *argv[]);
 
-namespace pga460
-{
-PGA460	*g_dev;
-}
+PGA460 *pga460_task;
 
 PGA460::PGA460(const char *port) :
 	CDev("PGA460", RANGE_FINDER0_DEVICE_PATH),
-	_task_should_exit(false),
 	_task_handle(-1),
+	_task_is_running(0),
+	_task_should_exit(0),
 	_class_instance(-1),
 	_orb_class_instance(-1),
+	_fd(-1),
+	_min_distance(MIN_DETECTABLE_DISTANCE),
+	_max_distance(MAX_DETECTABLE_DISTANCE),
+	_previous_measurement(0.0f),
 	_distance_sensor_topic(nullptr)
 {
-	/* store port name */
+	// store port name
 	strncpy(_port, port, sizeof(_port));
-	/* enforce null termination */
+	// enforce null termination
 	_port[sizeof(_port) - 1] = '\0';
 
 	// disable debug() calls
-	_debug_enabled = true;
-
-	memset(&_buf[0], 0, sizeof(_buf));
+	_debug_enabled = false;
 }
 
 PGA460::~PGA460()
 {
-
 	if (_class_instance != -1) {
 		unregister_class_devname(RANGE_FINDER_BASE_DEVICE_PATH, _class_instance);
 	}
 
 	if (_task_handle != -1) {
-		/* task wakes up every 100ms or so at the longest */
 		_task_should_exit = true;
-
-		/* wait for a second for the task to quit at our request */
-		unsigned i = 0;
-
-		do {
-			/* wait 20ms */
-			usleep(20000);
-
-			/* if we have given up, kill it */
-			if (++i > 50) {
-				px4_task_delete(_task_handle);
-				break;
-			}
-		} while (_task_handle != -1);
-	}
-
-	if (_class_instance != -1) {
-		unregister_class_devname(RANGE_FINDER_BASE_DEVICE_PATH, _class_instance);
 	}
 
 	orb_unadvertise(_distance_sensor_topic);
 }
 
-int PGA460::init()
+int PGA460::stop()
 {
-	/* status */
-	int ret = 0;
+	_task_should_exit = true;
 
-	do { /* create a scope to handle exit conditions using break */
+	while (_task_is_running) {
+		usleep(10000); // sleep for a tenth of a measurement cycle
+	}
 
-		/* do regular cdev init */
-		ret = CDev::init();
+	px4_task_delete(_task_handle);
 
-		if (ret != OK) {
-			PX4_WARN("cdev init failed");
-			break;
-		}
-
-		_fd = px4_open(RANGE_FINDER0_DEVICE_PATH, 0);
-
-		if (_fd < 0) {
-			PX4_WARN("failed to open range finder device");
-			ret = 1;
-			break;
-		}
-
-		px4_close(_fd);
-
-		/* open fd */
-		_fd = px4_open(_port, O_RDWR | O_NOCTTY);
-
-		if (_fd < 0) {
-			PX4_WARN("failed to open serial device");
-			ret = 1;
-			break;
-		}
-
-		struct termios uart_config;
-
-		int termios_state;
-
-		/* fill the struct for the new configuration */
-		tcgetattr(_fd, &uart_config);
-
-		/* clear ONLCR flag (which appends a CR for every LF) */
-		uart_config.c_oflag &= ~ONLCR;
-
-		/* no parity, one stop bit */
-		uart_config.c_cflag	 &= ~PARENB;
-
-		//uart_config.c_cflag	 |= CSTOPB;
-
-		unsigned speed = B115200;
-
-		/* set baud rate */
-		if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {
-			PX4_WARN("ERR CFG: %d ISPD", termios_state);
-			ret = 1;
-			break;
-		}
-
-		if ((termios_state = cfsetospeed(&uart_config, speed)) < 0) {
-			PX4_WARN("ERR CFG: %d OSPD\n", termios_state);
-			ret = 1;
-			break;
-		}
-
-		if ((termios_state = tcsetattr(_fd, TCSANOW, &uart_config)) < 0) {
-			PX4_WARN("ERR baud %d ATTR", termios_state);
-			ret = 1;
-			break;
-		}
-
-		init_pga460();
-
-		px4_close(_fd);
-
-		_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
-
-		struct distance_sensor_s ds_report = {};
-		ds_report.timestamp = hrt_absolute_time();
-		ds_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
-		ds_report.orientation = 8;
-		ds_report.id = 0;
-		ds_report.current_distance = -1.0f;	// make evident that this range sample is invalid
-		ds_report.covariance = 0;
-
-		_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
-					 &_orb_class_instance, ORB_PRIO_HIGH);
-
-		if (_distance_sensor_topic == nullptr) {
-			DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
-			ret = 1;
-			break;
-		}
-
-	} while (0);
-
-	return ret;
-}
-
-void PGA460::task_main_trampoline(int argc, char *argv[])
-{
-	pga460::g_dev->task_main();
+	return OK;
 }
 
 int PGA460::start()
 {
-	ASSERT(_task_handle == -1);
+	_task_should_exit = false;
 
-	/* start the task */
+	_paramHandle.resonant_frequency = param_find("PGA460_RES_FREQ");
+	param_get(_paramHandle.resonant_frequency, &_params.resonant_frequency);
+
+	if (init() != OK) {
+		PX4_WARN("PGA460: Driver not started!");
+		return PX4_ERROR;
+	}
+
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_MAX - 30,
-					  800,
-					  (px4_main_t)&PGA460::task_main_trampoline,
+					  SCHED_PRIORITY_DEFAULT,
+					  1600,
+					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
-	if (_task_handle < 0) {
-		PX4_WARN("task start failed");
-		return -errno;
+	// notify about state change
+	struct subsystem_info_s info = {};
+	info.present = true;
+	info.enabled = true;
+	info.ok = true;
+	info.subsystem_type = subsystem_info_s::SUBSYSTEM_TYPE_RANGEFINDER;
+
+	static orb_advert_t pub = nullptr;
+
+	if (pub != nullptr) {
+		orb_publish(ORB_ID(subsystem_info), pub, &info);
+
+	} else {
+		pub = orb_advertise(ORB_ID(subsystem_info), &info);
 	}
 
 	return OK;
 }
 
-void PGA460::task_main()
+int PGA460::init()
 {
-
-	_fd = px4_open(_port, O_RDWR | O_NOCTTY);
-
-	while (!_task_should_exit) {
-		ultrasonicCmd();
-		usleep(10000);
-		pullUltrasonicMeasResult();
-		usleep(100000);
+	if (CDev::init() != OK) {
+		return PX4_ERROR;
 	}
 
-	px4_close(_fd);
+	open_serial();
+
+	init_pga460();
+
+	close_serial();
+
+	_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
+
+	struct distance_sensor_s ds_report = {};
+
+	ds_report.timestamp = hrt_absolute_time();
+	ds_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
+	ds_report.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
+	ds_report.id = 0;
+	ds_report.current_distance = -1.0f;	// make evident that this range sample is invalid
+	ds_report.covariance = 0;
+
+	_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
+				 &_orb_class_instance, ORB_PRIO_HIGH);
+
+	if (_distance_sensor_topic == nullptr) {
+		DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
+		return PX4_ERROR;
+	}
+
+	return OK;
 }
 
 void PGA460::init_pga460()
 {
-	init_thresholds();
-	usleep(10000);
-
-	init_eeprom();
-	usleep(10000);
-}
-
-void PGA460::init_thresholds()
-{
-	uint8_t buf[35] = {SYNCBYTE, THRBW, P1_THR_0, P1_THR_1, P1_THR_2, P1_THR_3, P1_THR_4,
-			   P1_THR_5, P1_THR_6, P1_THR_7, P1_THR_8, P1_THR_9, P1_THR_10, P1_THR_11,
-			   P1_THR_12, P1_THR_13, P1_THR_14, P1_THR_15,
-			   P2_THR_0, P2_THR_1, P2_THR_2, P2_THR_3, P2_THR_4, P2_THR_5, P2_THR_6,
-			   P2_THR_7, P2_THR_8, P2_THR_9, P2_THR_10, P2_THR_11, P2_THR_12, P2_THR_13,
-			   P2_THR_14, P2_THR_15, calcChecksum(THRBW)
-			  };
-	px4_write(_fd, &buf[0], sizeof(buf));
-}
-
-void PGA460::init_eeprom()
-{
-	uint8_t buf[46] = {SYNCBYTE, EEBW, USER_DATA1, USER_DATA2, USER_DATA3, USER_DATA4,
-			   USER_DATA5, USER_DATA6, USER_DATA7, USER_DATA8, USER_DATA9, USER_DATA10,
-			   USER_DATA11, USER_DATA12, USER_DATA13, USER_DATA14, USER_DATA15, USER_DATA16,
-			   USER_DATA17, USER_DATA18, USER_DATA19, USER_DATA20,
-			   TVGAIN0, TVGAIN1, TVGAIN2, TVGAIN3, TVGAIN4, TVGAIN5, TVGAIN6, INIT_GAIN, FREQUENCY, DEADTIME,
-			   PULSE_P1, PULSE_P2, CURR_LIM_P1, CURR_LIM_P2, REC_LENGTH, FREQ_DIAG, SAT_FDIAG_TH, FVOLT_DEC, DECPL_TEMP,
-			   DSP_SCALE, TEMP_TRIM, P1_GAIN_CTRL, P2_GAIN_CTRL, calcChecksum(EEBW)
-			  };
-	px4_write(_fd, buf, sizeof(buf));
-}
-
-uint8_t PGA460::calcChecksum(uint8_t cmd)
-{
-	int checksumLoops = 0;
-	cmd = cmd & 0x001F; // zero-mask command address of cmd to select correct switchcase statement
-
-	switch (cmd) {
-	case 0 : //P1BL
-	case 1 : //P2BL
-	case 2 : //P1LO
-	case 3 : //P2LO
-	case 17 : //BC_P1_valBL
-	case 18 : //BC_P2_valBL
-	case 19 : //BC_P1_valLO
-	case 20 : //BC_P2_valLO
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = 1;
-		checksumLoops = 2;
-		break;
-
-	case 4 : //TNLM
-	case 21 : //TNLM
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = 0;
-		checksumLoops = 2;
-		break;
-
-	case 5 : //UMR
-	case 6 : //TNLR
-	case 7 : //TEDD
-	case 8 : //SD
-	case 11 : //EEBR
-	case 13 : //TVGBR
-	case 15 : //THRBR
-		_checksum_input[0] = cmd;
-		checksumLoops = 1;
-		break;
-
-	case 9 : //RR
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = _regAddr;
-		checksumLoops = 2;
-		break;
-
-	case 10 : //RW
-	case 22 : //BC_RW
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = _regAddr;
-		_checksum_input[2] = _regData;
-		checksumLoops = 3;
-		break;
-
-	case 14 : //TVGBW
-	case 24 : //BC_TVGBW
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = TVGAIN0;
-		_checksum_input[2] = TVGAIN1;
-		_checksum_input[3] = TVGAIN2;
-		_checksum_input[4] = TVGAIN3;
-		_checksum_input[5] = TVGAIN4;
-		_checksum_input[6] = TVGAIN5;
-		_checksum_input[7] = TVGAIN6;
-		checksumLoops = 8;
-		break;
-
-	case 16 : //THRBW
-	case 25 : //BC_THRBW
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = P1_THR_0;
-		_checksum_input[2] = P1_THR_1;
-		_checksum_input[3] = P1_THR_2;
-		_checksum_input[4] = P1_THR_3;
-		_checksum_input[5] = P1_THR_4;
-		_checksum_input[6] = P1_THR_5;
-		_checksum_input[7] = P1_THR_6;
-		_checksum_input[8] = P1_THR_7;
-		_checksum_input[9] = P1_THR_8;
-		_checksum_input[10] = P1_THR_9;
-		_checksum_input[11] = P1_THR_10;
-		_checksum_input[12] = P1_THR_11;
-		_checksum_input[13] = P1_THR_12;
-		_checksum_input[14] = P1_THR_13;
-		_checksum_input[15] = P1_THR_14;
-		_checksum_input[16] = P1_THR_15;
-		_checksum_input[17] = P2_THR_0;
-		_checksum_input[18] = P2_THR_1;
-		_checksum_input[19] = P2_THR_2;
-		_checksum_input[20] = P2_THR_3;
-		_checksum_input[21] = P2_THR_4;
-		_checksum_input[22] = P2_THR_5;
-		_checksum_input[23] = P2_THR_6;
-		_checksum_input[24] = P2_THR_7;
-		_checksum_input[25] = P2_THR_8;
-		_checksum_input[26] = P2_THR_9;
-		_checksum_input[27] = P2_THR_10;
-		_checksum_input[28] = P2_THR_11;
-		_checksum_input[29] = P2_THR_12;
-		_checksum_input[30] = P2_THR_13;
-		_checksum_input[31] = P2_THR_14;
-		_checksum_input[32] = P2_THR_15;
-		checksumLoops = 33;
-		break;
-
-	case 12 : //EEBW
-	case 23 : //BC_EEBW
-		_checksum_input[0] = cmd;
-		_checksum_input[1] = USER_DATA1;
-		_checksum_input[2] = USER_DATA2;
-		_checksum_input[3] = USER_DATA3;
-		_checksum_input[4] = USER_DATA4;
-		_checksum_input[5] = USER_DATA5;
-		_checksum_input[6] = USER_DATA6;
-		_checksum_input[7] = USER_DATA7;
-		_checksum_input[8] = USER_DATA8;
-		_checksum_input[9] = USER_DATA9;
-		_checksum_input[10] = USER_DATA10;
-		_checksum_input[11] = USER_DATA11;
-		_checksum_input[12] = USER_DATA12;
-		_checksum_input[13] = USER_DATA13;
-		_checksum_input[14] = USER_DATA14;
-		_checksum_input[15] = USER_DATA15;
-		_checksum_input[16] = USER_DATA16;
-		_checksum_input[17] = USER_DATA17;
-		_checksum_input[18] = USER_DATA18;
-		_checksum_input[19] = USER_DATA19;
-		_checksum_input[20] = USER_DATA20;
-		_checksum_input[21] = TVGAIN0;
-		_checksum_input[22] = TVGAIN1;
-		_checksum_input[23] = TVGAIN2;
-		_checksum_input[24] = TVGAIN3;
-		_checksum_input[25] = TVGAIN4;
-		_checksum_input[26] = TVGAIN5;
-		_checksum_input[27] = TVGAIN6;
-		_checksum_input[28] = INIT_GAIN;
-		_checksum_input[29] = FREQUENCY;
-		_checksum_input[30] = DEADTIME;
-		_checksum_input[31] = PULSE_P1;
-		_checksum_input[32] = PULSE_P2;
-		_checksum_input[33] = CURR_LIM_P1;
-		_checksum_input[34] = CURR_LIM_P2;
-		_checksum_input[35] = REC_LENGTH;
-		_checksum_input[36] = FREQ_DIAG;
-		_checksum_input[37] = SAT_FDIAG_TH;
-		_checksum_input[38] = FVOLT_DEC;
-		_checksum_input[39] = DECPL_TEMP;
-		_checksum_input[40] = DSP_SCALE;
-		_checksum_input[41] = TEMP_TRIM;
-		_checksum_input[42] = P1_GAIN_CTRL;
-		_checksum_input[43] = P2_GAIN_CTRL;
-		checksumLoops = 44;
-		break;
-
-	default: break;
+	if (!init_thresholds()) {
+		PX4_WARN("Thresholds not initialized");
 	}
 
+	usleep(10000);
+
+	// check to see if eeprom saved data matches desired data
+	if (!check_eeprom()) {
+		write_eeprom();
+	}
+
+	usleep(10000);
+}
+
+bool PGA460::init_thresholds()
+{
+	const uint8_t array_size = 35;
+	uint8_t settings_buf[array_size] = {SYNCBYTE, BC_THRBW,
+					    P1_THR_0, P1_THR_1, P1_THR_2, P1_THR_3, P1_THR_4, P1_THR_5,
+					    P1_THR_6, P1_THR_7, P1_THR_8, P1_THR_9, P1_THR_10,
+					    P1_THR_11, P1_THR_12, P1_THR_13, P1_THR_14, P1_THR_15,
+					    P2_THR_0, P2_THR_1, P2_THR_2, P2_THR_3, P2_THR_4, P2_THR_5,
+					    P2_THR_6, P2_THR_7, P2_THR_8, P2_THR_9, P2_THR_10,
+					    P2_THR_11, P2_THR_12, P2_THR_13, P2_THR_14, P2_THR_15, 0xFF
+					   };
+
+	uint8_t checksum = calc_checksum(&settings_buf[1], sizeof(settings_buf) - 2);
+	settings_buf[array_size - 1] = checksum;
+
+	px4_write(_fd, &settings_buf[0], sizeof(settings_buf));
+
+	// must wait >50us per datasheet
+	usleep(100);
+
+	if (read_threshold_registers()) {
+		return 1;
+
+	} else {
+		print_device_status();
+		return 0;
+	}
+}
+
+void PGA460::task_main_trampoline(int argc, char *argv[])
+{
+	pga460_task->task_main();
+}
+
+void PGA460::task_main()
+{
+	while (1) {
+		open_serial();
+
+		while (!_task_should_exit) {
+			_task_is_running = true;
+
+			take_measurement();
+			// Wait long enough for a pulse to travel 10meters (~30ms)
+			usleep(30000);
+
+			request_results();
+
+			collect_results();
+		}
+
+		close_serial();
+
+		_task_is_running = false;
+
+		while (_task_should_exit) {
+			usleep(100000);
+		}
+	}
+}
+
+void PGA460::take_measurement()
+{
+	// Issue a measurement command to detect one object using Preset 1 Burst/Listen
+	uint8_t buf_tx[4] = {SYNCBYTE, P1BL, 0x01, 0xFF};
+	uint8_t checksum = calc_checksum(&buf_tx[1], 2);
+	buf_tx[3] = checksum;
+
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+}
+
+void PGA460::request_results()
+{
+	uint8_t buf_tx[2] = {SYNCBYTE, UMR};
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+}
+
+uint32_t PGA460::collect_results()
+{
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int bytesread = 0;
+	int timeout = 10;
+	uint8_t buf_rx[6] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	uint16_t time_of_flight = (buf_rx[1] << 8) + buf_rx[2];
+	uint8_t Width = buf_rx[3];
+	uint8_t Amplitude = buf_rx[4];
+
+	float object_distance = calculate_object_distance(time_of_flight);
+
+	// delete this out when done characterizing flight temperature
+	float temperature = get_temperature();
+
+	uORB_publish_results(object_distance, temperature);
+
+	// B1,2: time_of_flight  B3: Width  B4: Amplitude
+	uint32_t results = (time_of_flight << 16) | (Width << 8) | (Amplitude << 0);
+
+	return results;
+}
+
+float PGA460::calculate_object_distance(uint16_t time_of_flight)
+{
+	float temperature = get_temperature();
+
+	// if we have bad temp reading just use room temp
+	if ((temperature > MAX_DETECTABLE_TEMPERATURE) || (temperature < MIN_DETECTABLE_TEMPERATURE)) {
+		temperature = 20.0f;
+	}
+
+	// Formula for the speed of sound over temperature
+	float speed_of_sound = 331.0f + 0.6f * temperature;
+	// Calculate the distance in meters
+	float millseconds_to_meters = 0.000001f;
+	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
+
+	// if measurement is within range, filter it.
+	if ((object_distance > MAX_DETECTABLE_DISTANCE) && (_previous_measurement < MAX_DETECTABLE_DISTANCE)) {
+		object_distance = _previous_measurement;
+	}
+
+	_previous_measurement = object_distance;
+
+	return object_distance;
+}
+
+void PGA460::uORB_publish_results(const float &object_distance, const float &temperature)
+{
+	struct distance_sensor_s report = {};
+	report.timestamp = hrt_absolute_time();
+	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
+	report.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
+	report.current_distance = object_distance;
+	report.min_distance = get_minimum_distance();
+	report.max_distance = get_maximum_distance();
+	report.id = 0;
+	// use this temporarily
+	report.covariance = temperature;
+
+	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+}
+
+float PGA460::get_temperature()
+{
+	uint8_t buf_tx[4] = {SYNCBYTE, TNLM, 0x00, 0xFF};
+	uint8_t checksum = calc_checksum(&buf_tx[0], 3);
+	buf_tx[3] = checksum;
+
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+	// needs 2ms (datasheet)
+	usleep(2000);
+
+	buf_tx[1] = TNLR;
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx) - 2);
+
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int bytesread = 0;
+	int timeout = 10; //wait up to 10ms inbetween bytes
+	uint8_t buf_rx[4] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	// These constants are from the pga460 data sheet on page 50
+	float juntion_to_ambient_thermal_resistance = 96.1;
+	float v_power = 16.5;
+	float supply_current_listening = 0.012;
+	// This equation is derived from the pga460 data sheet on page 50
+	float temperature = ((buf_rx[1] - 64) / 1.5f) - (juntion_to_ambient_thermal_resistance * supply_current_listening *
+			    v_power);
+
+	return temperature;
+
+}
+
+int PGA460::open_serial()
+{
+	_fd = px4_open(_port, O_RDWR | O_NOCTTY | O_NONBLOCK);
+
+	if (_fd < 0) {
+		PX4_WARN("failed to open serial device");
+		return _fd;
+	}
+
+	struct termios uart_config;
+
+	int termios_state;
+
+	/* fill the struct for the new configuration */
+	tcgetattr(_fd, &uart_config);
+
+	//
+	// Input flags - Turn off input processing
+	//
+	// convert break to null byte, no CR to NL translation,
+	// no NL to CR translation, don't mark parity errors or breaks
+	// no input parity check, don't strip high bit off,
+	// no XON/XOFF software flow control
+	//
+	uart_config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |  INLCR | IGNCR | PARMRK | INPCK | ISTRIP | IXON | IXOFF);
+
+	uart_config.c_iflag |= IGNPAR;
+
+	//
+	// Output flags - Turn off output processing
+	//
+	// no CR to NL translation, no NL to CR-NL translation,
+	// no NL to CR translation, no column 0 CR suppression,
+	// no Ctrl-D suppression, no fill characters, no case mapping,
+	// no local output processing
+	//
+	uart_config.c_oflag &= ~(OCRNL | ONLCR | ONLRET | ONOCR | OFILL | OPOST);
+
+	//uart_config.c_oflag = 0;
+
+	//
+	// No line processing
+	//
+	// echo off, echo newline off, canonical mode off,
+	// extended input processing off, signal chars off
+	//
+	uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
+
+	/* no parity, one stop bit, disable flow control */
+	uart_config.c_cflag &= ~(CSIZE | PARENB | CSTOPB | CRTSCTS);
+
+	uart_config.c_cflag |= (CS8 | CREAD | CLOCAL);
+
+	uart_config.c_cc[VMIN] = 1;
+
+	uart_config.c_cc[VTIME] = 0;
+
+	unsigned speed = 115200;
+
+	/* set baud rate */
+	if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {
+		PX4_WARN("PGA460: ERR CFG: %d ISPD", termios_state);
+		return 0;
+	}
+
+	if ((termios_state = cfsetospeed(&uart_config, speed)) < 0) {
+		PX4_WARN("PGA460: ERR CFG: %d OSPD\n", termios_state);
+		return 0;
+	}
+
+	if ((termios_state = tcsetattr(_fd, TCSANOW, &uart_config)) < 0) {
+		PX4_WARN("PGA460: ERR baud %d ATTR", termios_state);
+		return 0;
+	}
+
+	return _fd;
+}
+
+int PGA460::close_serial()
+{
+	int ret = px4_close(_fd);
+
+	if (ret != 0) {
+		PX4_WARN("PGA460: Could not close serial port");
+	}
+
+	return ret;
+}
+
+bool PGA460::write_eeprom()
+{
+	uint8_t settings_buf[46] = {SYNCBYTE, EEBW, USER_DATA1, USER_DATA2, USER_DATA3, USER_DATA4,
+				    USER_DATA5, USER_DATA6, USER_DATA7, USER_DATA8, USER_DATA9, USER_DATA10,
+				    USER_DATA11, USER_DATA12, USER_DATA13, USER_DATA14, USER_DATA15, USER_DATA16,
+				    USER_DATA17, USER_DATA18, USER_DATA19, USER_DATA20,
+				    TVGAIN0, TVGAIN1, TVGAIN2, TVGAIN3, TVGAIN4, TVGAIN5, TVGAIN6, INIT_GAIN, FREQUENCY, DEADTIME,
+				    PULSE_P1, PULSE_P2, CURR_LIM_P1, CURR_LIM_P2, REC_LENGTH, FREQ_DIAG, SAT_FDIAG_TH, FVOLT_DEC, DECPL_TEMP,
+				    DSP_SCALE, TEMP_TRIM, P1_GAIN_CTRL, P2_GAIN_CTRL, 0xFF
+				   };
+
+	uint8_t checksum = calc_checksum(&settings_buf[1], sizeof(settings_buf) - 2);
+	settings_buf[45] = checksum;
+
+	px4_write(_fd, &settings_buf[0], sizeof(settings_buf));
+
+	// Needs time, see datasheet timing requirements
+	usleep(5000);
+	unlock_eeprom();
+	flash_eeprom();
+	usleep(5000);
+
+	uint8_t result = 0;
+
+	// give up to 100ms for ee_cntrl register to reflect a successful eeprom write
+	for (int i = 0; i < 100; i++) {
+		result = read_register(EE_CNTRL_ADDR);
+		usleep(1000);
+
+		if (result & 1 << 2) {
+			PX4_INFO("PGA460: EEPROM written to successfully");
+			return 1;
+		}
+	}
+
+	PX4_WARN("PGA460: Failed to write to EEPROM");
+	print_diagnostics(result);
+	return 0;
+}
+
+bool PGA460::check_eeprom()
+{
+	unlock_eeprom();
+
+	const int array_size = 43;
+	const uint8_t user_settings[array_size] = {USER_DATA1, USER_DATA2, USER_DATA3, USER_DATA4,
+						   USER_DATA5, USER_DATA6, USER_DATA7, USER_DATA8, USER_DATA9, USER_DATA10,
+						   USER_DATA11, USER_DATA12, USER_DATA13, USER_DATA14, USER_DATA15, USER_DATA16,
+						   USER_DATA17, USER_DATA18, USER_DATA19, USER_DATA20,
+						   TVGAIN0, TVGAIN1, TVGAIN2, TVGAIN3, TVGAIN4, TVGAIN5, TVGAIN6, INIT_GAIN, FREQUENCY, DEADTIME,
+						   PULSE_P1, PULSE_P2, CURR_LIM_P1, CURR_LIM_P2, REC_LENGTH, FREQ_DIAG, SAT_FDIAG_TH, FVOLT_DEC, DECPL_TEMP,
+						   DSP_SCALE, TEMP_TRIM, P1_GAIN_CTRL, P2_GAIN_CTRL
+						  };
+
+	uint8_t cmd_buf[2] = {SYNCBYTE, EEBR};
+
+	px4_write(_fd, &cmd_buf[0], sizeof(cmd_buf));
+
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int bytesread = 0;
+	int timeout = 100;
+	uint8_t buf_rx[array_size + 2] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	// Check the buffers to ensure they match
+	int mismatch = memcmp(buf_rx + 1, user_settings, sizeof(buf_rx) - 2);
+
+	if (mismatch == 0) {
+		PX4_INFO("PGA460: EEPROM already has program settings");
+		return 1;
+
+	} else {
+		PX4_WARN("PGA460: EEPROM does not have program settings. Bytes mismatch: %d", mismatch);
+		print_diagnostics(buf_rx[0]);
+		return 0;
+	}
+}
+
+void PGA460::unlock_eeprom()
+{
+	// two step EEPROM unlock -- send unlock code w/ prog bit set to 0
+	// this might actually be wrapped into command 11 (ee bulk write) but I am not sure
+	uint8_t eeprom_write_buf[5] = {SYNCBYTE, SRW, EE_CNTRL_ADDR, EE_UNLOCK_ST1, 0xFF};
+	uint8_t checksum = calc_checksum(&eeprom_write_buf[1], sizeof(eeprom_write_buf) - 2);
+	eeprom_write_buf[4] = checksum;
+	px4_write(_fd, &eeprom_write_buf[0], sizeof(eeprom_write_buf));
+}
+
+void PGA460::flash_eeprom()
+{
+	// send same unlock code with prog bit set to 1
+	uint8_t eeprom_write_buf[5] = {SYNCBYTE, SRW, EE_CNTRL_ADDR, EE_UNLOCK_ST2, 0xFF};
+	uint8_t checksum = calc_checksum(&eeprom_write_buf[1], sizeof(eeprom_write_buf) - 2);
+	eeprom_write_buf[4] = checksum;
+	px4_write(_fd, &eeprom_write_buf[0], sizeof(eeprom_write_buf));
+}
+
+bool PGA460::write_register(const uint8_t reg, const uint8_t val)
+{
+	// must unlock the eeprom registers before you can read or write to them
+	if (reg < 0x40) {
+		unlock_eeprom();
+	}
+
+	uint8_t buf_tx[5] = {SYNCBYTE, SRW, reg, val, 0xFF};
+	uint8_t checksum = calc_checksum(&buf_tx[1], sizeof(buf_tx - 2));
+	buf_tx[4] = checksum;
+
+	uint8_t ret = px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+
+	if (ret != sizeof(buf_tx)) {
+		return 0;
+	}
+
+	return 1;
+}
+
+uint8_t PGA460::read_register(const uint8_t reg)
+{
+	// must unlock the eeprom registers before you can read or write to them
+	if (reg < 0x40) {
+		unlock_eeprom();
+	}
+
+	uint8_t buf_tx[4] = {SYNCBYTE, SRR, reg, 0xFF};
+	uint8_t checksum = calc_checksum(&buf_tx[1], 2);
+	buf_tx[3] = checksum;
+
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int timeout = 100;
+	int bytesread = 0;
+	uint8_t buf_rx[3] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	// prints errors if there are any
+	print_diagnostics(buf_rx[0]);
+
+	return buf_rx[1];
+}
+
+bool PGA460::read_threshold_registers()
+{
+	const int array_size = 32;
+	uint8_t user_settings[array_size] = {P1_THR_0, P1_THR_1, P1_THR_2, P1_THR_3, P1_THR_4,
+					     P1_THR_5, P1_THR_6, P1_THR_7, P1_THR_8, P1_THR_9, P1_THR_10, P1_THR_11,
+					     P1_THR_12, P1_THR_13, P1_THR_14, P1_THR_15,
+					     P2_THR_0, P2_THR_1, P2_THR_2, P2_THR_3, P2_THR_4, P2_THR_5, P2_THR_6,
+					     P2_THR_7, P2_THR_8, P2_THR_9, P2_THR_10, P2_THR_11, P2_THR_12, P2_THR_13,
+					     P2_THR_14, P2_THR_15
+					    };
+
+	uint8_t buf_tx[2] =  {SYNCBYTE, THRBR};
+
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int timeout = 100;
+	int bytesread = 0;
+	uint8_t buf_rx[array_size + 2] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	// check to ensure the buffers match
+	int mismatch = memcmp(buf_rx + 1, user_settings, sizeof(buf_rx) - 2);
+
+	if (mismatch == 0) {
+		PX4_WARN("Threshold registers have program settings");
+		return 1;
+
+	} else {
+		PX4_WARN("Threshold registers do not have program settings");
+		print_diagnostics(buf_rx[0]);
+		return 0;
+	}
+}
+
+void PGA460::print_device_status()
+{
+	uint8_t status_flags1 = read_register(0x4C);
+	uint8_t status_flags2 = read_register(0x4D);
+
+	if ((status_flags1 & 0x0F) || status_flags2) {
+		if (status_flags1 & 0x0F & 1) {
+			PX4_INFO("PGA460: Trim EEPROM space data CRC error");
+		}
+
+		if (status_flags1 & 0x0F & 1 << 1) {
+			PX4_INFO("PGA460: User EEPROM space data CRC error");
+		}
+
+		if (status_flags1 & 0x0F & 1 << 2) {
+			PX4_INFO("PGA460: Threshold map configuration register data CRC error");
+		}
+
+		if (status_flags1 & 0x0F & 1 << 3) {
+			PX4_INFO("PGA460: Wakeup Error");
+		}
+
+		if (status_flags2 & 1) {
+			PX4_INFO("PGA460: VPWR pin under voltage");
+		}
+
+		if (status_flags2 & 1 << 1) {
+			PX4_INFO("PGA460: VPWR pin over voltage");
+		}
+
+		if (status_flags2 & 1 << 2) {
+			PX4_INFO("PGA460: AVDD pin under voltage");
+		}
+
+		if (status_flags2 & 1 << 3) {
+			PX4_INFO("PGA460: AVDD pin over voltage");
+		}
+
+		if (status_flags2 & 1 << 4) {
+			PX4_INFO("PGA460: IOREG pin under voltage");
+		}
+
+		if (status_flags2 & 1 << 5) {
+			PX4_INFO("PGA460: IOREG pin over voltage");
+		}
+
+		if (status_flags2 & 1 << 6) {
+			PX4_INFO("PGA460: Thermal shutdown has occured");
+		}
+	}
+}
+
+void PGA460::print_diagnostics(const uint8_t diagnostic_byte)
+{
+	// Stores the most recent diagnostic byte as a global
+	_diagnostic_byte = diagnostic_byte;
+
+	// check the diagnostics bit field
+	if (diagnostic_byte & 1 << 6) {
+		if (diagnostic_byte & 1 << 0) {
+			PX4_INFO("PGA460: Device busy");
+		}
+
+		if (diagnostic_byte & 1 << 1) {
+			PX4_INFO("PGA460: Sync field bit rate too high/low");
+		}
+
+		if (diagnostic_byte & 1 << 2) {
+			PX4_INFO("PGA460: Consecutive sync bit fields do not match");
+		}
+
+		if (diagnostic_byte & 1 << 3) {
+			PX4_INFO("PGA460: Invalid checksum");
+		}
+
+		if (diagnostic_byte & 1 << 4) {
+			PX4_INFO("PGA460: Invalid command");
+		}
+
+		if (diagnostic_byte & 1 << 5) {
+			PX4_INFO("PGA460: General comm erorr");
+		}
+
+	} else if (diagnostic_byte & 1 << 7) {
+		if (diagnostic_byte & 1 << 0) {
+			PX4_INFO("PGA460: Device busy");
+		}
+
+		if (diagnostic_byte & 1 << 1) {
+			PX4_INFO("PGA460: Threshold settings CRC error");
+		}
+
+		if (diagnostic_byte & 1 << 2) {
+			PX4_INFO("PGA460: Frequency diagnostics error");
+		}
+
+		if (diagnostic_byte & 1 << 3) {
+			PX4_INFO("PGA460: Voltage diagnostics error");
+		}
+
+		if (diagnostic_byte & 1 << 4) {
+			PX4_INFO("PGA460: Always zero....");
+		}
+
+		if (diagnostic_byte & 1 << 5) {
+			PX4_INFO("PGA460: EEPROM CRC or TRIM CRC error");
+		}
+	}
+}
+
+uint8_t PGA460::get_diagnostic_byte()
+{
+	return _diagnostic_byte;
+}
+
+uint8_t PGA460::find_resonant_frequency()
+{
+	// sweep from 25 to 75 == 35kHz to 45kHz
+	uint8_t amplitudes[50] = {0};
+	uint8_t maxval = 0;
+	uint8_t max_index = 0;
+
+	for (size_t frequency_index = 25; frequency_index < 74; frequency_index++) {
+		write_register(0x1C, frequency_index);
+		usleep(10000);
+
+		take_measurement();
+
+		usleep(100000);
+		request_results();
+
+		usleep(10000);
+
+		uint32_t results = collect_results();
+		PX4_INFO("amplitude is: %d", results & 0xFF);
+
+		usleep(10000);
+
+		amplitudes[frequency_index - 25] = (results & 0xFF);
+
+		if ((amplitudes[frequency_index - 25] > maxval) && (amplitudes[frequency_index - 25] != 0xFF)) {
+			maxval = amplitudes[frequency_index - 25];
+			max_index = frequency_index;
+		}
+	}
+
+	write_register(0x1C, max_index);
+	usleep(10000);
+
+	// formula from data sheet pg70
+	float frequency = max_index * 0.2f + 30;
+	param_set(param_find("PGA460_RES_FREQ"), &(frequency));
+
+	return max_index;
+
+}
+
+uint16_t PGA460::get_system_diagnostics()
+{
+	uint8_t buf_tx[2] = {SYNCBYTE, SD};
+
+	tcflush(_fd, TCIOFLUSH);
+
+	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
+
+	// @TODO: consider opportunity to refactor this
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = _fd;
+	fds[0].events = POLLIN;
+
+	int bytesread = 0;
+	int timeout = 100;
+	uint8_t buf_rx[4] = {0};
+
+	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
+
+	while (ret) {
+		if (fds[0].revents & POLLIN) {
+			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+
+		} else { break; }
+
+		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	}
+
+	uint16_t sys_diag = (buf_rx[1] << 8) + buf_rx[2];
+
+	// if a diagnostic bit is set we will be warned
+	print_diagnostics(buf_rx[0]);
+	PX4_INFO("\nPGA460: The transducer frequency has been measured as %2.2f \n"
+		 "The decay period time has been measured as %d", 1000000 / ((double)buf_rx[1] * 500), buf_rx[2]);
+
+	uint8_t saved_freq = read_register(0x1C);
+	PX4_INFO("PGA460: \nThe transducer frequency is currently saved as %2.2f", (double)saved_freq * 0.2 + 30);
+
+	return sys_diag;
+}
+
+void PGA460::suspend()
+{
+	_task_should_exit = true;
+
+	while (_task_is_running) {
+		usleep(200000); // sleep for two measurement cycles
+	}
+}
+
+void PGA460::resume()
+{
+	_task_should_exit = false;
+}
+
+float PGA460::get_minimum_distance()
+{
+	return _min_distance;
+}
+
+void PGA460::set_minimum_distance(const float dist)
+{
+	_min_distance = dist;
+}
+
+float PGA460::get_maximum_distance()
+{
+	return _max_distance;
+}
+
+void PGA460::set_maximum_distance(const float dist)
+{
+	_max_distance = dist;
+}
+
+uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
+{
+	uint8_t n = 0;
+	uint8_t checksum_input[size] = {0};
+
+	for (n = 0; n < size; n++) {
+		checksum_input[n] = *data;
+		data++;
+	}
+
+	int checksum_loops = n;
 	uint16_t carry = 0;
 
-	for (int i = 0; i < checksumLoops; i++) {
-		if ((_checksum_input[i] + carry) < carry) {
-			carry = carry + _checksum_input[i] + 1;
+	for (int j = 0; j < checksum_loops; j++) {
+		if ((checksum_input[j] + carry) < carry) {
+			carry = carry + checksum_input[j] + 1;
 
 		} else {
-			carry = carry + _checksum_input[i];
+			carry = carry + checksum_input[j];
 		}
 
 		if (carry > 0xFF) {
@@ -414,125 +952,185 @@ uint8_t PGA460::calcChecksum(uint8_t cmd)
 	return carry;
 }
 
-void PGA460::ultrasonicCmd()
+
+// Local functions in support of the shell command
+
+bool start()
 {
-	uint8_t bufCmd[4] = {SYNCBYTE, 0xFF, 0x1, 0xFF}; // prepare bufCmd with 0xFF placeholders
-
-	bufCmd[1] = P1BL;
-	bufCmd[3] = calcChecksum(P1BL);
-
-	px4_write(_fd, bufCmd, sizeof(bufCmd)); // serial transmit master data to initiate burst and/or listen command
-
-	return;
-}
-
-bool PGA460::pullUltrasonicMeasResult()
-{
-	uint8_t buf[3] = {SYNCBYTE, UMR, calcChecksum(UMR)};
-	px4_write(_fd, buf, sizeof(buf)); //serial transmit master data to read ultrasonic measurement results
-	// we poll on data from the serial port
-	px4_pollfd_struct_t fds[1];
-	fds[0].fd = _fd;
-	fds[0].events = POLLIN;
-
-	// wait for up to 100ms for data
-	int pret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
-
-	// timed out
-	if (pret == 0) {
-		return false;
+	if (pga460_task != nullptr) {
+		PX4_WARN("driver already started");
+		return 0;
 	}
 
-	uint8_t buf_rx[10];
+	pga460_task = new PGA460(PGA460_DEFAULT_PORT);
 
-	if (fds[0].revents & POLLIN) {
-		memset(&buf_rx[0], 0, sizeof(buf_rx));
-		int len = px4_read(_fd, &buf_rx[0], sizeof(buf_rx));
-
-		if (len <= 0) {
-			PX4_DEBUG("error reading PGA460");
-		}
-
-		uint16_t objDist = (buf_rx[1] << 8) + buf_rx[2];
-		float range = (float)objDist / 2.0f * 0.000001f * SPEED_OF_SOUND;
-
-		struct distance_sensor_s report = {};
-		report.timestamp = hrt_absolute_time();
-		report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
-		report.orientation = 8;
-		report.current_distance = range;
-		report.min_distance = 0;
-		report.max_distance = 6.0f;
-		report.covariance = 0;
-		report.id = 0;
-
-		// publish it
-		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	if (pga460_task == nullptr) {
+		PX4_ERR("failed to create instance of PGA460");
+		return 1;
 	}
 
-	return true;
+	if (OK != pga460_task->start()) {
+		delete pga460_task;
+		pga460_task = nullptr;
+		return 1;
+	}
+
+	return 0;
 }
+
+bool stop()
+{
+	if (pga460_task != nullptr) {
+		pga460_task->stop();
+		delete pga460_task;
+		pga460_task = nullptr;
+
+	} else {
+		PX4_WARN("driver not running");
+	}
+
+	return 0;
+}
+
+void info()
+{
+	PX4_INFO("\n\tstart            	 	- Starts the PGA460 driver."
+		 "\n\tstop 				- Stops the PGA460 driver."
+		 "\n\tcheck_eeprom		- Checks to see if the EEPROM has firmware default values"
+		 "\n\twrite_eeprom		- Writes the firmware default values to the EEPROM"
+		 "\n\tread_register(reg)		- Read a register."
+		 "\n\twrite_register(reg, val)	- Writes a value to a register."
+		 "\n\tcalibrate			- Sweeps from 35 - 45 kHz and sets the system frequency"
+		 "\n\tdiagnostics		- Compares the measured frequency to the saved value"
+		 "\n\t"
+		 "\n\tAll arguments are in decimal"
+		 "\n\t");
+}
+
+
+//	MAIN
 
 int pga460_main(int argc, char *argv[])
 {
-	/*
-	 * Start/load the driver.
-	 */
+	//Start/load the driver.
 	if (!strcmp(argv[1], "start")) {
-		if (pga460::g_dev != nullptr) {
-			PX4_WARN("driver already started");
-			return 0;
-		}
-
-		if (argc > 2) {
-			pga460::g_dev = new PGA460(argv[2]);
-
-		} else {
-			pga460::g_dev = new PGA460(PGA460_DEFAULT_PORT);
-		}
-
-		if (pga460::g_dev == nullptr) {
-			PX4_ERR("failed to create instance of PGA460");
-			return 1;
-		}
-
-		if (PX4_OK != pga460::g_dev->init()) {
-			delete pga460::g_dev;
-			pga460::g_dev = nullptr;
-			return 1;
-		}
-
-		if (OK != pga460::g_dev->start()) {
-			delete pga460::g_dev;
-			pga460::g_dev = nullptr;
-			return 1;
-		}
-
+		start();
 		return 0;
 	}
 
-	/*
-	 * Stop the driver
-	 */
+	//Stop the driver
 	if (!strcmp(argv[1], "stop")) {
-		if (pga460::g_dev != nullptr) {
-			delete pga460::g_dev;
-			pga460::g_dev = nullptr;
+		stop();
+		return 0;
+	}
+
+	//Prints options
+	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
+		info();
+		return 0;
+	}
+
+	//Checks the eeprom an reports whether or not the settings match the defaults
+	if (!strcmp(argv[1], "check_eeprom")) {
+		pga460_task->suspend();
+
+		pga460_task->open_serial();
+
+		bool ret = pga460_task->check_eeprom();
+
+		if (ret) {
+			PX4_INFO("EEPROM has firmware default settings");
 
 		} else {
-			PX4_WARN("driver not running");
+			PX4_INFO("EEPROM does not have firmware default settings");
+		}
+
+		pga460_task->close_serial();
+
+		pga460_task->resume();
+		return 0;
+	}
+
+	//Flashes default settings to the EEPROM
+	if (!strcmp(argv[1], "write_eeprom")) {
+		pga460_task->suspend();
+
+		pga460_task->open_serial();
+
+		bool ret = pga460_task->write_eeprom();
+
+		if (ret) {
+			PX4_INFO("EEPROM successfully written to");
+
+		} else {
+			PX4_INFO("EEPROM was not successfully written to");
+		}
+
+		pga460_task->close_serial();
+
+		pga460_task->resume();
+		return 0;
+	}
+
+	//Read the diagnostic registers: Measured transducer frequency and transducer decay time
+	if (!strcmp(argv[1], "diagnostics")) {
+		pga460_task->suspend();
+		pga460_task->open_serial();
+		pga460_task->get_system_diagnostics();
+		pga460_task->close_serial();
+		pga460_task->resume();
+		return 0;
+	}
+
+	// Reads the (register)
+	if (!strcmp(argv[1], "read_register")) {
+		if (argv[2]) {
+			pga460_task->suspend();
+			usleep(100000);
+			pga460_task->open_serial();
+			uint8_t ret = pga460_task->read_register((uint8_t)atoi(argv[2]));
+			pga460_task->close_serial();
+			pga460_task->resume();
+			PX4_INFO("Register has value %d", ret);
+
+		} else {
+			PX4_WARN("Unrecognized arguments");
 		}
 
 		return 0;
 	}
 
-	if (!strcmp(argv[1], "info")) {
-		PX4_INFO("TI PGA460");
-		PX4_INFO("update rate: 10 Hz");
-		return 0;
+	//Writes to the (register) the (value)
+	if (!strcmp(argv[1], "write_register")) {
+		if (argv[2] && argv[3]) {
+			pga460_task->suspend();
+			pga460_task->open_serial();
+			uint8_t ret = pga460_task->write_register((uint8_t)atoi(argv[2]), (uint8_t)atoi(argv[3]));
+			pga460_task->close_serial();
+			pga460_task->resume();
 
+			if (ret) { PX4_INFO("Register successfully written to"); }
+
+		} else {
+			PX4_WARN("Unrecognized arguments");
+		}
+
+		return 0;
 	}
 
-	PX4_WARN("unrecognized arguments, try: start [device_name], stop, info ");
+	//Sweeps across a frequency range and sets the operating frequency to the resonant
+	if (!strcmp(argv[1], "calibrate")) {
+		pga460_task->suspend();
+		pga460_task->open_serial();
+		uint8_t freq = pga460_task->find_resonant_frequency();
+		pga460_task->close_serial();
+		pga460_task->resume();
+
+		PX4_INFO("Resonant frequency detected as: %d", freq);
+		return 0;
+	}
+
+
+	PX4_WARN("Unrecognized arguments, try: start [device_name], stop, info ");
 	return 1;
 }

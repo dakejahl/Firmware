@@ -63,7 +63,7 @@
 
 #include <board_config.h>
 
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
 
 #include <drivers/drv_mag.h>
@@ -369,9 +369,10 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
 
-	_cntl_reg1 = 0xFC;
-	_cntl_reg4 = 0x0C; // Z-axis ultra high performance mode
-	_cntl_reg5 = 0x40; // block data update for magnetic data
+	_cntl_reg1 =
+		0xFC; // 11111100 TEMP_EN on | Ultra-high-performance mode XY | 80 Hz data | Fast_ODR disabled | self-test disabled
+	_cntl_reg4 = 0x0C; // 00001100 Z-axis ultra high performance mode | data LSb at lower address
+	_cntl_reg5 = 0x40; // 01000000 FAST_READ disabled | output registers not updated until MSb and LSb have been read
 
 }
 
@@ -940,15 +941,12 @@ LIS3MDL::collect()
 
 	/*
 	 * RAW outputs
-	 *
 	 */
 	new_report.x_raw = report.x;
 	new_report.y_raw = report.y;
 	new_report.z_raw = report.z;
 
-	/* the LIS3MDL mag on Pixhawk Pro by Drotek has x pointing towards,
-	 * y pointing to the right, and z down, therefore no switch needed,
-	 * it is better to have no artificial rotation inside the
+	/* It is best to have no artificial rotation inside the
 	 * driver and then use the startup script with -R command with the
 	 * real rotation between the sensor and body frame */
 	xraw_f = report.x;
