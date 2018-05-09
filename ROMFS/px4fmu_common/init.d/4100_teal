@@ -44,17 +44,22 @@ then
 	param set BAT_V_OFFS_CURR -0.0045
 
 	# primary accel
-	#param set CAL_ACC_PRIME 1442826
 	param set CAL_ACC_PRIME 1442826 #mpu6500
 	#param set CAL_ACC_PRIME 1445386 #mpu9250
 
 	# primary gyro
-	param set CAL_GRYO_PRIME 2360330 #mpu6500
-	#param set CAL_GRYO_PRIME 2362890 #mpu9250
+	param set CAL_GYRO_PRIME 2360330 #mpu6500
+	#param set CAL_GYRO_PRIME 2362890 #mpu9250
 
 	#primary Mag
-	#param set CAL_MAG_PRIME 335369 #LIS3MDL
+	param set CAL_MAG_PRIME 335369 #LIS3MDL
 	#param set CAL_MAG_PRIME 265738 #mpu9250
+
+	# sensor calibration
+	param set CAL_MAG0_ROT 0
+	param set CAL_MAG_SIDES 63
+	param set SENS_BOARD_ROT 0
+	param set COM_ARM_MAG 1.5
 
 	# circuit breakers
 	param set CBRK_IO_SAFETY 22027
@@ -65,11 +70,23 @@ then
 	param set COM_LOW_BAT_ACT 3
 
 	# ekf2
-	param set EKF2_ACC_NOISE 0.35
+	#param set EKF2_ACC_NOISE 0.035      #default EKF2_ACC_NOISE 3.5e-1f
+	#param set EKF2_ACC_B_NOISE 0.35     #default EKF2_ACC_B_NOISE 3.0e-3f
+	#param set EKF2_GYR_NOISE 0.125       #default EKF2_GYR_NOISE 1.5e-2f
+	#param set EKF2_GYR_B_NOISE 0.1      #default EKF2_GYR_B_NOISE 1.0e-3f
+	#param set EKF2_MAG_E_NOISE 0.001    #default EKF2_MAG_E_NOISE 1.0e-3f
+	#param set EKF2_MAG_B_NOISE 0.005    #default EKF2_MAG_B_NOISE 1.0e-4f
+	#param set EKF2_MAG_NOISE 0.005      #default EKF2_MAG_NOISE 5.0e-2f
+	#param set EKF2_HEAD_NOISE 0.3       #default EKF2_HEAD_NOISE 0.3
+	#param set EKF2_MAG_TYPE 0           #default EKF2_MAG_TYPE 0
+
 	param set EKF2_GPS_CHECK 511
-	param set EKF2_GYR_NOISE 0.025
-	param set EKF2_GPS_POS_X -0.045
-	param set EKF2_IMU_POS_X -0.075
+	param set EKF2_GPS_POS_X -0.04
+	param set EKF2_IMU_POS_X -0.06
+	param set EKF2_RNG_POS_X 0.065
+	param set EKF2_RNG_POS_Z 0.025
+	param set EKF2_RNG_A_VMAX 2.0
+	param set EKF2_MIN_RNG 0.05
 
 	# gps
 	param set GPS_UBX_DYNMODEL 7
@@ -150,6 +167,10 @@ then
 	param set MPC_Z_VEL_MAX_DN 4.0
 	param set MPC_Z_VEL_MAX_UP 6.0
 
+	#sensors
+	param set SENS_EN_PGA460 1
+
+
 	# mission
 	param set MIS_TAKEOFF_ALT 2.5
 
@@ -173,12 +194,7 @@ then
 
 	# sd logging
 	param set SDLOG_DIRS_MAX 10
-	param set SDLOG_PROFILE 127
-
-	# sensor calibration
-	param set CAL_MAG0_ROT 6
-	param set CAL_MAG_SIDES 63
-	param set SENS_BOARD_ROT 8
+	param set SDLOG_PROFILE 109
 
 	# system
 	param set SYS_COMPANION 2921600
@@ -191,6 +207,6 @@ fi
 # Module Drivers
 ###########################################################
 
-heater start
-
 batt_smbus start
+
+mpu9250 -S -R 2 start

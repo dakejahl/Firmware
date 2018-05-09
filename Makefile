@@ -252,8 +252,8 @@ coverity_scan: posix_sitl_default
 .PHONY: parameters_metadata airframe_metadata module_documentation px4_metadata
 
 parameters_metadata:
-	@python $(SRC_DIR)/src/modules/systemlib/param/px_process_params.py -s `find $(SRC_DIR)/src -maxdepth 4 -type d` --inject-xml $(SRC_DIR)/src/modules/systemlib/param/parameters_injected.xml --markdown
-	@python $(SRC_DIR)/src/modules/systemlib/param/px_process_params.py -s `find $(SRC_DIR)/src -maxdepth 4 -type d` --inject-xml $(SRC_DIR)/src/modules/systemlib/param/parameters_injected.xml --xml
+	@python $(SRC_DIR)/src/lib/parameters/px_process_params.py -s `find $(SRC_DIR)/src -maxdepth 4 -type d` --inject-xml $(SRC_DIR)/src/lib/parameters/parameters_injected.xml --markdown
+	@python $(SRC_DIR)/src/lib/parameters/px_process_params.py -s `find $(SRC_DIR)/src -maxdepth 4 -type d` --inject-xml $(SRC_DIR)/src/lib/parameters/parameters_injected.xml --xml
 
 airframe_metadata:
 	@python $(SRC_DIR)/Tools/px_process_airframes.py -v -a $(SRC_DIR)/ROMFS/px4fmu_common/init.d --markdown
@@ -279,7 +279,7 @@ format:
 
 # Testing
 # --------------------------------------------------------------------
-.PHONY: tests tests_coverage tests_mission tests_offboard rostest
+.PHONY: tests tests_coverage tests_mission tests_mission_coverage tests_offboard rostest
 
 tests:
 	@$(MAKE) --no-print-directory posix_sitl_default test_results \
@@ -302,13 +302,20 @@ rostest: posix_sitl_default
 tests_mission: rostest
 	@$(SRC_DIR)/test/rostest_px4_run.sh mavros_posix_tests_missions.test
 
+tests_mission_coverage:
+	@$(MAKE) clean
+	@$(MAKE) --no-print-directory posix_sitl_default PX4_CMAKE_BUILD_TYPE=Coverage
+	@$(MAKE) --no-print-directory posix_sitl_default sitl_gazebo PX4_CMAKE_BUILD_TYPE=Coverage
+	@$(SRC_DIR)/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=standard_vtol
+	@$(MAKE) --no-print-directory posix_sitl_default generate_coverage
+
 tests_offboard: rostest
 	@$(SRC_DIR)/test/rostest_px4_run.sh mavros_posix_tests_offboard_attctl.test
 	@$(SRC_DIR)/test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test
 
 # static analyzers (scan-build, clang-tidy, cppcheck)
 # --------------------------------------------------------------------
-.PHONY: scan-build posix_sitl_default-clang clang-tidy clang-tidy-fix clang-tidy-quiet cppcheck check_stack
+.PHONY: scan-build posix_sitl_default-clang clang-tidy clang-tidy-fix clang-tidy-quiet cppcheck
 
 scan-build:
 	@export CCC_CC=clang
@@ -342,16 +349,6 @@ cppcheck: posix_sitl_default
 	@mkdir -p $(SRC_DIR)/build/cppcheck
 	@cppcheck -i$(SRC_DIR)/src/examples --enable=performance --std=c++11 --std=c99 --std=posix --project=$(SRC_DIR)/build/posix_sitl_default/compile_commands.json --xml-version=2 2> $(SRC_DIR)/build/cppcheck/cppcheck-result.xml > /dev/null
 	@cppcheck-htmlreport --source-encoding=ascii --file=$(SRC_DIR)/build/cppcheck/cppcheck-result.xml --report-dir=$(SRC_DIR)/build/cppcheck --source-dir=$(SRC_DIR)/src/
-
-check_stack: px4fmu-v4pro_default
-	@echo "Checking worst case stack usage with checkstack.pl ..."
-	@echo " "
-	@echo "Top 10:"
-	@cd $(SRC_DIR)/build/px4fmu-v4pro_default && mkdir -p stack_usage && arm-none-eabi-objdump -d nuttx_px4fmu-v4pro_default.elf | $(SRC_DIR)/Tools/stack_usage/checkstack.pl arm 0 > stack_usage/checkstack_output.txt 2> stack_usage/checkstack_errors.txt
-	@head -n 10 $(SRC_DIR)/build/px4fmu-v4pro_default/stack_usage/checkstack_output.txt | c++filt
-	@echo " "
-	@echo "Symbols with 'main', 'thread' or 'task':"
-	@cat $(SRC_DIR)/build/px4fmu-v4pro_default/stack_usage/checkstack_output.txt | c++filt | grep -E 'thread|main|task'
 
 # Cleanup
 # --------------------------------------------------------------------

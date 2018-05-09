@@ -47,4 +47,11 @@
  * @max 70
  * @decimal 3
  */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP, 55.0f);
+PARAM_DEFINE_FLOAT(SENS_IMU_TEMP, 65.0f);
+
+/**
+ * Target IMU device ID to regulate around
+ *
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_TEMP_ID, 1442826);

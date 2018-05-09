@@ -54,8 +54,8 @@
 #include <drivers/drv_mag.h>
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_rc_input.h>
-#include <systemlib/perf_counter.h>
-#include <systemlib/battery.h>
+#include <perf/perf_counter.h>
+#include <battery/battery.h>
 #include <uORB/uORB.h>
 #include <uORB/topics/optical_flow.h>
 #include <uORB/topics/distance_sensor.h>
@@ -99,7 +99,6 @@ struct RawMPUData {
 #pragma pack(push, 1)
 struct RawBaroData {
 	float pressure;
-	float altitude;
 	float temperature;
 };
 #pragma pack(pop)

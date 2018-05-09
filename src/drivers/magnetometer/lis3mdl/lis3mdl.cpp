@@ -456,10 +456,10 @@ int LIS3MDL::set_range(unsigned range)
 		perf_count(_comms_errors);
 	}
 
-	if(range_bits_in == (_range_bits << 5)) {
+	if (range_bits_in == (_range_bits << 5)) {
 		return OK;
-	}
-	else {
+
+	} else {
 		return PX4_ERROR;
 	}
 }
@@ -525,6 +525,8 @@ LIS3MDL::read(struct file *filp, char *buffer, size_t buflen)
 int
 LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 {
+	unsigned dummy = 0;
+
 	switch (cmd) {
 	case SENSORIOCSPOLLRATE: {
 			switch (arg) {
@@ -607,7 +609,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 	case MAGIOCGEXTERNAL:
 		DEVICE_DEBUG("MAGIOCGEXTERNAL in main driver");
-		return _interface->ioctl(cmd, 0);
+		return _interface->ioctl(cmd, dummy);
 
 	default:
 		/* give it to the superclass */
@@ -643,12 +645,14 @@ LIS3MDL::reset()
 	int ret = 0;
 
 	ret = set_register_default_values();
-	if(ret != OK) {
+
+	if (ret != OK) {
 		return PX4_ERROR;
 	}
 
 	ret = set_range(_range_ga);
-	if(ret != OK) {
+
+	if (ret != OK) {
 		return PX4_ERROR;
 	}
 
@@ -678,7 +682,7 @@ LIS3MDL::cycle()
 		start();
 		return;
 	}
-	
+
 
 	if (OK != measure()) {
 		DEVICE_DEBUG("measure error");
@@ -776,7 +780,8 @@ LIS3MDL::collect()
 
 	// XXX revisit for SPI part, might require a bus type IOCTL
 
-	sensor_is_onboard = !_interface->ioctl(MAGIOCGEXTERNAL, 0);
+	unsigned dummy = 0;
+	sensor_is_onboard = !_interface->ioctl(MAGIOCGEXTERNAL, dummy);
 	new_mag_report.is_external = !sensor_is_onboard;
 
 	/*
@@ -1054,7 +1059,7 @@ int LIS3MDL::check_calibration()
 
 	if (_calibrated != (offset_valid && scale_valid)) {
 		PX4_WARN("mag cal status changed %s%s", (scale_valid) ? "" : "scale invalid ",
-		      (offset_valid) ? "" : "offset invalid");
+			 (offset_valid) ? "" : "offset invalid");
 		_calibrated = (offset_valid && scale_valid);
 	}
 
@@ -1219,6 +1224,7 @@ bool init(enum LIS3MDL_BUS busid)
 		close(fd);
 		errx(1, "Failed to setup poll rate");
 		return false;
+
 	} else {
 		PX4_INFO("Poll rate set to max (80hz)");
 	}
@@ -1232,8 +1238,9 @@ bool init(enum LIS3MDL_BUS busid)
 	}
 
 	/* Set register default values */
-	if(OK != bus.dev->set_register_default_values()) {
+	if (OK != bus.dev->set_register_default_values()) {
 		PX4_WARN("Failed to set register default values");
+
 	} else {
 		PX4_INFO("Register default values set");
 	}
