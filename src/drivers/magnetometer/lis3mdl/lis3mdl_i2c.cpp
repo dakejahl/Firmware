@@ -107,23 +107,17 @@ LIS3MDL_I2C::init()
 int
 LIS3MDL_I2C::ioctl(unsigned operation, unsigned &arg)
 {
-	int ret;
-
 	switch (operation) {
 
 	case MAGIOCGEXTERNAL:
-		external();
-
-	/* FALLTHROUGH */
+		return external();
 
 	case DEVIOCGDEVICEID:
 		return CDev::ioctl(nullptr, operation, arg);
 
 	default:
-		ret = -EINVAL;
+		return  -EINVAL;
 	}
-
-	return ret;
 }
 
 int

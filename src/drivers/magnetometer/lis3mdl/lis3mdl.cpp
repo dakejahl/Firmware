@@ -143,6 +143,11 @@ public:
 	 */
 	void                    print_info();
 
+	/**
+	 * Configures the device with default register values.
+	 */
+	int 			set_register_default_values();
+
 protected:
 	Device                  *_interface;
 
@@ -154,7 +159,6 @@ private:
 	struct mag_calibration_s        _scale;
 	float                   _range_scale;
 	float                   _range_ga;
-	bool                    _measurement_ready;
 	int                     _class_instance;
 	int                     _orb_class_instance;
 
@@ -166,7 +170,6 @@ private:
 	perf_counter_t          _conf_errors;
 
 	/* status reporting */
-	bool                    _sensor_ok;             /**< sensor was found and reports ok */
 	bool                    _calibrated;            /**< the calibration is valid */
 	bool 			_continuous_mode_set;
 
@@ -269,8 +272,6 @@ private:
 	 */
 	int                     read_reg(uint8_t reg, uint8_t &val);
 
-	int 			set_register_default_values();
-
 	/**
 	 * Issue a measurement command.
 	 *
@@ -324,7 +325,6 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_scale{},
 	_range_scale(0), /* default range scale from counts to gauss */
 	_range_ga(4.0f),
-	_measurement_ready(false),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_mag_topic(nullptr),
@@ -332,15 +332,16 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_comms_errors(perf_alloc(PC_COUNT, "lis3mdl_comms_errors")),
 	_range_errors(perf_alloc(PC_COUNT, "lis3mdl_range_errors")),
 	_conf_errors(perf_alloc(PC_COUNT, "lis3mdl_conf_errors")),
-	_sensor_ok(false),
 	_calibrated(false),
 	_continuous_mode_set(false),
 	_rotation(rotation),
 	_mode(CONTINUOUS),
 	_range_bits(0),
-	_cntl_reg1(0),
-	_cntl_reg4(0),
-	_cntl_reg5(0),
+	_cntl_reg1(0xFC), // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
+	_cntl_reg2(0x00), // 4 gauss FS range, reboot settings default
+	_cntl_reg3(0x00), // operating mode CONTINUOUS!
+	_cntl_reg4(0x0C), // Z-axis ultra high performance mode
+	_cntl_reg5(0x00), // fast read disabled, continious update disabled (block data update)
 	_temperature_counter(0),
 	_temperature_error_count(0),
 	_check_state_cnt(0)
@@ -364,12 +365,6 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 
 	// work_cancel in the dtor will explode if we don't do this...
 	memset(&_work, 0, sizeof(_work));
-
-	_cntl_reg1 = 0xFC; // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
-	_cntl_reg2 = 0x00; // 4 gauss FS range, reboot settings default
-	_cntl_reg3 = 0x00; // operating mode CONTINUOUS!
-	_cntl_reg4 = 0x0C; // Z-axis ultra high performance mode
-	_cntl_reg5 = 0x00; // fast read disabled, continious update disabled (block data update)
 
 }
 
@@ -409,7 +404,7 @@ LIS3MDL::init()
 	_reports = new ringbuffer::RingBuffer(2, sizeof(mag_report));
 
 	if (_reports == nullptr) {
-		return ret;
+		return PX4_ERROR;
 	}
 
 	/* reset the device configuration */
@@ -417,26 +412,22 @@ LIS3MDL::init()
 
 	_class_instance = register_class_devname(MAG_BASE_DEVICE_PATH);
 
-	ret = OK;
-	/* sensor is ok, but not calibrated */
-	_sensor_ok = true;
-
-	return ret;
+	return OK;
 }
 
 int LIS3MDL::set_range(unsigned range)
 {
-	if (range < 6) {
+	if (range <= 4) {
 		_range_bits = 0x00;
 		_range_scale = 1.0f / 6842.0f;
 		_range_ga = 4.0f;
 
-	} else if (range <= 10) {
+	} else if (range <= 8) {
 		_range_bits = 0x01;
 		_range_scale = 1.0f / 3421.0f;
 		_range_ga = 8.0f;
 
-	} else if (range <= 14) {
+	} else if (range <= 12) {
 		_range_bits = 0x02;
 		_range_scale = 1.0f / 2281.0f;
 		_range_ga = 12.0f;
@@ -447,7 +438,7 @@ int LIS3MDL::set_range(unsigned range)
 		_range_ga = 16.0f;
 	}
 
-	int ret;
+	int ret = 0;
 
 	/*
 	 * Send the command to set the range
@@ -465,7 +456,12 @@ int LIS3MDL::set_range(unsigned range)
 		perf_count(_comms_errors);
 	}
 
-	return !(range_bits_in == (_range_bits << 5));
+	if(range_bits_in == (_range_bits << 5)) {
+		return OK;
+	}
+	else {
+		return PX4_ERROR;
+	}
 }
 
 ssize_t
@@ -529,8 +525,6 @@ LIS3MDL::read(struct file *filp, char *buffer, size_t buflen)
 int
 LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 {
-	unsigned dummy = arg;
-
 	switch (cmd) {
 	case SENSORIOCSPOLLRATE: {
 			switch (arg) {
@@ -613,7 +607,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 	case MAGIOCGEXTERNAL:
 		DEVICE_DEBUG("MAGIOCGEXTERNAL in main driver");
-		return _interface->ioctl(cmd, dummy);
+		return _interface->ioctl(cmd, 0);
 
 	default:
 		/* give it to the superclass */
@@ -625,7 +619,6 @@ void
 LIS3MDL::start()
 {
 	/* reset the report ring and state machine */
-	_measurement_ready = false;
 	_reports->flush();
 
 	set_register_default_values();
@@ -647,8 +640,19 @@ LIS3MDL::stop()
 int
 LIS3MDL::reset()
 {
-	/* set range */
-	return set_range(_range_ga);
+	int ret = 0;
+
+	ret = set_register_default_values();
+	if(ret != OK) {
+		return PX4_ERROR;
+	}
+
+	ret = set_range(_range_ga);
+	if(ret != OK) {
+		return PX4_ERROR;
+	}
+
+	return OK;
 }
 
 void
@@ -662,26 +666,23 @@ LIS3MDL::cycle_trampoline(void *arg)
 void
 LIS3MDL::cycle()
 {
+	/* _measure_ticks == 0  is used as _task_should_exit */
 	if (_measure_ticks == 0) {
 		return;
 	}
 
 	/* Collect last measurement at the start of every cycle */
-	if (_measurement_ready) {
-
-		if (OK != collect()) {
-			DEVICE_DEBUG("collection error");
-			/* restart the measurement state machine */
-			start();
-			return;
-		}
+	if (OK != collect()) {
+		DEVICE_DEBUG("collection error");
+		/* restart the measurement state machine */
+		start();
+		return;
 	}
+	
 
 	if (OK != measure()) {
 		DEVICE_DEBUG("measure error");
 	}
-
-	_measurement_ready = true;
 
 	if (_measure_ticks > 0) {
 		/* schedule a fresh cycle call when the measurement is done */
@@ -698,9 +699,7 @@ LIS3MDL::measure()
 {
 	int ret = 0;
 
-	/*
-	 * Send the command to begin a measurement.
-	 */
+	/* Send the command to begin a measurement. */
 	if ((_mode == CONTINUOUS) && !_continuous_mode_set) {
 		ret = write_reg(ADDR_CTRL_REG3, MODE_REG_CONTINOUS_MODE);
 		_continuous_mode_set = true;
@@ -736,43 +735,36 @@ LIS3MDL::collect()
 	} report;
 #pragma pack(pop)
 
-	int     ret;
+	int     ret = 0;
 	uint8_t buf_rx[2] = {0};
 
 	perf_begin(_sample_perf);
-	struct mag_report new_report;
+	struct mag_report new_mag_report;
 	bool sensor_is_onboard = false;
 
 	float xraw_f;
 	float yraw_f;
 	float zraw_f;
 
-	/* this should be fairly close to the end of the measurement, so the best approximation of the time */
-	new_report.timestamp = hrt_absolute_time();
-	new_report.error_count = perf_event_count(_comms_errors);
-	new_report.range_ga = _range_ga;
-	new_report.scaling = _range_scale;
-	new_report.device_id = _device_id.devid;
+	new_mag_report.timestamp = hrt_absolute_time();
+	new_mag_report.error_count = perf_event_count(_comms_errors);
+	new_mag_report.range_ga = _range_ga;
+	new_mag_report.scaling = _range_scale;
+	new_mag_report.device_id = _device_id.devid;
 
-	/*
-	 * @note  We could read the status register here, which could tell us that
-	 *        we were too early and that the output registers are still being
-	 *        written.  In the common case that would just slow us down, and
-	 *        we're better off just never being early.
-	 */
-
-	/* get measurements from the device */
 	ret = _interface->read(ADDR_OUT_X_L, (uint8_t *)&lis_report, sizeof(lis_report));
-	/* Weird behavior: the X axis will be read instead of the temperature registers if you use a pointer to a packed struct...not sure why*/
+
+	/* Weird behavior: the X axis will be read instead of the temperature registers if you use a pointer to a packed struct...not sure why.
+	 * This works now, but further investigation to determine why this happens would be good (I am guessing a type error somewhere)
+	 */
 	ret = _interface->read(ADDR_OUT_T_L, (uint8_t *)&buf_rx, sizeof(buf_rx));
 
 	if (ret != OK) {
 		perf_count(_comms_errors);
-		DEVICE_DEBUG("data/status read error");
+		PX4_WARN("Register read error.");
 		return ret;
 	}
 
-	/* convert the data we just received */
 	report.x = (int16_t)((lis_report.x[1] << 8) | lis_report.x[0]);
 	report.y = (int16_t)((lis_report.y[1] << 8) | lis_report.y[0]);
 	report.z = (int16_t)((lis_report.z[1] << 8) | lis_report.z[0]);
@@ -780,28 +772,21 @@ LIS3MDL::collect()
 	report.t = (int16_t)((buf_rx[1] << 8) | buf_rx[0]);
 
 	float temperature = report.t;
-	/* get measurements from the device.  */
-	new_report.temperature = 25.0f + (temperature / 8.0f);
+	new_mag_report.temperature = 25.0f + (temperature / 8.0f);
 
 	// XXX revisit for SPI part, might require a bus type IOCTL
 
-	unsigned dummy;
-	sensor_is_onboard = !_interface->ioctl(MAGIOCGEXTERNAL, dummy);
-	new_report.is_external = !sensor_is_onboard;
+	sensor_is_onboard = !_interface->ioctl(MAGIOCGEXTERNAL, 0);
+	new_mag_report.is_external = !sensor_is_onboard;
 
 	/*
 	 * RAW outputs
 	 *
 	 */
-	new_report.x_raw = report.x;
-	new_report.y_raw = report.y;
-	new_report.z_raw = report.z;
+	new_mag_report.x_raw = report.x;
+	new_mag_report.y_raw = report.y;
+	new_mag_report.z_raw = report.z;
 
-	/* the LIS3MDL mag on Pixhawk Pro by Drotek has x pointing towards,
-	 * y pointing to the right, and z down, therefore no switch needed,
-	 * it is better to have no artificial rotation inside the
-	 * driver and then use the startup script with -R command with the
-	 * real rotation between the sensor and body frame */
 	xraw_f = report.x;
 	yraw_f = report.y;
 	zraw_f = report.z;
@@ -809,20 +794,20 @@ LIS3MDL::collect()
 	// apply user specified rotation
 	rotate_3f(_rotation, xraw_f, yraw_f, zraw_f);
 
-	new_report.x = ((xraw_f * _range_scale) - _scale.x_offset) * _scale.x_scale;
+	new_mag_report.x = ((xraw_f * _range_scale) - _scale.x_offset) * _scale.x_scale;
 	/* flip axes and negate value for y */
-	new_report.y = ((yraw_f * _range_scale) - _scale.y_offset) * _scale.y_scale;
+	new_mag_report.y = ((yraw_f * _range_scale) - _scale.y_offset) * _scale.y_scale;
 	/* z remains z */
-	new_report.z = ((zraw_f * _range_scale) - _scale.z_offset) * _scale.z_scale;
+	new_mag_report.z = ((zraw_f * _range_scale) - _scale.z_offset) * _scale.z_scale;
 
 	if (!(_pub_blocked)) {
 
 		if (_mag_topic != nullptr) {
 			/* publish it */
-			orb_publish(ORB_ID(sensor_mag), _mag_topic, &new_report);
+			orb_publish(ORB_ID(sensor_mag), _mag_topic, &new_mag_report);
 
 		} else {
-			_mag_topic = orb_advertise_multi(ORB_ID(sensor_mag), &new_report,
+			_mag_topic = orb_advertise_multi(ORB_ID(sensor_mag), &new_mag_report,
 							 &_orb_class_instance, (sensor_is_onboard) ? ORB_PRIO_HIGH : ORB_PRIO_MAX);
 
 			if (_mag_topic == nullptr) {
@@ -831,10 +816,10 @@ LIS3MDL::collect()
 		}
 	}
 
-	_last_report = new_report;
+	_last_report = new_mag_report;
 
 	/* post a report to the ring */
-	_reports->force(&new_report);
+	_reports->force(&new_mag_report);
 
 	/* notify anyone waiting for data */
 	poll_notify(POLLIN);
@@ -867,7 +852,7 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 
 	/* Set to 12 Gauss */
 	if (OK != ioctl(filp, MAGIOCSRANGE, 12)) {
-		warnx("FAILED: MAGIOCSRANGE 12 Ga");
+		PX4_WARN("FAILED: MAGIOCSRANGE 12 Ga");
 		ret = 1;
 		goto out;
 	}
@@ -932,7 +917,7 @@ int LIS3MDL::calibrate(struct file *filp, unsigned enable)
 
 	/* excite strap and take measurements */
 	if (OK != ioctl(filp, MAGIOCEXSTRAP, 1)) {
-		warnx("FAILED: MAGIOCEXSTRAP 1");
+		PX4_WARN("FAILED: MAGIOCEXSTRAP 1");
 		ret = 1;
 		goto out;
 	}
@@ -1009,11 +994,11 @@ out:
 
 	/* set back to normal mode */
 	if (OK != ::ioctl(fd, MAGIOCSRANGE, 4)) {
-		warnx("FAILED: MAGIOCSRANGE 4 Ga");
+		PX4_WARN("FAILED: MAGIOCSRANGE 4 Ga");
 	}
 
 	if (OK != ::ioctl(fd, MAGIOCEXSTRAP, 0)) {
-		warnx("FAILED: MAGIOCEXSTRAP 0");
+		PX4_WARN("FAILED: MAGIOCEXSTRAP 0");
 	}
 
 	usleep(20000);
@@ -1068,7 +1053,7 @@ int LIS3MDL::check_calibration()
 	bool scale_valid  = (check_scale() == OK);
 
 	if (_calibrated != (offset_valid && scale_valid)) {
-		warnx("mag cal status changed %s%s", (scale_valid) ? "" : "scale invalid ",
+		PX4_WARN("mag cal status changed %s%s", (scale_valid) ? "" : "scale invalid ",
 		      (offset_valid) ? "" : "offset invalid");
 		_calibrated = (offset_valid && scale_valid);
 	}
@@ -1090,7 +1075,7 @@ int LIS3MDL::set_excitement(unsigned enable)
 	_cntl_reg1 &= ~0x01; // reset previous excitement mode
 
 	if (((int)enable) < 0) {
-		warnx("WARN: set_excitement negative not supported\n");
+		PX4_WARN("WARN: set_excitement negative not supported\n");
 
 	} else if (enable > 0) {
 		_cntl_reg1 |= 0x01;
@@ -1145,7 +1130,7 @@ LIS3MDL::print_info()
 {
 	perf_print_counter(_sample_perf);
 	perf_print_counter(_comms_errors);
-	printf("poll interval:  %u ticks\n", _measure_ticks);
+	PX4_INFO("poll interval:  %u ticks", _measure_ticks);
 	print_message(_last_report);
 	_reports->print_info("report queue");
 }
@@ -1233,22 +1218,24 @@ bool init(enum LIS3MDL_BUS busid)
 	if (ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
 		close(fd);
 		errx(1, "Failed to setup poll rate");
-	}
-
-	/* start the sensor polling at 50 Hz */
-	if (OK != ioctl(fd, SENSORIOCSPOLLRATE, 50)) {
-		warn("FAILED: SENSORIOCSPOLLRATE 50Hz");
-
+		return false;
 	} else {
-		printf("Poll rate set to 50Hz\n");
+		PX4_INFO("Poll rate set to max (80hz)");
 	}
 
 	/* Set to 4 Gauss */
 	if (OK != ioctl(fd, MAGIOCSRANGE, 4)) {
-		warnx("FAILED: MAGIOCSRANGE 4 Ga");
+		PX4_WARN("FAILED: MAGIOCSRANGE 4 Gauss");
 
 	} else {
-		printf("set range to 4 Ga\n");
+		PX4_INFO("Set mag range to 4 Gauss");
+	}
+
+	/* Set register default values */
+	if(OK != bus.dev->set_register_default_values()) {
+		PX4_WARN("Failed to set register default values");
+	} else {
+		PX4_INFO("Register default values set");
 	}
 
 	close(fd);
@@ -1422,7 +1409,7 @@ int calibrate(enum LIS3MDL_BUS busid)
 	}
 
 	if (OK != (ret = ioctl(fd, MAGIOCCALIBRATE, fd))) {
-		warnx("failed to enable sensor calibration mode");
+		PX4_WARN("failed to enable sensor calibration mode");
 	}
 
 	close(fd);
@@ -1464,7 +1451,7 @@ info(enum LIS3MDL_BUS busid)
 {
 	struct lis3mdl_bus_option &bus = find_bus(busid);
 
-	warnx("running on bus: %u (%s)\n", (unsigned)bus.busid, bus.devpath);
+	PX4_WARN("running on bus: %u (%s)\n", (unsigned)bus.busid, bus.devpath);
 	bus.dev->print_info();
 	exit(0);
 }
@@ -1472,13 +1459,13 @@ info(enum LIS3MDL_BUS busid)
 void
 usage()
 {
-	warnx("missing command: try 'start', 'info', 'test', 'reset', 'info', 'calibrate'");
-	warnx("options:");
-	warnx("    -R rotation");
-	warnx("    -C calibrate on start");
-	warnx("    -X only external bus");
+	PX4_WARN("missing command: try 'start', 'info', 'test', 'reset', 'info', 'calibrate'");
+	PX4_WARN("options:");
+	PX4_WARN("    -R rotation");
+	PX4_WARN("    -C calibrate on start");
+	PX4_WARN("    -X only external bus");
 #if (PX4_I2C_BUS_ONBOARD || PX4_SPIDEV_LIS)
-	warnx("    -I only internal bus");
+	PX4_WARN("    -I only internal bus");
 #endif
 }
 
