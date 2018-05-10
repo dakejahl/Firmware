@@ -50,12 +50,13 @@
 #include <lib/conversion/rotation.h>
 
 #include <perf/perf_counter.h>
+#include <px4_defines.h>
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
 #endif
 
-/*
+/**
  * LIS3MDL internal constants and data structures.
  */
 

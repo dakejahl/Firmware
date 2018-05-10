@@ -39,10 +39,8 @@
  * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
  */
 
-#include <unistd.h>
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+// #include <stdlib.h>
 #include <errno.h>
 
 #include <px4_config.h>
@@ -77,11 +75,11 @@ heater::controller_period(char *argv[])
 		}
 
 		PX4_INFO("Controller period (usec):  %2.5f", (double)controller_period_usec);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -92,11 +90,11 @@ heater::duty_cycle()
 		float duty_cycle = heater_task->get_duty_cycle();
 		duty_cycle *= 100.f;
 		PX4_INFO("Average duty cycle:  %3.1f%%", (double)duty_cycle);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -118,7 +116,7 @@ heater::info()
 		 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
 		 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds)."
 		 "\n\tduty_cycle        - Displays the heater duty cycle (%%).");
-	return OK;
+	return PX4_OK;
 }
 
 static int
@@ -127,11 +125,11 @@ heater::get_sensor_id()
 	if (heater_task->is_running()) {
 		uint32_t id = heater_task->get_target_id();
 		PX4_INFO("Sensor ID:  %d", id);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -141,11 +139,11 @@ heater::get_temperature()
 	if (heater_task->is_running()) {
 		float current_temp = heater_task->get_current_temperature();
 		PX4_INFO("Current Temp:  %3.3f", (double)current_temp);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -164,11 +162,11 @@ heater::feed_forward(char *argv[])
 		}
 
 		PX4_INFO("Feed Forward Value:  %2.5f", (double)feed_forward);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -187,11 +185,11 @@ heater::integrator(char *argv[])
 		}
 
 		PX4_INFO("Integrator Gain:  %2.5f", (double)integrator_gain);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -210,11 +208,11 @@ heater::proportional(char *argv[])
 		}
 
 		PX4_INFO("Proportional Gain:  %2.5f", (double)proportional_gain);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -223,7 +221,7 @@ heater::start()
 {
 	if (heater_task != nullptr) {
 		PX4_INFO("Heater driver already running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 
 	heater_task = new Heater();
@@ -231,7 +229,7 @@ heater::start()
 	// Check if alloc worked
 	if (heater_task == nullptr) {
 		PX4_WARN("Heater driver alloc failed: %d", -errno);
-		return ERROR;
+		return PX4_ERROR;
 	}
 
 	// Start new thread task
@@ -239,7 +237,7 @@ heater::start()
 
 	if (ret) {
 		PX4_WARN("Heater driver task thread start failed: %d", -errno);
-		return ERROR;
+		return PX4_ERROR;
 	}
 
 	// Avoid memory fragmentation by not exiting start handler until the task has fully started
@@ -255,13 +253,13 @@ heater::start()
 			if (hrt_absolute_time() > timeout) {
 				PX4_WARN("Heater driver start failed - Timeout");
 				stop();
-				return ERROR;
+				return PX4_ERROR;
 			}
 		}
 	}
 
 	PX4_INFO("Heater driver started successfully.");
-	return OK;
+	return PX4_OK;
 }
 
 static int
@@ -277,11 +275,11 @@ heater::status()
 			 (double)target_temperature,
 			 heater_state ? "On" : "Off");
 
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -290,7 +288,7 @@ heater::stop()
 {
 	if (!heater_task->is_running()) {
 		PX4_WARN("Heater driver not running");
-		return OK;
+		return PX4_OK;
 	}
 
 	heater_task->stop();
@@ -304,7 +302,7 @@ heater::stop()
 
 		if (counter > 50) {
 			PX4_WARN("Heater driver was not successfully stopped");
-			return ERROR;
+			return PX4_ERROR;
 		}
 
 		// wait 20ms at a time
@@ -316,7 +314,7 @@ heater::stop()
 	heater_task = nullptr;
 
 	PX4_INFO("Heater driver successfully stopped");
-	return OK;
+	return PX4_OK;
 }
 
 static int
@@ -335,11 +333,11 @@ heater::target_temperature(char *argv[])
 		}
 
 		PX4_INFO("Target Temp:  %3.3f", (double)target_temp);
-		return OK;
+		return PX4_OK;
 
 	} else {
 		PX4_WARN("Heater driver not running");
-		return ERROR;
+		return PX4_ERROR;
 	}
 }
 
@@ -352,7 +350,7 @@ heater_main(int argc, char *argv[])
 	if (argc < 2) {
 		PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional"\
 			 "|integrator|controller_period|duty_cycle|sensor_id|info}");
-		return ERROR;
+		return PX4_ERROR;
 	}
 
 	const char *arg_vector = argv[1];
@@ -418,5 +416,5 @@ heater_main(int argc, char *argv[])
 		return heater::info();
 	}
 
-	return OK;
+	return PX4_OK;
 }

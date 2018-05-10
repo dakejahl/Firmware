@@ -517,7 +517,7 @@ LIS3MDL::init()
 
 	_class_instance = register_class_devname(MAG_BASE_DEVICE_PATH);
 
-	return OK;
+	return PX4_OK;
 }
 
 int
@@ -533,7 +533,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 			case SENSOR_POLLRATE_MANUAL:
 				stop();
 				_measure_ticks = 0;
-				return OK;
+				return PX4_OK;
 
 			/* zero would be bad */
 			case 0:
@@ -551,7 +551,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 						start();
 					}
 
-					return OK;
+					return PX4_OK;
 				}
 
 			/* Uses arg (hz) for a custom poll rate */
@@ -570,7 +570,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 						start();
 					}
 
-					return OK;
+					return PX4_OK;
 				}
 			}
 		}
@@ -590,7 +590,7 @@ LIS3MDL::ioctl(struct file *filp, int cmd, unsigned long arg)
 
 			px4_leave_critical_section(flags);
 
-			return OK;
+			return PX4_OK;
 		}
 
 	case SENSORIOCRESET:
@@ -696,7 +696,7 @@ LIS3MDL::reset()
 		return PX4_ERROR;
 	}
 
-	return OK;
+	return PX4_OK;
 }
 
 ssize_t
@@ -766,7 +766,7 @@ LIS3MDL::set_default_register_values()
 	write_reg(ADDR_CTRL_REG4, CNTL_REG4_DEFAULT);
 	write_reg(ADDR_CTRL_REG5, CNTL_REG5_DEFAULT);
 
-	return OK;
+	return PX4_OK;
 }
 
 int
@@ -845,7 +845,7 @@ LIS3MDL::set_range(unsigned range)
 	}
 
 	if (range_bits_in == (_range_bits << 5)) {
-		return OK;
+		return PX4_OK;
 
 	} else {
 		return PX4_ERROR;
