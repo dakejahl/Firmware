@@ -165,6 +165,7 @@
  * Note that these are unshifted addresses.
  */
 #define PX4_I2C_OBDEV_BMP280         0x76
+#define PX4_I2C_OBDEV_MPU9250        0x69
 
 /*
  * ADC channels
