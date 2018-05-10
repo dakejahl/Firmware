@@ -32,9 +32,10 @@
  ****************************************************************************/
 
 /**
- * @file Heater.h
+ * @file heater.h
  *
  * @author Khoi Tran <khoi@tealdrones.com>
+ * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
  */
 
 #pragma once
@@ -46,25 +47,27 @@
 
 namespace heater
 {
-
 class Heater
 {
 public:
-
+	/**
+	 * @brief Default Constructor.
+	 */
 	Heater();
+
+	/**
+	 * @brief Default Destructor.
+	 */
 	virtual ~Heater();
 
 	/**
-	 * @brief
-	 * @return true if this task is currently running.
+	 * @brief Returns true iff the heater driver is currently running.
+	 * @return Returns true iff the heater driver is currently running.
 	 */
-	inline bool is_running() const
-	{
-		return _task_is_running;
-	}
+	bool is_running();
 
 	/**
-	 * @brief Tells the task to exit.
+	 * @brief Stops the task and exits.
 	 */
 	void stop();
 
@@ -164,39 +167,34 @@ protected:
 	 * @brief Updates the uORB topics for local subscribers.
 	 * @return Returns true iff update was successful.
 	 */
-	static bool _orb_update(const struct orb_metadata *meta, int handle, void *buffer);
+	static bool orb_update(const struct orb_metadata *meta, int handle, void *buffer);
 
 	/**
 	 * @brief Called once to initialize uORB topics.
 	 */
-	void _initialize_topics();
+	void initialize_topics();
 
 	/**
 	 * @brief Updates uORB subscription topics.
 	 */
-	void _update_topics();
-
-	/**
-	 * @brief Updates subscription parameters.
-	 */
-	void _update_params();
+	void update_topics();
 
 	/** @param Local member variable to store the parameter subscriptions. */
 	int _parameter_sub;
 
 private:
 
-	static void _heater_controller_trampoline(void *arg);
+	static void heater_controller_trampoline(void *arg);
 
 	/**
 	 * @brief
 	 */
-	void _heater_controller();
+	void heater_controller();
 
 	/**
 	 * @brief Checks
 	 */
-	void _check_params(const bool force);
+	void check_params(const bool force);
 
 	/** @param _task_should_exit Indicator flag to stop the heater driver process. */
 	bool _task_should_exit;

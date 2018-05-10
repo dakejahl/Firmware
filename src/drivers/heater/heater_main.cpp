@@ -39,89 +39,205 @@
  * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
  */
 
+#include <string.h>
+// #include <stdlib.h>
+#include <errno.h>
+
 #include <px4_config.h>
 #include <px4_defines.h>
-#include <px4_tasks.h>
 #include <px4_posix.h>
-#include <unistd.h>                     //usleep
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <px4_tasks.h>
+
 #include <drivers/drv_hrt.h>
-#include <systemlib/systemlib.h>        //Scheduler
-#include <systemlib/err.h>              //print to console
+#include <systemlib/systemlib.h>
+#include <systemlib/err.h>
 
-#include "Heater.h"
-
-namespace heater
-{
-
-// Function prototypes
-static int heater_start();
-static void heater_stop();
+#include "heater_main.h"
 
 /**
- * land detector app start / stop handling function
- * This makes the land detector module accessible from the nuttx shell
- * @ingroup apps
+ * @brief IMU Heater Controller driver used to maintain consistent
+ *        temparature at the IMU.
  */
 extern "C" __EXPORT int heater_main(int argc, char *argv[]);
 
-// Private variables
-static Heater *heater_task = nullptr;
-
-/**
- * Stop the task, force killing it if it doesn't stop by itself
- */
-static void heater_stop()
+static int
+heater::controller_period(char *argv[])
 {
-	if (heater_task == nullptr) {
-		PX4_WARN("not running");
-		return;
+	if (heater_task->is_running()) {
+		float controller_period_usec = 0.f;
+
+		if (argv[2]) {
+			controller_period_usec = atof(argv[2]);
+			controller_period_usec = heater_task->set_controller_period(controller_period_usec);
+
+		} else {
+			controller_period_usec = heater_task->get_controller_period();
+		}
+
+		PX4_INFO("Controller period (usec):  %2.5f", (double)controller_period_usec);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
 	}
-
-	heater_task->stop();
-
-	// Wait for task to die
-	int i = 0;
-
-	do {
-		// wait 20ms at a time
-		usleep(20000);
-
-	} while (heater_task->is_running() && ++i < 50);
-
-
-	delete heater_task;
-	heater_task = nullptr;
-	PX4_WARN("heater has been stopped");
 }
 
-/**
- * Start new task, fails if it is already running. Returns OK if successful
- */
-static int heater_start()
+static int
+heater::duty_cycle()
+{
+	if (heater_task->is_running()) {
+		float duty_cycle = heater_task->get_duty_cycle();
+		duty_cycle *= 100.f;
+		PX4_INFO("Average duty cycle:  %3.1f%%", (double)duty_cycle);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::info()
+{
+	PX4_INFO("\n\tstart             - Starts the Heater driver."
+		 "\n\tstop              - Stops the Heater driver."
+		 "\n\tstatus            - Displays the current IMU temperature, target temperature, and heater on/off status."
+		 "\n\ttemp              - Displays the current IMU temperature."
+		 "\n\ttarget_temp       - Displays the current IMU temperature."
+		 "\n\tsensor_id         - Displays the current IMU the heater is temperature controlling."
+		 "\n\tfeed_forward      - Without argument displays the feed_forward gain value."
+		 "\n\t                  - With float value argument sets and displays the feed_forward gain value."
+		 "\n\tproportional      - Without argument displays the proportional gain value."
+		 "\n\t                  - With float value argument sets and displays the proportional gain value."
+		 "\n\tintegrator        - Without argument displays the integrator gain value."
+		 "\n\t                  - With float value argument sets and displays the integrator gain value."
+		 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
+		 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds)."
+		 "\n\tduty_cycle        - Displays the heater duty cycle (%%).");
+	return PX4_OK;
+}
+
+static int
+heater::get_sensor_id()
+{
+	if (heater_task->is_running()) {
+		uint32_t id = heater_task->get_target_id();
+		PX4_INFO("Sensor ID:  %d", id);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::get_temperature()
+{
+	if (heater_task->is_running()) {
+		float current_temp = heater_task->get_current_temperature();
+		PX4_INFO("Current Temp:  %3.3f", (double)current_temp);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::feed_forward(char *argv[])
+{
+	if (heater_task->is_running()) {
+		float feed_forward = 0.f;
+
+		if (argv[2]) {
+			feed_forward = atof(argv[2]);
+			feed_forward = heater_task->set_feed_forward(feed_forward);
+
+		} else {
+			feed_forward = heater_task->get_feed_forward();
+		}
+
+		PX4_INFO("Feed Forward Value:  %2.5f", (double)feed_forward);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::integrator(char *argv[])
+{
+	if (heater_task->is_running()) {
+		float integrator_gain = 0.f;
+
+		if (argv[2]) {
+			integrator_gain = atof(argv[2]);
+			integrator_gain = heater_task->set_integrator(integrator_gain);
+
+		} else {
+			integrator_gain = heater_task->get_integrator();
+		}
+
+		PX4_INFO("Integrator Gain:  %2.5f", (double)integrator_gain);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::proportional(char *argv[])
+{
+	if (heater_task->is_running()) {
+		float proportional_gain = 0.f;
+
+		if (argv[2]) {
+			proportional_gain = atof(argv[2]);
+			proportional_gain = heater_task->set_proportional(proportional_gain);
+
+		} else {
+			proportional_gain = heater_task->get_proportional();
+		}
+
+		PX4_INFO("Proportional Gain:  %2.5f", (double)proportional_gain);
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::start()
 {
 	if (heater_task != nullptr) {
-		PX4_WARN("already running");
-		return -1;
+		PX4_INFO("Heater driver already running");
+		return PX4_ERROR;
 	}
 
 	heater_task = new Heater();
 
 	// Check if alloc worked
 	if (heater_task == nullptr) {
-		PX4_WARN("alloc failed");
-		return -1;
+		PX4_WARN("Heater driver alloc failed: %d", -errno);
+		return PX4_ERROR;
 	}
 
 	// Start new thread task
 	int ret = heater_task->start();
 
 	if (ret) {
-		PX4_WARN("task start failed: %d", -errno);
-		return -1;
+		PX4_WARN("Heater driver task thread start failed: %d", -errno);
+		return PX4_ERROR;
 	}
 
 	// Avoid memory fragmentation by not exiting start handler until the task has fully started
@@ -135,72 +251,76 @@ static int heater_start()
 			usleep(50000);
 
 			if (hrt_absolute_time() > timeout) {
-				PX4_WARN("start failed - timeout");
-				heater_stop();
-				return 1;
+				PX4_WARN("Heater driver start failed - Timeout");
+				stop();
+				return PX4_ERROR;
 			}
 		}
 	}
 
-	return 0;
+	PX4_INFO("Heater driver started successfully.");
+	return PX4_OK;
 }
 
-/**
- * Main entry point for this module
- */
-int heater_main(int argc, char *argv[])
+static int
+heater::status()
 {
-	if (argc < 2) {
-		goto exiterr;
+	if (heater_task->is_running()) {
+		float current_temperature = heater_task->get_current_temperature();
+		float target_temperature = heater_task->get_target_temperature();
+		bool heater_state = heater_task->get_state();
+
+		PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
+			 (double)current_temperature,
+			 (double)target_temperature,
+			 heater_state ? "On" : "Off");
+
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+static int
+heater::stop()
+{
+	if (!heater_task->is_running()) {
+		PX4_WARN("Heater driver not running");
+		return PX4_OK;
 	}
 
-	// Start the heater driver task.
-	if (!strcmp(argv[1], "start")) {
-		if (heater_start() != 0) {
-			PX4_INFO("heater start failed");
-			return 1;
+	heater_task->stop();
+
+	// Wait for task to die
+	size_t counter = 0;
+
+	while (heater_task->is_running()) {
+
+		counter++;
+
+		if (counter > 50) {
+			PX4_WARN("Heater driver was not successfully stopped");
+			return PX4_ERROR;
 		}
 
-		return 0;
+		// wait 20ms at a time
+		usleep(20000);
 	}
 
-	// Stop the heater driver task.
-	if (!strcmp(argv[1], "stop")) {
-		heater_stop();
-		return 0;
-	}
 
-	// Display the heater driver status.
-	if (!strcmp(argv[1], "status")) {
-		if (heater_task) {
-			if (heater_task->is_running()) {
-				float current_temperature = heater_task->get_current_temperature();
-				float target_temperature = heater_task->get_target_temperature();
-				bool heater_state = heater_task->get_state();
+	delete heater_task;
+	heater_task = nullptr;
 
-				PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
-					 (double)current_temperature,
-					 (double)target_temperature,
-					 heater_state ? "On" : "Off");
-			}
+	PX4_INFO("Heater driver successfully stopped");
+	return PX4_OK;
+}
 
-			return 0;
-
-		} else {
-			PX4_WARN("Heater driver not running");
-			return 1;
-		}
-	}
-
-	// Display the IMU temperature.
-	if (!strcmp(argv[1], "temp")) {
-		float current_temp = heater_task->get_current_temperature();
-		PX4_INFO("Current Temp:  %3.3f", (double)current_temp);
-		return 0;
-	}
-
-	// Display the IMU target temperature.
-	if (!strcmp(argv[1], "target_temp")) {
+static int
+heater::target_temperature(char *argv[])
+{
+	if (heater_task->is_running()) {
 		float target_temp = 0.f;
 
 		if (argv[2]) {
@@ -213,111 +333,88 @@ int heater_main(int argc, char *argv[])
 		}
 
 		PX4_INFO("Target Temp:  %3.3f", (double)target_temp);
-		return 0;
+		return PX4_OK;
+
+	} else {
+		PX4_WARN("Heater driver not running");
+		return PX4_ERROR;
+	}
+}
+
+/**
+ * Main entry point for the heater driver module
+ */
+int
+heater_main(int argc, char *argv[])
+{
+	if (argc < 2) {
+		PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional"\
+			 "|integrator|controller_period|duty_cycle|sensor_id|info}");
+		return PX4_ERROR;
+	}
+
+	const char *arg_vector = argv[1];
+
+	// Start the heater driver task.
+	if (!strcmp(arg_vector, "start")) {
+		return heater::start();
+	}
+
+	// Display the heater driver status.
+	if (!strcmp(arg_vector, "status")) {
+		return heater::status();
+	}
+
+	// Stop the heater driver task.
+	if (!strcmp(arg_vector, "stop")) {
+		return heater::stop();
+	}
+
+	// Display the IMU temperature.
+	if (!strcmp(arg_vector, "temp")) {
+		return heater::get_temperature();
+	}
+
+	// Display the IMU target temperature.
+	if (!strcmp(arg_vector, "target_temp")) {
+		return heater::target_temperature(argv);
 	}
 
 	// Display the id of the sensor we are controlling temperature on.
-	if (!strcmp(argv[1], "sensor_id")) {
-		uint32_t id = heater_task->get_target_id();
-		PX4_INFO("Sensor ID:  %d", id);
-		return 0;
+	if (!strcmp(arg_vector, "sensor_id")) {
+		return heater::get_sensor_id();
 	}
 
 	// Display/Set the heater driver feed forward value.
-	if (!strcmp(argv[1], "feed_forward")) {
-		float feed_forward = 0.f;
-
-		if (argv[2]) {
-			feed_forward = atof(argv[2]);
-			feed_forward = heater_task->set_feed_forward(feed_forward);
-
-		} else {
-			feed_forward = heater_task->get_feed_forward();
-		}
-
-		PX4_INFO("Feed Forward Value:  %2.5f", (double)feed_forward);
-		return 0;
-	}
-
-	// Display/Set the heater driver proportional gain value.
-	if (!strcmp(argv[1], "proportional")) {
-		float proportional_gain = 0.f;
-
-		if (argv[2]) {
-			proportional_gain = atof(argv[2]);
-			proportional_gain = heater_task->set_proportional(proportional_gain);
-
-		} else {
-			proportional_gain = heater_task->get_proportional();
-		}
-
-		PX4_INFO("Proportional Gain:  %2.5f", (double)proportional_gain);
-		return 0;
+	if (!strcmp(arg_vector, "feed_forward")) {
+		return heater::feed_forward(argv);
 	}
 
 	// Display/Set the heater driver integrator gain value.
-	if (!strcmp(argv[1], "integrator")) {
-		float integrator_gain = 0.f;
+	if (!strcmp(arg_vector, "integrator")) {
+		return heater::integrator(argv);
+	}
 
-		if (argv[2]) {
-			integrator_gain = atof(argv[2]);
-			integrator_gain = heater_task->set_integrator(integrator_gain);
-
-		} else {
-			integrator_gain = heater_task->get_integrator();
-		}
-
-		PX4_INFO("Integrator Gain:  %2.5f", (double)integrator_gain);
-		return 0;
+	// Display/Set the heater driver proportional gain value.
+	if (!strcmp(arg_vector, "proportional")) {
+		return heater::proportional(argv);
 	}
 
 	// Display/Set the heater controller period value (usec).
-	if (!strcmp(argv[1], "controller_period")) {
-		float controller_period_usec = 0.f;
-
-		if (argv[2]) {
-			controller_period_usec = atof(argv[2]);
-			controller_period_usec = heater_task->set_controller_period(controller_period_usec);
-
-		} else {
-			controller_period_usec = heater_task->get_controller_period();
-		}
-
-		PX4_INFO("Controller period (usec):  %2.5f", (double)controller_period_usec);
-		return 0;
+	if (!strcmp(arg_vector, "controller_period")) {
+		return heater::controller_period(argv);
 	}
 
 	// Display the heater on duty cycle as a percent.
-	if (!strcmp(argv[1], "duty_cycle")) {
-		float duty_cycle = heater_task->get_duty_cycle();
-		duty_cycle *= 100.f;
-		PX4_INFO("Average duty cycle:  %3.1f%%", (double)duty_cycle);
-		return 0;
+	if (!strcmp(arg_vector, "duty_cycle")) {
+		return heater::duty_cycle();
 	}
 
 	// Display the heater driver information/argument list.
-	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
-		PX4_INFO("\n\tstart             - Starts the Heater driver."
-			 "\n\tstop              - Stops the Heater driver."
-			 "\n\tstatus            - Displays the current IMU temperature, target temperature, and heater on/off status."
-			 "\n\ttemp              - Displays the current IMU temperature."
-			 "\n\ttarget_temp       - Displays the current IMU temperature."
-			 "\n\tsensor_id         - Displays the current IMU the heater is temperature controlling."
-			 "\n\tfeed_forward      - Without argument displays the feed_forward gain value."
-			 "\n\t                  - With float value argument sets and displays the feed_forward gain value."
-			 "\n\tproportional      - Without argument displays the proportional gain value."
-			 "\n\t                  - With float value argument sets and displays the proportional gain value."
-			 "\n\tintegrator        - Without argument displays the integrator gain value."
-			 "\n\t                  - With float value argument sets and displays the integrator gain value."
-			 "\n\tcontroller_period - Without argument displays the heater driver cycle period value (microseconds)."
-			 "\n\t                  - With int value argument sets and displays the heater driver cycle period value (microseconds)."
-			 "\n\tduty_cycle        - Displays the heater duty cycle (%%).");
-		return 0;
+	if (!strcmp(arg_vector, "usage") ||
+	    !strcmp(arg_vector, "info")) {
+		return heater::info();
 	}
 
-exiterr:
-	PX4_INFO("Usage: heater {start|stop|status|temp|target_temp|feed_forward|proportional|integrator|controller_period|duty_cycle|sensor_id|help}");
-	return 1;
-}
-
+	return PX4_OK;
 }
