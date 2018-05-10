@@ -93,7 +93,7 @@ BATT_SMBUS::~BATT_SMBUS()
 int
 BATT_SMBUS::init()
 {
-	int ret = ERROR;
+	int ret = PX4_ERROR;
 
 	// attempt to initialize I2C bus
 	ret = I2C::init();
@@ -194,7 +194,7 @@ BATT_SMBUS::search()
 
 	} else {
 		PX4_INFO("No smart batteries found.");
-		return ERROR;
+		return PX4_ERROR;
 	}
 
 	return OK;
@@ -413,7 +413,7 @@ BATT_SMBUS::read_reg(uint8_t reg, uint16_t &val)
 
 		} else {
 			PX4_ERR("BATT_SMBUS PEC Check Failed");
-			ret = ERROR;
+			ret = PX4_ERROR;
 		}
 	}
 
@@ -435,7 +435,7 @@ BATT_SMBUS::write_reg(uint8_t reg, uint16_t val)
 	int ret = transfer(buff, 3, nullptr, 0);
 
 	if (ret != OK) {
-		PX4_DEBUG("Register write error");
+		PX4_DEBUG("Register write ERROR");
 	}
 
 	// return success or failure
@@ -512,7 +512,7 @@ BATT_SMBUS::write_block(uint8_t reg, uint8_t *data, uint8_t len)
 
 	// return zero on failure
 	if (ret != OK) {
-		PX4_DEBUG("Block write error");
+		PX4_DEBUG("Block write ERROR");
 		return 0;
 	}
 
@@ -588,7 +588,7 @@ BATT_SMBUS::ManufacturerAccess(uint16_t cmd)
 	int ret = write_reg(BATT_SMBUS_MANUFACTURER_ACCESS, cmd);
 
 	if (ret != OK) {
-		PX4_WARN("Manufacturer Access error");
+		PX4_WARN("Manufacturer Access ERROR");
 	}
 
 	return ret;
@@ -619,7 +619,7 @@ BATT_SMBUS::GetStartupInfo()
 			_serial_number = tmp;
 
 		} else {
-			ret = ERROR;
+			ret = PX4_ERROR;
 		}
 	}
 
@@ -629,7 +629,7 @@ BATT_SMBUS::GetStartupInfo()
 			_batt_startup_capacity = tmp;
 
 		} else {
-			ret = ERROR;
+			ret = PX4_ERROR;
 		}
 	}
 
@@ -639,7 +639,7 @@ BATT_SMBUS::GetStartupInfo()
 			_cycle_count = tmp;
 
 		} else {
-			ret = ERROR;
+			ret = PX4_ERROR;
 		}
 	}
 
@@ -649,7 +649,7 @@ BATT_SMBUS::GetStartupInfo()
 			_batt_capacity = tmp;
 
 		} else {
-			ret = ERROR;
+			ret = PX4_ERROR;
 		}
 	}
 
