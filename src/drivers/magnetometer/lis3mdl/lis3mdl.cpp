@@ -61,14 +61,14 @@ LIS3MDL::LIS3MDL(device::Device *interface, const char *path, enum Rotation rota
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_range_ga(4.0f),
-	_range_scale(0), /* default range scale from counts to gauss */
+	_range_scale(0),                // default range scale from counts to gauss */
 	_check_state_cnt(0),
 	_cntl_reg1(
-		CNTL_REG1_DEFAULT), // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
-	_cntl_reg2(CNTL_REG2_DEFAULT), // 4 gauss FS range, reboot settings default
-	_cntl_reg3(CNTL_REG3_DEFAULT), // operating mode CONTINUOUS!
-	_cntl_reg4(CNTL_REG4_DEFAULT), // Z-axis ultra high performance mode
-	_cntl_reg5(CNTL_REG5_DEFAULT), // fast read disabled, continious update disabled (block data update)
+		CNTL_REG1_DEFAULT),     // 1 11 111 0 0 | temp-en, ultra high performance (XY), fast_odr disabled, self test disabled
+	_cntl_reg2(CNTL_REG2_DEFAULT),  // 4 gauss FS range, reboot settings default
+	_cntl_reg3(CNTL_REG3_DEFAULT),  // operating mode CONTINUOUS!
+	_cntl_reg4(CNTL_REG4_DEFAULT),  // Z-axis ultra high performance mode
+	_cntl_reg5(CNTL_REG5_DEFAULT),  // fast read disabled, continious update disabled (block data update)
 	_range_bits(0),
 	_temperature_counter(0),
 	_temperature_error_count(0)

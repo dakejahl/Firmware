@@ -39,100 +39,89 @@
 
 #include "lis3mdl.h"
 
-
-/**
- * @Note: Local functions supporting shell commands.
- */
 namespace lis3mdl
 {
-	/**
-	 * List of supported bus configurations
-	 */
+/**
+ * @struct List of supported bus configurations
+ */
+struct lis3mdl_bus_option {
+	LIS3MDL_BUS bus_id;
+	const char *devpath;
+	LIS3MDL_constructor interface_constructor;
+	uint8_t busnum;
+	LIS3MDL *dev;
+} bus_options[] = {
+#ifdef PX4_I2C_BUS_EXPANSION
+	{ LIS3MDL_BUS_I2C_EXTERNAL, "/dev/lis3mdl_ext", &LIS3MDL_I2C_interface, PX4_I2C_BUS_EXPANSION, NULL },
+#endif /* PX4_I2C_BUS_EXPANSION */
+#ifdef PX4_I2C_BUS_ONBOARD
+	{ LIS3MDL_BUS_I2C_INTERNAL, "/dev/lis3mdl_int", &LIS3MDL_I2C_interface, PX4_I2C_BUS_ONBOARD, NULL },
+#endif /* PX4_I2C_BUS_ONBOARD */
+#ifdef PX4_SPIDEV_LIS
+	{ LIS3MDL_BUS_SPI, "/dev/lis3mdl_spi", &LIS3MDL_SPI_interface, PX4_SPI_BUS_SENSORS, NULL },
+#endif /* PX4_SPIDEV_LIS */
+};
 
-	/**
-	 * @brief Finds a bus structure for a bus_id
-	 */
-	struct lis3mdl_bus_option {
-		LIS3MDL_BUS bus_id;
-		const char *devpath;
-		LIS3MDL_constructor interface_constructor;
-		uint8_t busnum;
-		LIS3MDL *dev;
-	} bus_options[] = {
-	#ifdef PX4_I2C_BUS_EXPANSION
-		{ LIS3MDL_BUS_I2C_EXTERNAL, "/dev/lis3mdl_ext", &LIS3MDL_I2C_interface, PX4_I2C_BUS_EXPANSION, NULL },
-	#endif /* PX4_I2C_BUS_EXPANSION */
-	#ifdef PX4_I2C_BUS_ONBOARD
-		{ LIS3MDL_BUS_I2C_INTERNAL, "/dev/lis3mdl_int", &LIS3MDL_I2C_interface, PX4_I2C_BUS_ONBOARD, NULL },
-	#endif /* PX4_I2C_BUS_ONBOARD */
-	#ifdef PX4_SPIDEV_LIS
-		{ LIS3MDL_BUS_SPI, "/dev/lis3mdl_spi", &LIS3MDL_SPI_interface, PX4_SPI_BUS_SENSORS, NULL },
-	#endif /* PX4_SPIDEV_LIS */
-	};
+/**
+ * @brief Finds a bus structure for a bus_id
+ */
+lis3mdl_bus_option &find_bus(LIS3MDL_BUS bus_id);
 
-	/**
-	 * @brief Finds the appropriate bus for the device.
-	 */
-	lis3mdl_bus_option &find_bus(LIS3MDL_BUS bus_id);
+/**
+ * @brief Calibrate and self test. Self test feature cannot be used to calculate scale.
+ *
+ * SELF TEST OPERATION
+ * Note: To check the LIS3MDL for proper operation, a self test feature is incorporated :
+ *       sensor offset straps are excited to create a nominal field strength
+ *       (bias field) to be measured. To implement self test, the least significant bits
+ *       (MS1 and MS0) of configuration register A are changed from 00 to 01 (positive bias).
+ *       A few measurements are taken and stored with and without the additional magnetic
+ *       field. According to ST datasheet, those values must stay between thresholds in order
+ *       to pass the self test.
+ */
+int calibrate(LIS3MDL_BUS bus_id);
 
-	/**
-	 * @brief Calibrate and self test check.
-	 *
-	 * Unlike HMC5883, self test feature cannot be used to calculate
-	 * scale.
-	 *
-	 * SELF TEST OPERATION
-	 * Note: To check the LIS3MDL for proper operation, a self test feature is incorporated :
-	 *       sensor offset straps are excited to create a nominal field strength
-	 *       (bias field) to be measured. To implement self test, the least significant bits
-	 *       (MS1 and MS0) of configuration register A are changed from 00 to 01 (positive bias).
-	 *       A few measurements are taken and stored with and without the additional magnetic
-	 *       field. According to ST datasheet, those values must stay between thresholds in order
-	 *       to pass the self test.
-	 */
-	int calibrate(LIS3MDL_BUS bus_id);
+/**
+ * @brief Prints info about the driver.
+ */
+int info(LIS3MDL_BUS bus_id);
 
-	/**
-	 * @brief Prints info about the driver.
-	 */
-	int info(LIS3MDL_BUS bus_id);
+/**
+ * @brief Initializes the driver -- sets defaults and starts a cycle
+ */
+bool init(LIS3MDL_BUS bus_id);
 
-	/**
-	 * @brief Initializes the driver -- sets defaults and starts a cycle
-	 */
-	bool init(LIS3MDL_BUS bus_id);
+/**
+ * @brief Resets the driver.
+ */
+void reset(LIS3MDL_BUS bus_id);
 
-	/**
-	 * @brief Resets the driver.
-	 */
-	void reset(LIS3MDL_BUS bus_id);
+/**
+ * @brief Starts the driver for a specific bus option
+ */
+bool start_bus(struct lis3mdl_bus_option &bus, Rotation rotation);
 
-	/**
-	 * @brief Starts the driver for a specific bus option
-	 */
-	bool start_bus(struct lis3mdl_bus_option &bus, Rotation rotation);
+/**
+ * @brief Starts the driver. This function call only returns once the driver
+ *        is either successfully up and running or failed to start.
+ */
+void start(LIS3MDL_BUS bus_id, Rotation rotation);
 
-	/**
-	 * @brief Starts the driver. This function call only returns once the driver
-	 *        is either successfully up and running or failed to start.
-	 */
-	void start(LIS3MDL_BUS bus_id, Rotation rotation);
+/**
+ * @brief Stop the driver.
+ */
+int stop();
 
-	/**
-	 * @brief Stop the driver.
-	 */
-	int stop();
+/**
+ * @brief Perform some basic functional tests on the driver;
+ * 	  make sure we can collect data from the sensor in polled
+ * 	  and automatic modes.
+ */
+void test(LIS3MDL_BUS bus_id);
 
-	/**
-	 * Perform some basic functional tests on the driver;
-	 * make sure we can collect data from the sensor in polled
-	 * and automatic modes.
-	 */
-	void test(LIS3MDL_BUS bus_id);
-
-	/**
-	 * @brief Prints info about the driver argument usage.
-	 */
-	void usage();
+/**
+ * @brief Prints info about the driver argument usage.
+ */
+void usage();
 
 } // namespace lis3mdl

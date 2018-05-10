@@ -32,9 +32,10 @@
  ****************************************************************************/
 
 /*
- * @file Heater.cpp
+ * @file heater.cpp
  *
  * @author Khoi Tran <khoi@tealdrones.com>
+ * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
  */
 
 #include <drivers/drv_hrt.h>
@@ -45,7 +46,7 @@
 #include <px4_defines.h>
 #include <uORB/topics/parameter_update.h>
 
-#include "Heater.h"
+#include "heater.h"
 
 namespace heater
 {

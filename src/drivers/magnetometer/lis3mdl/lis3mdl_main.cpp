@@ -39,7 +39,7 @@
 
 #include "lis3mdl_main.h"
 
-/*
+/**
  * Driver 'main' command.
  */
 extern "C" __EXPORT int lis3mdl_main(int argc, char *argv[]);
@@ -295,13 +295,14 @@ lis3mdl::usage()
 int
 lis3mdl_main(int argc, char *argv[])
 {
-	int ch;
-	enum LIS3MDL_BUS bus_id = LIS3MDL_BUS_ALL;
-	enum Rotation rotation = ROTATION_NONE;
+	int index = 0;
 	bool calibrate = false;
 
-	while ((ch = getopt(argc, argv, "XISR:CT")) != EOF) {
-		switch (ch) {
+	enum LIS3MDL_BUS bus_id = LIS3MDL_BUS_ALL;
+	enum Rotation rotation = ROTATION_NONE;
+
+	while ((index = getopt(argc, argv, "XISR:CT")) != EOF) {
+		switch (index) {
 		case 'R':
 			rotation = (enum Rotation)atoi(optarg);
 			break;
@@ -330,12 +331,10 @@ lis3mdl_main(int argc, char *argv[])
 		}
 	}
 
-	const char *verb = argv[optind];
+	const char *arg = argv[optind];
 
-	/*
-	 * Start/load the driver.
-	 */
-	if (!strcmp(verb, "start")) {
+	// Start/load the driver
+	if (!strcmp(arg, "start")) {
 		lis3mdl::start(bus_id, rotation);
 
 		if (calibrate) {
@@ -350,38 +349,29 @@ lis3mdl_main(int argc, char *argv[])
 		exit(0);
 	}
 
-	/*
-	 * Stop the driver.
-	 */
-	if (!strcmp(verb, "stop")) {
+	// Stop the driver
+	if (!strcmp(arg, "stop")) {
 		return lis3mdl::stop();
 	}
 
-	/*
-	 * Test the driver/device.
-	 */
-	if (!strcmp(verb, "test")) {
+	// Test the driver/device
+	if (!strcmp(arg, "test")) {
 		lis3mdl::test(bus_id);
 	}
 
-	/*
-	 * Reset the driver.
-	 */
-	if (!strcmp(verb, "reset")) {
+	// Reset the driver
+	if (!strcmp(arg, "reset")) {
 		lis3mdl::reset(bus_id);
 	}
 
-	/*
-	 * Print driver information.
-	 */
-	if (!strcmp(verb, "info") || !strcmp(verb, "status")) {
+	// Print driver information
+	if (!strcmp(arg, "info") ||
+	    !strcmp(arg, "status")) {
 		lis3mdl::info(bus_id);
 	}
 
-	/*
-	 * Autocalibrate the scaling
-	 */
-	if (!strcmp(verb, "calibrate")) {
+	// Autocalibrate the scaling
+	if (!strcmp(arg, "calibrate")) {
 		if (lis3mdl::calibrate(bus_id) == 0) {
 			errx(0, "calibration successful");
 

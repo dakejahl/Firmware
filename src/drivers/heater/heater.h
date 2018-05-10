@@ -32,9 +32,10 @@
  ****************************************************************************/
 
 /**
- * @file Heater.h
+ * @file heater.h
  *
  * @author Khoi Tran <khoi@tealdrones.com>
+ * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
  */
 
 #pragma once
