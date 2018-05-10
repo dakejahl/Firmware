@@ -173,7 +173,7 @@ BATT_SMBUS::search()
 {
 	bool found_slave = false;
 	uint16_t tmp;
-	int16_t orig_addr = get_device_address();
+	uint8_t orig_addr = get_device_address();
 
 	// search through all valid SMBus addresses
 	for (uint8_t i = BATT_SMBUS_ADDR_MIN; i < BATT_SMBUS_ADDR_MAX; i++) {
