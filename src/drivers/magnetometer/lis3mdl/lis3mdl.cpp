@@ -343,30 +343,31 @@ int
 LIS3MDL::collect()
 {
 #pragma pack(push, 1)
-	struct { /* X, Y, and Z data. */
-		uint8_t         x[2];
-		uint8_t         y[2];
-		uint8_t         z[2];
+	struct {
+		uint8_t x[2];
+		uint8_t y[2];
+		uint8_t z[2];
 	}       lis_report;
 
 	struct {
-		int16_t         x;
-		int16_t         y;
-		int16_t         z;
-		int16_t         t;
+		int16_t x;
+		int16_t y;
+		int16_t z;
+		int16_t t;
 	} report;
 #pragma pack(pop)
 
 	int     ret = 0;
 	uint8_t buf_rx[2] = {0};
 
-	perf_begin(_sample_perf);
-	struct mag_report new_mag_report;
-	bool sensor_is_onboard = false;
-
 	float xraw_f;
 	float yraw_f;
 	float zraw_f;
+
+	struct mag_report new_mag_report;
+	bool sensor_is_onboard = false;
+
+	perf_begin(_sample_perf);
 
 	new_mag_report.timestamp = hrt_absolute_time();
 	new_mag_report.error_count = perf_event_count(_comms_errors);
@@ -376,7 +377,8 @@ LIS3MDL::collect()
 
 	ret = _interface->read(ADDR_OUT_X_L, (uint8_t *)&lis_report, sizeof(lis_report));
 
-	/* Weird behavior: the X axis will be read instead of the temperature registers if you use a pointer to a packed struct...not sure why.
+	/**
+	 * Weird behavior: the X axis will be read instead of the temperature registers if you use a pointer to a packed struct...not sure why.
 	 * This works now, but further investigation to determine why this happens would be good (I am guessing a type error somewhere)
 	 */
 	ret = _interface->read(ADDR_OUT_T_L, (uint8_t *)&buf_rx, sizeof(buf_rx));
@@ -402,9 +404,8 @@ LIS3MDL::collect()
 	sensor_is_onboard = !_interface->ioctl(MAGIOCGEXTERNAL, dummy);
 	new_mag_report.is_external = !sensor_is_onboard;
 
-	/*
+	/**
 	 * RAW outputs
-	 *
 	 */
 	new_mag_report.x_raw = report.x;
 	new_mag_report.y_raw = report.y;

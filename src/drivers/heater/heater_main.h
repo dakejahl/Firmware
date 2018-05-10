@@ -42,6 +42,10 @@
 
 #include "heater.h"
 
+#ifndef ERROR
+#define ERROR -1
+#endif
+
 namespace heater
 {
 /**
