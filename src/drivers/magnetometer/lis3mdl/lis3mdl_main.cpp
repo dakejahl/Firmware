@@ -371,14 +371,18 @@ lis3mdl_main(int argc, char *argv[])
 		errx(1, "unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
 	}
 
-	struct
-	lis3mdl::lis3mdl_bus_option &lis3mdl::find_bus(LIS3MDL_BUS bus_id) {
-		for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
-			if ((bus_id == LIS3MDL_BUS_ALL ||
-			     bus_id == bus_options[i].bus_id) && bus_options[i].dev != NULL) {
-				return bus_options[i];
-			}
-		}
+	return 0;
+}
 
-		errx(1, "bus %u not started", (unsigned)bus_id);
+struct
+lis3mdl::lis3mdl_bus_option &lis3mdl::find_bus(LIS3MDL_BUS bus_id)
+{
+	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
+		if ((bus_id == LIS3MDL_BUS_ALL ||
+		     bus_id == bus_options[i].bus_id) && bus_options[i].dev != NULL) {
+			return bus_options[i];
+		}
 	}
+
+	errx(1, "bus %u not started", (unsigned)bus_id);
+}
