@@ -62,10 +62,10 @@
 /* Max measurement rate is 80Hz */
 #define LIS3MDL_CONVERSION_INTERVAL     (1000000 / 80)  /* 12,500 microseconds */
 
-#define NUM_BUS_OPTIONS 		(sizeof(bus_options)/sizeof(bus_options[0]))
+#define NUM_BUS_OPTIONS                 (sizeof(bus_options)/sizeof(bus_options[0]))
 
-#define ADDR_WHO_AM_I			0x0f
-#define ID_WHO_AM_I			0x3d
+#define ADDR_WHO_AM_I                   0x0f
+#define ID_WHO_AM_I                     0x3d
 
 #define ADDR_CTRL_REG1                  0x20
 #define ADDR_CTRL_REG2                  0x21
@@ -119,14 +119,9 @@ public:
 
 	virtual int init();
 
-	virtual ssize_t read(struct file *filp, char *buffer, size_t buflen);
-
 	virtual int ioctl(struct file *filp, int cmd, unsigned long arg);
 
-	/**
-	 * Stop the automatic measurement state machine.
-	 */
-	void stop();
+	virtual ssize_t read(struct file *filp, char *buffer, size_t buflen);
 
 	/**
 	 * Diagnostics - print some basic information about the driver.
@@ -137,6 +132,11 @@ public:
 	 * Configures the device with default register values.
 	 */
 	int set_default_register_values();
+
+	/**
+	 * Stop the automatic measurement state machine.
+	 */
+	void stop();
 
 protected:
 	Device *_interface;
@@ -184,19 +184,6 @@ private:
 
 
 	/**
-	 * @brief Initialises the automatic measurement state machine and start it.
-	 *
-	 * @note This function is called at open and error time.  It might make sense
-	 *       to make it more aggressive about resetting the bus in case of errors.
-	 */
-	void start();
-
-	/**
-	 * @brief Resets the device
-	 */
-	int reset();
-
-	/**
 	 * @brief Performs the on-sensor scale calibration routine.
 	 *
 	 * @note The sensor will continue to provide measurements, these
@@ -206,73 +193,6 @@ private:
 	 * @param enable set to 1 to enable self-test strap, 0 to disable
 	 */
 	int calibrate(struct file *filp, unsigned enable);
-
-	/**
-	 * @brief Performs the on-sensor scale calibration routine.
-	 *
-	 * @note The sensor will continue to provide measurements, these
-	 *       will however reflect the uncalibrated sensor state until
-	 *       the calibration routine has been completed.
-	 *
-	 * @param enable set to 1 to enable self-test positive strap, -1 to enable
-	 *        negative strap, 0 to set to normal mode
-	 */
-	int set_excitement(unsigned enable);
-
-	/**
-	 * @brief Sets the sensor internal range to handle at least the argument in Gauss.
-	 *
-	 * @param range The sensor range value to be set.
-	 */
-	int set_range(unsigned range);
-
-	/**
-	 * @brief Performs a poll cycle; collect from the previous measurement
-	 *        and start a new one.
-	 *
-	 * This is the heart of the measurement state machine.  This function
-	 * alternately starts a measurement, or collects the data from the
-	 * previous measurement.
-	 *
-	 * When the interval between measurements is greater than the minimum
-	 * measurement interval, a gap is inserted between collection
-	 * and measurement to provide the most recent measurement possible
-	 * at the next interval.
-	 */
-	void cycle();
-
-	/**
-	 * @brief Static trampoline from the workq context; because we don't have a
-	 *         generic workq wrapper yet.
-	 *
-	 * @param arg Instance pointer for the driver that is polling.
-	 */
-	static void cycle_trampoline(void *arg);
-
-	/**
-	 * @brief  Writes a register.
-	 *
-	 * @param reg           The register to write.
-	 * @param val           The value to write.
-	 * @return              OK on write success.
-	 */
-	int write_reg(uint8_t reg, uint8_t val);
-
-	/**
-	 * @brief Reads a register.
-	 *
-	 * @param reg           The register to read.
-	 * @param val           The value read.
-	 * @return              OK on read success.
-	 */
-	int read_reg(uint8_t reg, uint8_t &val);
-
-	/**
-	 * Issue a measurement command.
-	 *
-	 * @return              OK if the measurement command was successful.
-	 */
-	int measure();
 
 	/**
 	 * Collect the result of the most recent measurement.
@@ -300,8 +220,88 @@ private:
 	*/
 	int check_offset();
 
+	/**
+	 * @brief Performs a poll cycle; collect from the previous measurement
+	 *        and start a new one.
+	 *
+	 * This is the heart of the measurement state machine.  This function
+	 * alternately starts a measurement, or collects the data from the
+	 * previous measurement.
+	 *
+	 * When the interval between measurements is greater than the minimum
+	 * measurement interval, a gap is inserted between collection
+	 * and measurement to provide the most recent measurement possible
+	 * at the next interval.
+	 */
+	void cycle();
+
+	/**
+	 * @brief Static trampoline from the workq context; because we don't have a
+	 *         generic workq wrapper yet.
+	 *
+	 * @param arg Instance pointer for the driver that is polling.
+	 */
+	static void cycle_trampoline(void *arg);
+
+	/**
+	 * Issue a measurement command.
+	 *
+	 * @return              OK if the measurement command was successful.
+	 */
+	int measure();
+
+	/**
+	 * @brief Resets the device
+	 */
+	int reset();
+
+	/**
+	 * @brief Initialises the automatic measurement state machine and start it.
+	 *
+	 * @note This function is called at open and error time.  It might make sense
+	 *       to make it more aggressive about resetting the bus in case of errors.
+	 */
+	void start();
+
+	/**
+	 * @brief Performs the on-sensor scale calibration routine.
+	 *
+	 * @note The sensor will continue to provide measurements, these
+	 *       will however reflect the uncalibrated sensor state until
+	 *       the calibration routine has been completed.
+	 *
+	 * @param enable set to 1 to enable self-test positive strap, -1 to enable
+	 *        negative strap, 0 to set to normal mode
+	 */
+	int set_excitement(unsigned enable);
+
+	/**
+	 * @brief Sets the sensor internal range to handle at least the argument in Gauss.
+	 *
+	 * @param range The sensor range value to be set.
+	 */
+	int set_range(unsigned range);
+
+	/**
+	 * @brief Reads a register.
+	 *
+	 * @param reg           The register to read.
+	 * @param val           The value read.
+	 * @return              OK on read success.
+	 */
+	int read_reg(uint8_t reg, uint8_t &val);
+
+	/**
+	 * @brief  Writes a register.
+	 *
+	 * @param reg           The register to write.
+	 * @param val           The value to write.
+	 * @return              OK on write success.
+	 */
+	int write_reg(uint8_t reg, uint8_t val);
+
 	/* this class has pointer data members, do not allow copying it */
 	LIS3MDL(const LIS3MDL &);
 
 	LIS3MDL operator=(const LIS3MDL &);
-};
+}; // class LIS3MDL
