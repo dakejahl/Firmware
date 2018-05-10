@@ -124,6 +124,14 @@ BATT_SMBUS::init()
 		return ret;
 	}
 
+	int battsource = 0;
+	param_get(param_find("BAT_SOURCE"), &battsource);
+
+	if (battsource != 1) {
+		battsource = 1;
+		param_set(param_find("BAT_SOURCE"), &battsource);
+	}
+
 	// start work queue
 	start();
 
