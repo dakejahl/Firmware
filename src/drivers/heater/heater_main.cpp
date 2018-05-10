@@ -220,7 +220,7 @@ static int
 heater::start()
 {
 	if (heater_task != nullptr) {
-		PX4_INFO("already running");
+		PX4_INFO("Heater driver already running");
 		return -1;
 	}
 
@@ -228,8 +228,7 @@ heater::start()
 
 	// Check if alloc worked
 	if (heater_task == nullptr) {
-		PX4_WARN("");
-		PX4_WARN("heater driver alloc failed: %d", -errno);
+		PX4_WARN("Heater driver alloc failed: %d", -errno);
 		return -1;
 	}
 
@@ -237,7 +236,7 @@ heater::start()
 	int ret = heater_task->start();
 
 	if (ret) {
-		PX4_WARN("heater driver task thread start failed: %d", -errno);
+		PX4_WARN("Heater driver task thread start failed: %d", -errno);
 		return -1;
 	}
 
@@ -252,13 +251,14 @@ heater::start()
 			usleep(50000);
 
 			if (hrt_absolute_time() > timeout) {
-				PX4_WARN("heater driver start failed - Timeout");
+				PX4_WARN("Heater driver start failed - Timeout");
 				stop();
 				return -1;
 			}
 		}
 	}
 
+	PX4_INFO("Heater driver started successfully.");
 	return 0;
 }
 
