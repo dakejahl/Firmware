@@ -54,7 +54,8 @@ lis3mdl::calibrate(LIS3MDL_BUS bus_id)
 	int fd = open(path, O_RDONLY);
 
 	if (fd < 0) {
-		err(1, "%s open failed (try 'lis3mdl start' if the driver is not running", path);
+		PX4_WARN("%s open failed (try 'lis3mdl start' if the driver is not running", path);
+		return 1;
 	}
 
 	if ((ret = ioctl(fd, MAGIOCCALIBRATE, fd)) != OK) {
@@ -73,7 +74,7 @@ lis3mdl::info(LIS3MDL_BUS bus_id)
 
 	PX4_WARN("running on bus: %u (%s)\n", (unsigned)bus.bus_id, bus.devpath);
 	bus.dev->print_info();
-	exit(0);
+	return 1;
 }
 
 bool
@@ -178,7 +179,7 @@ lis3mdl::stop()
 	return !stopped;
 }
 
-void
+bool
 lis3mdl::test(LIS3MDL_BUS bus_id)
 {
 	struct lis3mdl_bus_option &bus = find_bus(bus_id);
@@ -190,31 +191,36 @@ lis3mdl::test(LIS3MDL_BUS bus_id)
 	int fd = open(path, O_RDONLY);
 
 	if (fd < 0) {
-		err(1, "%s open failed (try 'lis3mdl start')", path);
+		PX4_WARN("%s open failed (try 'lis3mdl start')", path);
+		return 1;
 	}
 
 	/* do a simple demand read */
 	sz = read(fd, &report, sizeof(report));
 
 	if (sz != sizeof(report)) {
-		err(1, "immediate read failed");
+		PX4_WARN("immediate read failed");
+		return 1;
 	}
 
 	print_message(report);
 
 	/* check if mag is onboard or external */
 	if (ioctl(fd, MAGIOCGEXTERNAL, 0) < 0) {
-		errx(1, "failed to get if mag is onboard or external");
+		PX4_WARN("failed to get if mag is onboard or external");
+		return 1;
 	}
 
 	/* set the queue depth to 5 */
 	if (ioctl(fd, SENSORIOCSQUEUEDEPTH, 10) != OK) {
-		errx(1, "failed to set queue depth");
+		PX4_WARN("failed to set queue depth");
+		return 1;
 	}
 
 	/* start the sensor polling at 2Hz */
 	if (ioctl(fd, SENSORIOCSPOLLRATE, 2) != OK) {
-		errx(1, "failed to set 2Hz poll rate");
+		PX4_WARN("failed to set 2Hz poll rate");
+		return 1;
 	}
 
 	struct pollfd fds;
@@ -228,23 +234,26 @@ lis3mdl::test(LIS3MDL_BUS bus_id)
 		ret = poll(&fds, 1, 2000);
 
 		if (ret != 1) {
-			errx(1, "timed out waiting for sensor data");
+			PX4_WARN("timed out waiting for sensor data");
+			return 1;
 		}
 
 		/* now go get it */
 		sz = read(fd, &report, sizeof(report));
 
 		if (sz != sizeof(report)) {
-			err(1, "periodic read failed");
+			PX4_WARN("periodic read failed");
+			return 1;
 		}
 
 		print_message(report);
 	}
 
-	errx(0, "PASS");
+	PX4_INFO("PASS");
+	return 0;
 }
 
-void
+bool
 lis3mdl::reset(LIS3MDL_BUS bus_id)
 {
 	struct lis3mdl_bus_option &bus = find_bus(bus_id);
@@ -253,18 +262,21 @@ lis3mdl::reset(LIS3MDL_BUS bus_id)
 	int fd = open(path, O_RDONLY);
 
 	if (fd < 0) {
-		err(1, "failed ");
+		PX4_WARN("open failed ");
+		return 1;
 	}
 
 	if (ioctl(fd, SENSORIOCRESET, 0) < 0) {
-		err(1, "driver reset failed");
+		PX4_WARN("driver reset failed");
+		return 1;
 	}
 
 	if (ioctl(fd, SENSORIOCSPOLLRATE, SENSOR_POLLRATE_DEFAULT) < 0) {
-		err(1, "driver poll restart failed");
+		PX4_WARN("driver poll restart failed");
+		return 1;
 	}
 
-	exit(0);
+	return 0;
 }
 
 void
@@ -315,7 +327,7 @@ lis3mdl_main(int argc, char *argv[])
 
 		default:
 			lis3mdl::usage();
-			exit(0);
+			return 0;
 		}
 	}
 
@@ -344,31 +356,34 @@ lis3mdl_main(int argc, char *argv[])
 
 		// Test the driver/device
 		if (!strcmp(arg, "test")) {
-			lis3mdl::test(bus_id);
+			return lis3mdl::test(bus_id);
 		}
 
 		// Reset the driver
 		if (!strcmp(arg, "reset")) {
-			lis3mdl::reset(bus_id);
+			return lis3mdl::reset(bus_id);
 		}
 
 		// Print driver information
 		if (!strcmp(arg, "info") ||
 		    !strcmp(arg, "status")) {
-			lis3mdl::info(bus_id);
+			return lis3mdl::info(bus_id);
 		}
 
 		// Autocalibrate the scaling
 		if (!strcmp(arg, "calibrate")) {
 			if (lis3mdl::calibrate(bus_id) == 0) {
-				errx(0, "calibration successful");
+				PX4_INFO("calibration successful");
+				return 0;
 
 			} else {
-				errx(1, "calibration failed");
+				PX4_INFO("calibration failed");
+				return 1;
 			}
 		}
 
-		errx(1, "unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
+		PX4_INFO("unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
+		return 1;
 	}
 
 	return 0;

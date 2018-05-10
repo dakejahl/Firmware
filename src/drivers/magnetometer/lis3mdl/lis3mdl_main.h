@@ -94,7 +94,7 @@ bool init(LIS3MDL_BUS bus_id);
 /**
  * @brief Resets the driver.
  */
-void reset(LIS3MDL_BUS bus_id);
+bool reset(LIS3MDL_BUS bus_id);
 
 /**
  * @brief Starts the driver for a specific bus option
@@ -117,7 +117,7 @@ int stop();
  * 	  make sure we can collect data from the sensor in polled
  * 	  and automatic modes.
  */
-void test(LIS3MDL_BUS bus_id);
+bool test(LIS3MDL_BUS bus_id);
 
 /**
  * @brief Prints info about the driver argument usage.
