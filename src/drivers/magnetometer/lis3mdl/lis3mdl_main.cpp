@@ -250,7 +250,7 @@ lis3mdl::test(LIS3MDL_BUS bus_id)
 	}
 
 	PX4_INFO("PASS");
-	return 0;
+	return 1;
 }
 
 bool
@@ -347,46 +347,48 @@ lis3mdl_main(int argc, char *argv[])
 			lis3mdl::init(bus_id);
 
 			return 0;
+
+		} else {
+			return 1;
 		}
-
-		// Stop the driver
-		if (!strcmp(arg, "stop")) {
-			return lis3mdl::stop();
-		}
-
-		// Test the driver/device
-		if (!strcmp(arg, "test")) {
-			return lis3mdl::test(bus_id);
-		}
-
-		// Reset the driver
-		if (!strcmp(arg, "reset")) {
-			return lis3mdl::reset(bus_id);
-		}
-
-		// Print driver information
-		if (!strcmp(arg, "info") ||
-		    !strcmp(arg, "status")) {
-			return lis3mdl::info(bus_id);
-		}
-
-		// Autocalibrate the scaling
-		if (!strcmp(arg, "calibrate")) {
-			if (lis3mdl::calibrate(bus_id) == 0) {
-				PX4_INFO("calibration successful");
-				return 0;
-
-			} else {
-				PX4_INFO("calibration failed");
-				return 1;
-			}
-		}
-
-		PX4_INFO("unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
-		return 1;
 	}
 
-	return 0;
+	// Stop the driver
+	if (!strcmp(arg, "stop")) {
+		return lis3mdl::stop();
+	}
+
+	// Test the driver/device
+	if (!strcmp(arg, "test")) {
+		return lis3mdl::test(bus_id);
+	}
+
+	// Reset the driver
+	if (!strcmp(arg, "reset")) {
+		return lis3mdl::reset(bus_id);
+	}
+
+	// Print driver information
+	if (!strcmp(arg, "info") ||
+	    !strcmp(arg, "status")) {
+		return lis3mdl::info(bus_id);
+	}
+
+	// Autocalibrate the scaling
+	if (!strcmp(arg, "calibrate")) {
+		if (lis3mdl::calibrate(bus_id) == 0) {
+			PX4_INFO("calibration successful");
+			return 0;
+
+		} else {
+			PX4_INFO("calibration failed");
+			return 1;
+		}
+
+	}
+
+	PX4_INFO("unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
+	return 1;
 }
 
 struct
