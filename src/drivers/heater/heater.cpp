@@ -78,8 +78,8 @@ Heater::Heater() :
 
 Heater::~Heater()
 {
-	work_cancel(LPWORK, &_work);
 	_task_should_exit = true;
+	work_cancel(LPWORK, &_work);
 	px4_arch_gpiowrite(GPIO_HEATER, 0);
 
 	// Check if GPIO is stuck on, and if so, configure it as an input pulldown then reconfigure as an output.
@@ -90,38 +90,37 @@ Heater::~Heater()
 	}
 }
 
-int Heater::start()
+void Heater::check_params(const bool force)
 {
-	_task_should_exit = false;
+	bool updated;
+	parameter_update_s paramUpdate;
 
-	_check_params(true);
+	orb_check(_parameter_sub, &updated);
 
-	// Schedule a cycle to start the driver.
-	work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this, 0);
+	if (updated) {
+		orb_copy(ORB_ID(parameter_update), _parameter_sub, &paramUpdate);
+	}
 
-	return 0;
-}
-
-void Heater::stop()
-{
-	_task_should_exit = true;
+	if (updated || force) {
+		param_get(_p_target_temp, &_target_temp);
+	}
 }
 
 void
-Heater::_heater_controller_trampoline(void *arg)
+Heater::heater_controller_trampoline(void *arg)
 {
 	Heater *dev = reinterpret_cast<Heater *>(arg);
 
-	dev->_heater_controller();
+	dev->heater_controller();
 }
 
-void Heater::_heater_controller()
+void Heater::heater_controller()
 {
 	if (!_task_is_running) {
 		// Initialize uORB topics.
-		_initialize_topics();
+		initialize_topics();
 
-		_check_params(true);
+		check_params(true);
 
 		// Task is now running, keep doing so until we need to stop.
 		_task_is_running = true;
@@ -141,8 +140,8 @@ void Heater::_heater_controller()
 	}
 
 	else {
-		_check_params(false);
-		_update_topics();
+		check_params(false);
+		update_topics();
 
 		// Determine the current temperature error.
 		_current_temp = _sensor_accel.temperature;
@@ -172,11 +171,11 @@ void Heater::_heater_controller()
 
 		// Schedule next cycle.
 		if (_heater_on) {
-			work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
+			work_queue(LPWORK, &_work, (worker_t)&Heater::heater_controller_trampoline, this,
 				   USEC2TICK(_controller_time_on_usec));
 
 		} else {
-			work_queue(LPWORK, &_work, (worker_t)&Heater::_heater_controller_trampoline, this,
+			work_queue(LPWORK, &_work, (worker_t)&Heater::heater_controller_trampoline, this,
 				   USEC2TICK(_controller_period_usec - _controller_time_on_usec));
 		}
 
@@ -185,7 +184,7 @@ void Heater::_heater_controller()
 	}
 }
 
-void Heater::_initialize_topics()
+void Heater::initialize_topics()
 {
 	int32_t sensor_id;
 	param_get(_p_sensor_id, &sensor_id);
@@ -197,7 +196,7 @@ void Heater::_initialize_topics()
 	for (size_t x = 0; x < num_of_imu; x++) {
 		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
-		while (_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true) {
+		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != true) {
 			usleep(200000);
 		}
 
@@ -217,33 +216,34 @@ void Heater::_initialize_topics()
 	}
 }
 
-void Heater::_update_topics()
+bool Heater::is_running()
 {
-	_orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel);
+	return _task_is_running;
 }
 
-void Heater::_update_params()
+int Heater::start()
 {
+	_task_should_exit = false;
+
+	check_params(true);
+
+	// Schedule a cycle to start the driver.
+	work_queue(LPWORK, &_work, (worker_t)&Heater::heater_controller_trampoline, this, 0);
+
+	return 0;
 }
 
-void Heater::_check_params(const bool force)
+void Heater::stop()
 {
-	bool updated;
-	parameter_update_s paramUpdate;
-
-	orb_check(_parameter_sub, &updated);
-
-	if (updated) {
-		orb_copy(ORB_ID(parameter_update), _parameter_sub, &paramUpdate);
-	}
-
-	if (updated || force) {
-		_update_params();
-		param_get(_p_target_temp, &_target_temp);
-	}
+	_task_should_exit = true;
 }
 
-bool Heater::_orb_update(const struct orb_metadata *meta, int handle, void *buffer)
+void Heater::update_topics()
+{
+	orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel);
+}
+
+bool Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffer)
 {
 	bool newData = false;
 
@@ -263,15 +263,15 @@ bool Heater::_orb_update(const struct orb_metadata *meta, int handle, void *buff
 	return true;
 }
 
-float Heater::set_proportional(float proportional_gain)
+float Heater::set_feed_forward(float feed_forward_gain)
 {
-	_proportional_gain = proportional_gain;
-	return _proportional_gain;
+	_feed_forward = feed_forward_gain;
+	return _feed_forward;
 }
 
-float Heater::get_proportional()
+float Heater::get_feed_forward()
 {
-	return _proportional_gain;
+	return _feed_forward;
 }
 
 float Heater::set_integrator(float integrator_gain)
@@ -285,15 +285,15 @@ float Heater::get_integrator()
 	return _integrator_gain;
 }
 
-float Heater::set_feed_forward(float feed_forward_gain)
+float Heater::set_proportional(float proportional_gain)
 {
-	_feed_forward = feed_forward_gain;
-	return _feed_forward;
+	_proportional_gain = proportional_gain;
+	return _proportional_gain;
 }
 
-float Heater::get_feed_forward()
+float Heater::get_proportional()
 {
-	return _feed_forward;
+	return _proportional_gain;
 }
 
 bool Heater::get_state()

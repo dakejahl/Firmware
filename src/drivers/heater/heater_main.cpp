@@ -60,7 +60,7 @@
  */
 extern "C" __EXPORT int heater_main(int argc, char *argv[]);
 
-int
+static int
 heater::controller_period(char *argv[])
 {
 	if (heater_task->is_running()) {
@@ -83,7 +83,7 @@ heater::controller_period(char *argv[])
 	}
 }
 
-int
+static int
 heater::duty_cycle()
 {
 	if (heater_task->is_running()) {
@@ -98,7 +98,7 @@ heater::duty_cycle()
 	}
 }
 
-int
+static int
 heater::info()
 {
 	PX4_INFO("\n\tstart             - Starts the Heater driver."
@@ -119,7 +119,7 @@ heater::info()
 	return 0;
 }
 
-int
+static int
 heater::get_sensor_id()
 {
 	if (heater_task->is_running()) {
@@ -133,7 +133,7 @@ heater::get_sensor_id()
 	}
 }
 
-int
+static int
 heater::get_temperature()
 {
 	if (heater_task->is_running()) {
@@ -147,7 +147,7 @@ heater::get_temperature()
 	}
 }
 
-int
+static int
 heater::feed_forward(char *argv[])
 {
 	if (heater_task->is_running()) {
@@ -170,7 +170,7 @@ heater::feed_forward(char *argv[])
 	}
 }
 
-int
+static int
 heater::integrator(char *argv[])
 {
 	if (heater_task->is_running()) {
@@ -193,7 +193,7 @@ heater::integrator(char *argv[])
 	}
 }
 
-int
+static int
 heater::proportional(char *argv[])
 {
 	if (heater_task->is_running()) {
@@ -216,7 +216,7 @@ heater::proportional(char *argv[])
 	}
 }
 
-int
+static int
 heater::start()
 {
 	if (heater_task->is_running()) {
@@ -262,7 +262,7 @@ heater::start()
 	return 0;
 }
 
-int
+static int
 heater::status()
 {
 	if (heater_task->is_running()) {
@@ -283,7 +283,7 @@ heater::status()
 	}
 }
 
-int
+static int
 heater::stop()
 {
 	if (!heater_task->is_running()) {
@@ -317,7 +317,7 @@ heater::stop()
 	return 0;
 }
 
-int
+static int
 heater::target_temperature(char *argv[])
 {
 	if (heater_task->is_running()) {
@@ -353,7 +353,7 @@ heater_main(int argc, char *argv[])
 		return -1;
 	}
 
-	const char *arg_vector = argv[optind];
+	const char *arg_vector = argv[1];
 
 	// Start the heater driver task.
 	if (!strcmp(arg_vector, "start")) {

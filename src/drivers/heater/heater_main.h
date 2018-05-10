@@ -53,71 +53,71 @@ static Heater *heater_task = nullptr;
  * @brief Sets and/or reports the heater controller time period value in microseconds.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int controller_period(char *argv[]);
+static int controller_period(char *argv[]);
 
 /**
  * @brief Reports the average heater controller duty cycle period in microseconds.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int duty_cycle();
+static int duty_cycle();
 
 /**
  * @brief Prints relevant heater driver usage information to the terminal.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int info();
+static int info();
 
 /**
  * @brief Reports the heater temperature sensor ID.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int get_sensor_id();
+static int get_sensor_id();
 
 /**
  * @brief Reports the heater temperature.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int get_temperature();
+static int get_temperature();
 
 /**
  * @brief Sets and/or reports the heater controller feed fordward value.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int feed_forward(char *argv[]);
+static int feed_forward(char *argv[]);
 
 /**
  * @brief Sets and/or reports the heater controller integrator gain value.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int integrator(char *argv[]);
+static int integrator(char *argv[]);
 
 /**
  * @brief Sets and/or reports the heater controller proportional gain value.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int proportional(char *argv[]);
+static int proportional(char *argv[]);
 
 /**
  * @brief Starts new task, fails if it is already running.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int start();
+static int start();
 
 /**
  * @brief Reports the curent status and diagnostic information about the heater driver.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int status();
+static int status();
 
 /**
  * @brief Stops the task. Forces killing the task if it doesn't stop by itself.
  * @return Returns 0 iff successful, -1 otherwise.
  */
-int stop();
+static int stop();
 
 /**
  * @brief Sets and/or reports the heater target temperature.
  * @brief Returns 0 iff successful, -1 otherwise.
  */
-int target_temperature(char *argv[]);
+static int target_temperature(char *argv[]);
 }
