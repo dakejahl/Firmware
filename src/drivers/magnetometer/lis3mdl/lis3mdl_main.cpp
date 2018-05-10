@@ -44,19 +44,6 @@
  */
 extern "C" __EXPORT int lis3mdl_main(int argc, char *argv[]);
 
-struct
-lis3mdl::lis3mdl_bus_option &lis3mdl::find_bus(LIS3MDL_BUS bus_id)
-{
-	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
-		if ((bus_id == LIS3MDL_BUS_ALL ||
-		     bus_id == bus_options[i].bus_id) && bus_options[i].dev != NULL) {
-			return bus_options[i];
-		}
-	}
-
-	errx(1, "bus %u not started", (unsigned)bus_id);
-}
-
 int
 lis3mdl::calibrate(LIS3MDL_BUS bus_id)
 {
@@ -128,6 +115,7 @@ lis3mdl::start_bus(struct lis3mdl_bus_option &bus, Rotation rotation)
 {
 	if (bus.dev != nullptr) {
 		errx(1, "bus option already started");
+		return false;
 	}
 
 	device::Device *interface = bus.interface_constructor(bus.busnum);
@@ -149,7 +137,7 @@ lis3mdl::start_bus(struct lis3mdl_bus_option &bus, Rotation rotation)
 	return true;
 }
 
-void
+int
 lis3mdl::start(LIS3MDL_BUS bus_id, Rotation rotation)
 {
 	bool started = false;
@@ -166,12 +154,10 @@ lis3mdl::start(LIS3MDL_BUS bus_id, Rotation rotation)
 		}
 
 		started |= start_bus(bus_options[i], rotation);
-		init(bus_id);
+		//init(bus_id);
 	}
 
-	if (!started) {
-		exit(1);
-	}
+	return started;
 }
 
 int
@@ -335,18 +321,19 @@ lis3mdl_main(int argc, char *argv[])
 
 	// Start/load the driver
 	if (!strcmp(arg, "start")) {
-		lis3mdl::start(bus_id, rotation);
 
-		if (calibrate) {
-			if (OK != lis3mdl::calibrate(bus_id)) {
-				errx(1, "calibration failed");
+		if (lis3mdl::start(bus_id, rotation)) {
+			if (calibrate) {
+				if (OK != lis3mdl::calibrate(bus_id)) {
+					PX4_WARN("calibration failed");
+					return 1;
+				}
 			}
 
+			lis3mdl::init(bus_id);
 		}
 
-		lis3mdl::init(bus_id);
-
-		exit(0);
+		return 0;
 	}
 
 	// Stop the driver
@@ -381,4 +368,17 @@ lis3mdl_main(int argc, char *argv[])
 	}
 
 	errx(1, "unrecognized command, try 'start', 'test', 'reset', 'calibrate' 'or 'info'");
+}
+
+struct
+lis3mdl::lis3mdl_bus_option &lis3mdl::find_bus(LIS3MDL_BUS bus_id)
+{
+	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
+		if ((bus_id == LIS3MDL_BUS_ALL ||
+		     bus_id == bus_options[i].bus_id) && bus_options[i].dev != NULL) {
+			return bus_options[i];
+		}
+	}
+
+	errx(1, "bus %u not started", (unsigned)bus_id);
 }

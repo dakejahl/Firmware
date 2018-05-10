@@ -105,7 +105,7 @@ bool start_bus(struct lis3mdl_bus_option &bus, Rotation rotation);
  * @brief Starts the driver. This function call only returns once the driver
  *        is either successfully up and running or failed to start.
  */
-void start(LIS3MDL_BUS bus_id, Rotation rotation);
+int start(LIS3MDL_BUS bus_id, Rotation rotation);
 
 /**
  * @brief Stop the driver.
