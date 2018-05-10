@@ -219,7 +219,7 @@ heater::proportional(char *argv[])
 static int
 heater::start()
 {
-	if (heater_task->is_running()) {
+	if (heater_task != nullptr) {
 		PX4_INFO("already running");
 		return -1;
 	}
