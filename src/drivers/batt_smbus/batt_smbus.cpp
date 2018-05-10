@@ -93,9 +93,9 @@ BATT_SMBUS::~BATT_SMBUS()
 int
 BATT_SMBUS::init()
 {
-	int ret = ENOTTY;
+	int ret = ERROR;
 
-	// attempt to initialise I2C bus
+	// attempt to initialize I2C bus
 	ret = I2C::init();
 
 	if (ret != OK) {
@@ -194,7 +194,7 @@ BATT_SMBUS::search()
 
 	} else {
 		PX4_INFO("No smart batteries found.");
-		return ENOTTY;
+		return ERROR;
 	}
 
 	return OK;
@@ -413,7 +413,7 @@ BATT_SMBUS::read_reg(uint8_t reg, uint16_t &val)
 
 		} else {
 			PX4_ERR("BATT_SMBUS PEC Check Failed");
-			ret = ENOTTY;
+			ret = ERROR;
 		}
 	}
 
@@ -619,7 +619,7 @@ BATT_SMBUS::GetStartupInfo()
 			_serial_number = tmp;
 
 		} else {
-			ret = ENOTTY;
+			ret = ERROR;
 		}
 	}
 
@@ -629,7 +629,7 @@ BATT_SMBUS::GetStartupInfo()
 			_batt_startup_capacity = tmp;
 
 		} else {
-			ret = ENOTTY;
+			ret = ERROR;
 		}
 	}
 
@@ -639,7 +639,7 @@ BATT_SMBUS::GetStartupInfo()
 			_cycle_count = tmp;
 
 		} else {
-			ret = ENOTTY;
+			ret = ERROR;
 		}
 	}
 
@@ -649,7 +649,7 @@ BATT_SMBUS::GetStartupInfo()
 			_batt_capacity = tmp;
 
 		} else {
-			ret = ENOTTY;
+			ret = ERROR;
 		}
 	}
 
