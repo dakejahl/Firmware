@@ -83,6 +83,11 @@ BATT_SMBUS::~BATT_SMBUS()
 	if (_manufacturer_name != nullptr) {
 		delete[] _manufacturer_name;
 	}
+
+	// Switch back to ADC battery measurement
+	PX4_ERR("Failed to start smart battery. Switching to ADC measurement.");
+	int battsource = 0;
+	param_set(param_find("BAT_SOURCE"), &battsource);
 }
 
 int
@@ -94,23 +99,33 @@ BATT_SMBUS::init()
 	ret = I2C::init();
 
 	if (ret != OK) {
-		PX4_ERR("failed to init I2C");
+		PX4_ERR("Failed to init I2C");
 		return ret;
-
-	} else {
-		// Find the battery on the bus and read startup info
-		if (search() == OK) {
-			// Retry up to 10 times to read startup info
-			for (size_t i = 0; i < 10; i++) {
-				if (GetStartupInfo() == OK) {
-					break;
-				}
-			}
-		}
-
-		// start work queue
-		start();
 	}
+
+	// Find the battery on the bus and read startup info
+	ret = search();
+
+	if (ret != OK) {
+		return ret;
+	}
+
+	// Retry up to 10 times to read startup info
+	for (size_t i = 0; i < 10; i++) {
+		ret = GetStartupInfo();
+
+		if (ret == OK) {
+			break;
+		}
+	}
+
+	if (ret != OK) {
+		PX4_ERR("Failed to get battery startup info");
+		return ret;
+	}
+
+	// start work queue
+	start();
 
 	// init orb id
 	_batt_orb_id = ORB_ID(battery_status);
@@ -179,6 +194,7 @@ BATT_SMBUS::search()
 
 	} else {
 		PX4_INFO("No smart batteries found.");
+		return ENOTTY;
 	}
 
 	return OK;
@@ -271,7 +287,7 @@ BATT_SMBUS::cycle()
 
 	// set time of reading
 	new_report.timestamp = now;
-	
+
 	// temporary variable for storing SMBUS reads
 	uint16_t tmp;
 
@@ -582,7 +598,7 @@ uint8_t
 BATT_SMBUS::GetStartupInfo()
 {
 	int ret = OK;
-	
+
 	// Try and get battery SBS info
 	if (_manufacturer_name == nullptr) {
 		char man_name[21];
@@ -601,8 +617,8 @@ BATT_SMBUS::GetStartupInfo()
 	if (_serial_number == 0) {
 		if (read_reg(BATT_SMBUS_SERIAL_NUMBER, tmp) == OK) {
 			_serial_number = tmp;
-		}
-		else {
+
+		} else {
 			ret = ENOTTY;
 		}
 	}
@@ -611,8 +627,8 @@ BATT_SMBUS::GetStartupInfo()
 	if (_batt_startup_capacity == 0) {
 		if (read_reg(BATT_SMBUS_REMAINING_CAPACITY, tmp) == OK) {
 			_batt_startup_capacity = tmp;
-		}
-		else {
+
+		} else {
 			ret = ENOTTY;
 		}
 	}
@@ -621,8 +637,8 @@ BATT_SMBUS::GetStartupInfo()
 	if (_cycle_count == 0) {
 		if (read_reg(BATT_SMBUS_CYCLE_COUNT, tmp) == OK) {
 			_cycle_count = tmp;
-		}
-		else {
+
+		} else {
 			ret = ENOTTY;
 		}
 	}
@@ -631,8 +647,8 @@ BATT_SMBUS::GetStartupInfo()
 	if (_batt_capacity == 0) {
 		if (read_reg(BATT_SMBUS_FULL_CHARGE_CAPACITY, tmp) == OK) {
 			_batt_capacity = tmp;
-		}
-		else {
+
+		} else {
 			ret = ENOTTY;
 		}
 	}
@@ -649,7 +665,7 @@ BATT_SMBUS::GetStartupInfo()
 	if (_emergency_thr < 0.01f) {
 		param_get(param_find("BAT_EMERGEN_THR"), &_emergency_thr);
 	}
-	
+
 	return ret;
 }
 
