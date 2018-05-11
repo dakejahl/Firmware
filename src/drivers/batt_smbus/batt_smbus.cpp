@@ -59,6 +59,7 @@ int serial_number();
 BATT_SMBUS::BATT_SMBUS(int bus, uint16_t batt_smbus_addr) :
 	I2C("batt_smbus", "/dev/batt_smbus0", bus, batt_smbus_addr, 100000),
 	_enabled(false),
+	_last_report{},
 	_batt_topic(nullptr),
 	_batt_orb_id(nullptr),
 	_start_time(0),
@@ -293,8 +294,15 @@ BATT_SMBUS::cycle()
 	// read data from sensor
 	battery_status_s new_report = {};
 
+	if ((_last_report.remaining < 0.0f) || (_last_report.remaining > 1.0f)) {
+		_last_report.remaining = 0.5f;
+	}
+
 	// set time of reading
 	new_report.timestamp = now;
+
+	// Don't publish if any read fails
+	bool success = true;
 
 	// temporary variable for storing SMBUS reads
 	uint16_t tmp;
@@ -311,21 +319,33 @@ BATT_SMBUS::cycle()
 		if (read_reg(BATT_SMBUS_CURRENT, tmp) == OK) {
 			new_report.current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
 			new_report.current_filtered_a = new_report.current_a;
+
+		} else {
+			success = false;
 		}
 
 		// read average current
 		if (read_reg(BATT_SMBUS_AVERAGE_CURRENT, tmp) == OK) {
 			new_report.average_current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
+
+		} else {
+			success = false;
 		}
 
 		// read run time to empty
 		if (read_reg(BATT_SMBUS_RUN_TIME_TO_EMPTY, tmp) == OK) {
 			new_report.run_time_to_empty = tmp;
+
+		} else {
+			success = false;
 		}
 
 		// read average time to empty
 		if (read_reg(BATT_SMBUS_AVERAGE_TIME_TO_EMPTY, tmp) == OK) {
 			new_report.average_time_to_empty = tmp;
+
+		} else {
+			success = false;
 		}
 
 		// read remaining capacity
@@ -342,37 +362,46 @@ BATT_SMBUS::cycle()
 
 			// calculate total discharged amount
 			new_report.discharged_mah = (float)((float)_batt_startup_capacity - (float)tmp);
+
+			//Check if remaining % is out of range
+			if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+				PX4_INFO("Percent out of range: %4.2f", (double)new_report.remaining);
+			}
+
+			//Check if discharged amount is greater than the starting capacity
+			else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+				PX4_INFO("Discharged greater than startup capacity: %4.2f", (double)new_report.discharged_mah);
+			}
+
+			// propagate warning state
+			else {
+				if (new_report.remaining > _low_thr) {
+					new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
+
+				} else if (new_report.remaining > _crit_thr) {
+					new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
+
+				} else if (new_report.remaining > _emergency_thr) {
+					new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+
+				} else {
+					PX4_INFO("remaining else emergency: %4.2f", (double)new_report.remaining);
+					new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+				}
+			}
+
+		} else {
+			success = false;
 		}
 
 		// read battery temperature and covert to Celsius
 		if (read_reg(BATT_SMBUS_TEMP, tmp) == OK) {
 			new_report.temperature = (float)(((float)tmp / 10.0f) + CONSTANTS_ABSOLUTE_NULL_CELSIUS);
-		}
 
-		//Check if remaining % is out of range
-		if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-		}
-
-		//Check if discharged amount is greater than the starting capacity
-		else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
-			new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-		}
-
-		// propagate warning state
-		else {
-			if (new_report.remaining > _low_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_NONE;
-
-			} else if (new_report.remaining > _crit_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_LOW;
-
-			} else if (new_report.remaining > _emergency_thr) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-
-			} else {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-			}
+		} else {
+			success = false;
 		}
 
 		new_report.capacity = _batt_capacity;
@@ -381,7 +410,12 @@ BATT_SMBUS::cycle()
 
 		// publish to orb
 		if (_batt_topic != nullptr) {
-			orb_publish(_batt_orb_id, _batt_topic, &new_report);
+			if (success == true) {
+				orb_publish(_batt_orb_id, _batt_topic, &new_report);
+
+				// copy report for test()
+				_last_report = new_report;
+			}
 
 		} else {
 			_batt_topic = orb_advertise(_batt_orb_id, &new_report);
@@ -391,9 +425,6 @@ BATT_SMBUS::cycle()
 				return;
 			}
 		}
-
-		// copy report for test()
-		_last_report = new_report;
 
 		// record we are working
 		_enabled = true;
