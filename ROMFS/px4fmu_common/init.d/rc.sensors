@@ -229,12 +229,20 @@ then
 		# Start the smart battery
 		param set BAT_SOURCE 1
 		batt_smbus start
+		param set CAL_ACC0_EN 1
+		param set CAL_ACC1_EN 1
+		param set CAL_GYRO0_EN 1
+		param set CAL_GYRO1_EN 1
 	else
 		# mpu9250 on external i2c
 		if mpu9250 -X -R 8 start
 		then
 			# Use the ADC voltage measurement
 			param set BAT_SOURCE 0
+			param set CAL_ACC0_EN 1
+			param set CAL_ACC1_EN 0
+			param set CAL_GYRO0_EN 1
+			param set CAL_GYRO1_EN 0
 		else
 		fi
 	fi
