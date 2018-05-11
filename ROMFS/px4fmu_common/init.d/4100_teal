@@ -40,7 +40,7 @@ then
 	param set BAT_SOURCE 1
 	param set BAT_V_CHARGED 4.15
 	param set BAT_V_DIV 11.1625
-	param set BAT_V_EMPTY 3.4
+	param set BAT_V_EMPTY 3.8
 	param set BAT_V_OFFS_CURR -0.0045
 
 	# primary accel
