@@ -1456,9 +1456,6 @@ MPU9250::measure()
 		_gyro->parent_poll_notify();
 	}
 
-#ifdef USE_I2C
-#else
-
 	if (accel_notify && !(_pub_blocked)) {
 		/* publish it */
 		orb_publish(ORB_ID(sensor_accel), _accel_topic, &arb);
@@ -1468,8 +1465,6 @@ MPU9250::measure()
 		/* publish it */
 		orb_publish(ORB_ID(sensor_gyro), _gyro->_gyro_topic, &grb);
 	}
-
-#endif
 
 	/* stop measuring */
 	perf_end(_sample_perf);
