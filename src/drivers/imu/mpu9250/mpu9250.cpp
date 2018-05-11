@@ -218,8 +218,10 @@ MPU9250::~MPU9250()
 	/* make sure we are truly inactive */
 	stop();
 
-	orb_unadvertise(_accel_topic);
-	orb_unadvertise(_gyro->_gyro_topic);
+	if (!is_i2c()) {
+		orb_unadvertise(_accel_topic);
+		orb_unadvertise(_gyro->_gyro_topic);
+	}
 
 	/* delete the gyro subdriver */
 	delete _gyro;
@@ -388,8 +390,10 @@ MPU9250::init()
 	_accel_reports->get(&arp);
 
 	/* measurement will have generated a report, publish */
-	_accel_topic = orb_advertise_multi(ORB_ID(sensor_accel), &arp,
-					   &_accel_orb_class_instance, (is_external()) ? ORB_PRIO_MAX - 1 : ORB_PRIO_HIGH - 1);
+	if (!is_i2c()) {
+		_accel_topic = orb_advertise_multi(ORB_ID(sensor_accel), &arp,
+						   &_accel_orb_class_instance, (is_external()) ? ORB_PRIO_MAX - 1 : ORB_PRIO_HIGH - 1);
+	}
 
 	if (_accel_topic == nullptr) {
 		PX4_ERR("ADVERT FAIL");
@@ -400,8 +404,10 @@ MPU9250::init()
 	struct gyro_report grp;
 	_gyro_reports->get(&grp);
 
-	_gyro->_gyro_topic = orb_advertise_multi(ORB_ID(sensor_gyro), &grp,
-			     &_gyro->_gyro_orb_class_instance, (is_external()) ? ORB_PRIO_MAX - 1 : ORB_PRIO_HIGH - 1);
+	if (!is_i2c()) {
+		_gyro->_gyro_topic = orb_advertise_multi(ORB_ID(sensor_gyro), &grp,
+				     &_gyro->_gyro_orb_class_instance, (is_external()) ? ORB_PRIO_MAX - 1 : ORB_PRIO_HIGH - 1);
+	}
 
 	if (_gyro->_gyro_topic == nullptr) {
 		PX4_ERR("ADVERT FAIL");
@@ -1456,20 +1462,17 @@ MPU9250::measure()
 		_gyro->parent_poll_notify();
 	}
 
-#ifdef USE_I2C
-#else
+	if (!is_i2c()) {
+		if (accel_notify && !(_pub_blocked)) {
+			/* publish it */
+			orb_publish(ORB_ID(sensor_accel), _accel_topic, &arb);
+		}
 
-	if (accel_notify && !(_pub_blocked)) {
-		/* publish it */
-		orb_publish(ORB_ID(sensor_accel), _accel_topic, &arb);
+		if (gyro_notify && !(_pub_blocked)) {
+			/* publish it */
+			orb_publish(ORB_ID(sensor_gyro), _gyro->_gyro_topic, &grb);
+		}
 	}
-
-	if (gyro_notify && !(_pub_blocked)) {
-		/* publish it */
-		orb_publish(ORB_ID(sensor_gyro), _gyro->_gyro_topic, &grb);
-	}
-
-#endif
 
 	/* stop measuring */
 	perf_end(_sample_perf);
