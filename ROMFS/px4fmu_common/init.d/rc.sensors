@@ -223,10 +223,7 @@ then
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
 
-	mpu9250 -t -R 8 start
-
-	mpu9250 -X -R 8 start
-
+	# mpu9250 on the internal SPI bus
 	if mpu9250 -s -R 8 start
 	then
 		# mpu9250 internal SPI bus mpu9250 is rotated 90 deg yaw
@@ -234,6 +231,35 @@ then
 		# BMI160 internal SPI bus
 		bmi160 start
 	fi
+
+	# mpu9250 on the internal SPI bus
+	if mpu9250 -t -R 8 start
+	then
+		# Start the smart battery
+		param set BAT_SOURCE 1
+		batt_smbus start
+		param set CAL_ACC0_EN 1
+		param set CAL_ACC1_EN 0
+		param set CAL_GYRO0_EN 1
+		param set CAL_GYRO1_EN 0
+		param set CAL_ACC_PRIME 1442826
+		param set CAL_GYRO_PRIME 2360330
+	else
+		# mpu9250 on external i2c
+		if mpu9250 -X -R 8 start
+		then
+			# Use the ADC voltage measurement
+			param set BAT_SOURCE 0
+			param set CAL_ACC0_EN 1
+			param set CAL_ACC1_EN 0
+			param set CAL_GYRO0_EN 1
+			param set CAL_GYRO1_EN 0
+			param set CAL_ACC_PRIME 1442826
+			param set CAL_GYRO_PRIME 2360330
+		else
+		fi
+	fi
+
 fi
 
 if ver hwcmp MINDPX_V2
