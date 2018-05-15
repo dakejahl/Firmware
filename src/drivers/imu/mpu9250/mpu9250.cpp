@@ -1140,17 +1140,7 @@ MPU9250::cycle_trampoline(void *arg)
 void
 MPU9250::cycle()
 {
-
-//	int ret = measure();
-
 	measure();
-
-//	if (ret != OK) {
-//		/* issue a reset command to the sensor */
-//		reset();
-//		start();
-//		return;
-//	}
 
 	if (_call_interval != 0) {
 		work_queue(HPWORK,
@@ -1307,7 +1297,8 @@ MPU9250::measure()
 		return;
 	}
 
-	check_registers();
+	// this does not have an use being in the measure loop
+	//check_registers();
 
 	if (check_duplicate(&mpu_report.accel_x[0])) {
 		return;
@@ -1348,22 +1339,6 @@ MPU9250::measure()
 		return;
 	}
 
-	/*
-	 * Swap axes and negate y
-	 */
-	// int16_t accel_xt = report.accel_y;
-	// int16_t accel_yt = ((report.accel_x == -32768) ? 32767 : -report.accel_x);
-
-	// int16_t gyro_xt = report.gyro_y;
-	// int16_t gyro_yt = ((report.gyro_x == -32768) ? 32767 : -report.gyro_x); */
-
-	/*
-	 * Apply the swap
-	 */
-	// report.accel_x = accel_xt;
-	// report.accel_y = accel_yt;
-	// report.gyro_x = gyro_xt;
-	// report.gyro_y = gyro_yt;
 
 	/*
 	 * Report buffers.
@@ -1371,9 +1346,7 @@ MPU9250::measure()
 	accel_report		arb;
 	gyro_report		grb;
 
-	/*
-	 * Adjust and scale results to m/s^2.
-	 */
+
 	grb.timestamp = arb.timestamp = hrt_absolute_time();
 
 	// report the error count as the sum of the number of bad
@@ -1397,15 +1370,9 @@ MPU9250::measure()
 	 *		  74 from all measurements centers them around zero.
 	 */
 
-	/* NOTE: Axes have been swapped to match the board a few lines above. */
-
 	arb.x_raw = report.accel_x;
 	arb.y_raw = report.accel_y;
 	arb.z_raw = report.accel_z;
-
-	/* It is best to have no artificial rotation inside the
-	 * driver and then use the startup script with -R command with the
-	 * real rotation between the sensor and body frame */
 
 	float xraw_f = report.accel_x;
 	float yraw_f = report.accel_y;
