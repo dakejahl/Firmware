@@ -40,18 +40,28 @@
  * @author Randy Mackay <rmackay9@yahoo.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
  * @author Mark Sauder <mcsauder@gmail.com>
+ * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
+
+#include <px4_config.h>
+#include <px4_workqueue.h>
+
+#include <stdio.h>
 
 #include <string.h>
 #include <ecl/geo/geo.h>
 
+#include <drivers/device/CDev.hpp>
+#include <drivers/device/Device.hpp>
 #include <drivers/device/i2c.h>
+#include <drivers/drv_device.h>
 
 #include <drivers/drv_hrt.h>
 
 #include <uORB/topics/battery_status.h>
 
+#define DATA_BUFFER_SIZE				32
 
 #define BATT_SMBUS_I2C_BUS                              PX4_I2C_BUS_EXPANSION
 #define BATT_SMBUS_CURRENT                              0x0A                    ///< current register
@@ -73,15 +83,15 @@
 #define BATT_SMBUS_MANUFACTURE_DATE                     0x1B                    ///< manufacture date register
 #define BATT_SMBUS_SERIAL_NUMBER                        0x1C                    ///< serial number register
 #define BATT_SMBUS_MEASUREMENT_INTERVAL_US              100000                  ///< time in microseconds, measure at 10Hz
-#define BATT_SMBUS_TIMEOUT_US                           10000000                ///< timeout looking for battery 10seconds after startup
+#define BATT_SMBUS_TIMEOUT_US                           1000000                ///< timeout looking for battery 10seconds after startup
 #define BATT_SMBUS_MANUFACTURER_ACCESS                  0x00
+#define BATT_SMBUS_MANUFACTURER_DATA			0x23
 #define BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS            0x44
-
+#define BATT_SMBUS_SECURITY_KEYS			0x0035
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
 #endif
-
 
 /**
  * @brief Nuttshell accessible method to return the driver usage arguments.
@@ -90,25 +100,101 @@ void batt_smbus_usage();
 
 /**
  * @brief Nuttshell accessible method to return the battery manufacture date.
+ * @return Returns PX4_OK on success, PX4_ERROR on failure.
  */
 int manufacture_date();
 
 /**
  * @brief Nuttshell accessible method to return the battery manufacturer name.
+ * @return Returns PX4_OK on success, PX4_ERROR on failure.
  */
 int manufacturer_name();
 
 /**
  * @brief Nuttshell accessible method to return the battery serial number.
+ * @return Returns PX4_OK on success, PX4_ERROR on failure.
  */
 int serial_number();
 
+extern device::Device *BATT_SMBUS_I2C_interface(int bus);
+typedef device::Device *(*BATT_SMBUS_constructor)(int);
 
-class BATT_SMBUS : public device::I2C
+class BATT_SMBUS : public device::CDev
 {
 public:
-	BATT_SMBUS(int bus = PX4_I2C_BUS_EXPANSION, uint16_t batt_smbus_addr = BATT_SMBUS_ADDR);
+
+	/**
+	 * @brief Default Constructor.
+	 * @param interface The device communication interface (i2c)
+	 * @param path The device i2c address
+	 */
+	BATT_SMBUS(device::Device *interface, const char *path);
+
+	/**
+	 * @brief Default Destructor.
+	 */
 	virtual ~BATT_SMBUS();
+
+	/**
+	 * @brief Sends a block read command.
+	 * @param cmd_code The command code.
+	 * @param data The returned data.
+	 * @param length The number of bytes being read
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int block_read(const uint8_t cmd_code, void *data, const unsigned length);
+
+	/**
+	 * @brief Sends a block write command.
+	 * @param cmd_code The command code.
+	 * @param data The data to be written.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int block_write(const uint8_t cmd_code, void *data, const unsigned length);
+
+	/**
+	 * @brief Reads data from flash.
+	 * @param address The address to start the read from.
+	 * @param data The returned data.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int dataflash_read(uint16_t &address, void *data);
+
+	/**
+	 * @brief Writes data to flash.
+	 * @param address The start address of the write.
+	 * @param data The data to be written.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int dataflash_write(uint16_t &address, void *data, const unsigned length);
+
+	/**
+	 * @brief Calculates the PEC from the data.
+	 * @param buff The buffer that stores the data.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	uint8_t get_pec(uint8_t *buffer, const uint8_t length);
+
+	/**
+	 * @brief Returns the SBS serial number of the battery device.
+	 * @return Returns the SBS serial number of the battery device.
+	 */
+	uint16_t get_serial_number();
+
+	/**
+	* @brief Read info from battery on startup.
+	* @return Returns PX4_OK on success, PX4_ERROR on failure.
+	*/
+	int get_startup_info();
+
+	/**
+	 * @brief Prints the latest report.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int info();
 
 	/**
 	 * @brief Initializes the smart battery device. Calls probe() to check for device on bus.
@@ -117,70 +203,50 @@ public:
 	virtual int init();
 
 	/**
-	 * Test device
-	 *
-	 * @return 0 on success, error code on failure.
+	 * @brief Gets the SBS manufacture date of the battery.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
-	virtual int test();
-
-	/**
-	 * @brief Returns the SBS manufacture date of the battery.
-	 *
-	 * @return the date in the following format:
-	*  see Smart Battery Data Specification, Revision  1.1
-	*  http://sbs-forum.org/specs/sbdat110.pdf for more details
-	 *  Date as uint16_t = (year-1980) * 512 + month * 32 + day
-	 *  | Field | Bits | Format             | Allowable Values                           |
-	 *  | ----- | ---- | ------------------ | ------------------------------------------ |
-	 *  | Day     0-4    5-bit binary value   1-31 (corresponds to day)                  |
-	 *  | Month   5-8    4-bit binary value   1-12 (corresponds to month number)         |
-	 *  | Year    9-15   7-bit binary value   0-127 (corresponds to year biased by 1980) |
-	 *  otherwise, return 0 on failure
-	 */
-	uint16_t manufacture_date();
+	int manufacture_date(void *man_date);
 
 	/**
 	 * @brief Gets the SBS manufacturer name of the battery device.
-	 *
 	 * @param manufacturer_name Pointer to a buffer into which the manufacturer name is to be written.
 	 * @param max_length The maximum number of bytes to attempt to read from the manufacturer name register,
 	 *                   including the null character that is appended to the end.
-	 *
-	 * @return Returns the number of bytes read.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
-	uint8_t manufacturer_name(uint8_t *manufacturer_name, uint8_t max_length);
+	int manufacturer_name(uint8_t *manufacturer_name, const uint8_t length);
 
 	/**
-	 * @brief Returns the SBS serial number of the battery device.
-	 * @return Returns the SBS serial number of the battery device.
+	 * @brief Performs a ManufacturerBlockAccess() read command.
+	 * @param cmd_code The command code.
+	 * @param data The returned data.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
-	uint16_t serial_number();
+	int manufacturer_read(const uint16_t cmd_code, void *data, const unsigned length);
+
+	/**
+	 * @brief Performs a ManufacturerBlockAccess() write command.
+	 * @param cmd_code The command code.
+	 * @param data The sent data.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int manufacturer_write(const uint16_t cmd_code, void *data, const unsigned length);
+	/**
+	 * @brief Sends a read-word command with cmd_code as the command.
+	 * @param cmd_code The command code.
+	 * @param data The returned data.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int read_word(const uint8_t cmd_code, void *data);
 
 	/**
 	 * @brief Search all possible slave addresses for a smart battery.
-	 * @return Returns PX4_OK if it finds a smart battery.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
 	int search_addresses();
-
-	/**
-	 * @brief Writes a word to specified register.
-	 * @param reg The register to write.
-	 * @param val Data to write.
-	 * @return Returns the number of characters written, zero if unsuccessful.
-	 */
-	int write_reg(uint8_t reg, uint16_t val);
-
-
-
-
-protected:
-	/**
-	 * @brief Check if the device can be contacted.
-	 * @return Returns 1 if the device can be contacted.
-	 */
-	virtual int probe();
-
-private:
 
 	/**
 	 * @brief Starts periodic reads from the battery.
@@ -193,72 +259,26 @@ private:
 	void stop();
 
 	/**
+	 * @brief Unseals the battery to allow writing to restricted flash.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int unseal();
+
+
+protected:
+	Device *_interface;
+
+private:
+
+	/**
 	 * @brief Static function that is called by worker queue.
 	 */
 	static void cycle_trampoline(void *arg);
 
 	/**
-	 * @brief Performs a read from the battery.
+	 * @brief The loop that continually generates new reports.
 	 */
 	void cycle();
-
-	/**
-	 * @brief Converts from 2's compliment to decimal.
-	 * @return Returns the absolute value of the input in decimal.
-	 */
-	uint16_t convert_twos_comp(uint16_t val);
-
-	/**
-	 * @brief Calculates PEC (CRC) for a read or write from the battery.
-	 * @param cmd I2C command passed.
-	 * @param reading True if the data is from a read, false if from a write.
-	 * @param buffer The data that was read from the smbus or will be written to the smbus.
-	 * @param length Length of the data passed.
-	 */
-	uint8_t get_PEC(uint8_t cmd, bool reading, const uint8_t buffer[], uint8_t length);
-
-	/**
-	 * @brief Read info from battery on startup.
-	 * @return OK if everything was read successfully.
-	 */
-	uint8_t get_startup_info();
-
-	/**
-	 * @brief Write a word to Manufacturer Access register (0x00).
-	 * @param cmd The word to be written to Manufacturer Access.
-	 * @return Returns PX4_OK if write was successful.
-	 */
-	uint8_t manufacturer_access(uint16_t cmd);
-
-	/**
-	 * @brief Read a word from specified register.
-	 * @param reg The register to be read from.
-	 * @param val Where to store the value read.
-	 * @return Returns OK if successful, PX4_ERROR if failed.
-	 */
-	int read_reg(uint8_t reg, uint16_t &val);
-
-	/**
-	 * @brief Read block from bus.
-	 * @param reg The register to be read from.
-	 * @param data Where to store the data.
-	 * @param max_length The maximum length of data.
-	 * @param append_zero Set true to append a zero to the buffer.
-	 * @return Returns number of characters read if successful, zero if unsuccessful.
-	 */
-	uint8_t read_block(uint8_t reg, uint8_t *data, uint8_t max_length, bool append_zero);
-
-	/**
-	 * @brief Writes block to the bus.
-	 * @param reg The register to start writing.
-	 * @param data Data to write.
-	 * @param length The length of data to be written.
-	 * @return Returns the number of characters written, zero if unsuccessful.
-	 */
-	uint8_t write_block(uint8_t reg, uint8_t *data, uint8_t length);
-
-	/* @param_enabled Boolean to indicate if we have successfully connected to battery. */
-	bool _enabled;
 
 	/** @struct _work Work queue for scheduling reads. */
 	work_s _work = work_s{};
@@ -284,9 +304,6 @@ private:
 	/** @param _serial_number Serial number register. */
 	uint16_t _serial_number;
 
-	/** @param _start_time System time we first attempt to communicate with battery. */
-	uint64_t _start_time;
-
 	/** @param _crit_thr Critical battery threshold param. */
 	float _crit_thr;
 
@@ -298,4 +315,8 @@ private:
 
 	/** @param _manufacturer_name Name of the battery manufacturer. */
 	char *_manufacturer_name;
+
+	/* Do not allow copy construction or move assignment of this class. */
+	BATT_SMBUS(const BATT_SMBUS &);
+	BATT_SMBUS operator=(const BATT_SMBUS &);
 };

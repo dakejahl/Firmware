@@ -40,34 +40,32 @@
  * @author Randy Mackay <rmackay9@yahoo.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
  * @author Mark Sauder <mcsauder@gmail.com>
+ * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
 #include <px4_defines.h>
 
 #include "batt_smbus.h"
 
-/** @brief device handle. For now, we only support one BATT_SMBUS device. */
-BATT_SMBUS *g_batt_smbus;
-
-extern "C" __EXPORT int batt_smbus_main(int argc, char *argv[]);
-
-BATT_SMBUS::BATT_SMBUS(int bus, uint16_t batt_smbus_addr) :
-	I2C("batt_smbus", "/dev/batt_smbus0", bus, batt_smbus_addr, 100000),
-	_enabled(false),
+BATT_SMBUS::BATT_SMBUS(device::Device *interface, const char *path) :
+	CDev("BATT_SMBUS", path),
+	_interface(interface),
 	_batt_topic(nullptr),
 	_batt_orb_id(nullptr),
 	_batt_capacity(0),
 	_batt_startup_capacity(0),
 	_cycle_count(0),
 	_serial_number(0),
-	_start_time(0),
 	_crit_thr(0.0f),
 	_emergency_thr(0.0f),
 	_low_thr(0.0f),
 	_manufacturer_name(nullptr)
 {
-	// Capture startup time.
-	_start_time = hrt_absolute_time();
+	// Set the device type from the interface.
+	_device_id.devid_s.bus_type = _interface->get_device_bus_type();
+	_device_id.devid_s.bus = _interface->get_device_bus();
+	_device_id.devid_s.address = _interface->get_device_address();
+	_device_id.devid_s.devtype = DRV_BATT_DEVTYPE_BQ40Z50;
 }
 
 BATT_SMBUS::~BATT_SMBUS()
@@ -79,53 +77,95 @@ BATT_SMBUS::~BATT_SMBUS()
 		delete[] _manufacturer_name;
 	}
 
-	// Switch back to ADC battery measurement.
-	PX4_ERR("Failed to start smart battery. Switching to ADC measurement.");
+	PX4_WARN("Smart battery driver stopped");
 
 	int battsource = 0;
 	param_set(param_find("BAT_SOURCE"), &battsource);
 }
 
-uint16_t
-BATT_SMBUS::convert_twos_comp(uint16_t val)
+int BATT_SMBUS::block_read(const uint8_t cmd_code, void *data, const unsigned length)
 {
-	// Temporary variable.
-	uint16_t result = 0;
+	unsigned byte_count = 0;
+	// Length of data (32max). byte_count(1), cmd_code(2), pec(1)
+	uint8_t rx_data[DATA_BUFFER_SIZE + 4];
 
-	if ((val & 0x8000) == 0x8000) {
-		result = ~val;
-		result += 1;
-		return result;
+	// If this is a ManufacturerBlockAccess() command then the first 2 data bytes will be the cmd_code.
+	if (cmd_code == BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS) {
+		_interface->read(cmd_code, rx_data, length + 4);
+
+		byte_count = rx_data[0];
+
+		// addr1, addr2, byte_count,
+		memcpy(data, &rx_data[3], byte_count);
+
+	} else {
+		// byte_count(1) + data[32max] + pec(1)
+		_interface->read(cmd_code, rx_data, length + 2);
+
+		byte_count = rx_data[0];
+
+		memcpy(data, &rx_data[1], byte_count);
+	}
+
+	// addr(wr), cmd_code, addr(r), byte_count, rx_data[]
+	uint8_t device_address = get_device_address();
+	uint8_t full_data_packet[byte_count + 4] = {0};
+
+	full_data_packet[0] = (device_address << 1) | 0x00;
+	full_data_packet[1] = cmd_code;
+	full_data_packet[2] = (device_address << 1) | 0x01;
+	full_data_packet[3] = byte_count;
+
+	memcpy(&full_data_packet[4], &rx_data[1], byte_count);
+
+	uint8_t pec = get_pec(full_data_packet, sizeof(full_data_packet));
+
+	// First byte is byte count, followed by data.
+	if (pec != ((uint8_t *)rx_data)[byte_count + 1]) {
+		PX4_INFO("bad PEC from block_read");
+		return PX4_ERROR;
+
+	} else {
+		return PX4_OK;
+	}
+}
+
+int BATT_SMBUS::block_write(const uint8_t cmd_code, void *data, const unsigned byte_count)
+{
+	// cmd code, byte count, data[byte_count], pec
+	uint8_t buf[byte_count + 2];
+
+	buf[0] = cmd_code;
+	buf[1] = (uint8_t)byte_count;
+	memcpy(&buf[2], data, byte_count);
+
+	uint8_t pec = get_pec(buf, sizeof(buf));
+	buf[byte_count + 2] = pec;
+
+	unsigned i = 0;
+
+	// If block_write fails, try up to 10 times.
+	while (i < 10) {
+		if (PX4_OK != _interface->write(0, buf, sizeof(buf))) {
+			i++;
+			PX4_WARN("block_write failed: %d", i);
+			usleep(100000);
+
+		} else {
+			return PX4_OK;
+		}
 	}
 
 	return PX4_ERROR;
 }
 
-void
-BATT_SMBUS::cycle_trampoline(void *arg)
-{
-	BATT_SMBUS *dev = (BATT_SMBUS *)arg;
-	dev->cycle();
-}
-
-void
-BATT_SMBUS::cycle()
+void BATT_SMBUS::cycle()
 {
 	// Get the current time.
 	uint64_t now = hrt_absolute_time();
 
-	// Exit without rescheduling if we have failed to find a battery after 10 seconds.
-	if (!_enabled && (now - _start_time > BATT_SMBUS_TIMEOUT_US)) {
-		PX4_INFO("did not find smart battery");
-		return;
-	}
-
 	// Read data from sensor.
 	battery_status_s new_report = {};
-
-	if ((_last_report.remaining < 0.0f) || (_last_report.remaining > 1.0f)) {
-		_last_report.remaining = 0.5f;
-	}
 
 	// Set time of reading.
 	new_report.timestamp = now;
@@ -136,7 +176,7 @@ BATT_SMBUS::cycle()
 	// Temporary variable for storing SMBUS reads.
 	uint16_t tmp;
 
-	if (read_reg(BATT_SMBUS_VOLTAGE, tmp) == PX4_OK) {
+	if (read_word(BATT_SMBUS_VOLTAGE, &tmp) == PX4_OK) {
 
 		new_report.connected = true;
 
@@ -145,8 +185,8 @@ BATT_SMBUS::cycle()
 		new_report.voltage_filtered_v = new_report.voltage_v;
 
 		// Read current.
-		if (read_reg(BATT_SMBUS_CURRENT, tmp) == PX4_OK) {
-			new_report.current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
+		if (read_word(BATT_SMBUS_CURRENT, &tmp) == PX4_OK) {
+			new_report.current_a = ((float)(*(int16_t *)&tmp)) / 1000.0f;
 			new_report.current_filtered_a = new_report.current_a;
 
 		} else {
@@ -154,15 +194,15 @@ BATT_SMBUS::cycle()
 		}
 
 		// Read average current.
-		if (read_reg(BATT_SMBUS_AVERAGE_CURRENT, tmp) == PX4_OK) {
-			new_report.average_current_a = ((float)convert_twos_comp(tmp)) / 1000.0f;
+		if (read_word(BATT_SMBUS_AVERAGE_CURRENT, &tmp) == PX4_OK) {
+			new_report.average_current_a = ((float)(*(int16_t *)&tmp)) / 1000.0f;
 
 		} else {
 			success = false;
 		}
 
 		// Read run time to empty.
-		if (read_reg(BATT_SMBUS_RUN_TIME_TO_EMPTY, tmp) == PX4_OK) {
+		if (read_word(BATT_SMBUS_RUN_TIME_TO_EMPTY, &tmp) == PX4_OK) {
 			new_report.run_time_to_empty = tmp;
 
 		} else {
@@ -170,7 +210,7 @@ BATT_SMBUS::cycle()
 		}
 
 		// Read average time to empty.
-		if (read_reg(BATT_SMBUS_AVERAGE_TIME_TO_EMPTY, tmp) == PX4_OK) {
+		if (read_word(BATT_SMBUS_AVERAGE_TIME_TO_EMPTY, &tmp) == PX4_OK) {
 			new_report.average_time_to_empty = tmp;
 
 		} else {
@@ -178,7 +218,7 @@ BATT_SMBUS::cycle()
 		}
 
 		// Read remaining capacity.
-		if (read_reg(BATT_SMBUS_REMAINING_CAPACITY, tmp) == PX4_OK) {
+		if (read_word(BATT_SMBUS_REMAINING_CAPACITY, &tmp) == PX4_OK) {
 
 			if (tmp > _batt_capacity) {
 				PX4_WARN("Remaining capacity greater than total: Capacity:%hu \tRemaining Capacity:%hu",
@@ -227,7 +267,7 @@ BATT_SMBUS::cycle()
 		}
 
 		// Read battery temperature and covert to Celsius.
-		if (read_reg(BATT_SMBUS_TEMP, tmp) == PX4_OK) {
+		if (read_word(BATT_SMBUS_TEMP, &tmp) == PX4_OK) {
 			new_report.temperature = (float)(((float)tmp / 10.0f) + CONSTANTS_ABSOLUTE_NULL_CELSIUS);
 
 		} else {
@@ -239,13 +279,13 @@ BATT_SMBUS::cycle()
 		new_report.serial_number = _serial_number;
 
 		// Publish to orb.
-		if (_batt_topic != nullptr) {
-			if (success == true) {
-				orb_publish(_batt_orb_id, _batt_topic, &new_report);
+		if (_batt_topic != nullptr && success) {
 
-				// Copy report for test().
-				_last_report = new_report;
-			}
+			orb_publish(_batt_orb_id, _batt_topic, &new_report);
+
+			// Copy report for test().
+			_last_report = new_report;
+
 
 		} else {
 			_batt_topic = orb_advertise(_batt_orb_id, &new_report);
@@ -256,639 +296,337 @@ BATT_SMBUS::cycle()
 			}
 		}
 
-		// Record we are working.
-		_enabled = true;
 	}
 
-	// schedule a fresh cycle call when the measurement is done
+	// Schedule a fresh cycle call when the measurement is done.
 	work_queue(HPWORK, &_work, (worker_t)&BATT_SMBUS::cycle_trampoline, this,
 		   USEC2TICK(BATT_SMBUS_MEASUREMENT_INTERVAL_US));
 }
 
-int
-BATT_SMBUS::init()
+void BATT_SMBUS::cycle_trampoline(void *arg)
 {
-	int result = PX4_ERROR;
-
-	// attempt to initialize I2C bus
-	result = I2C::init();
-
-	if (result != PX4_OK) {
-		PX4_ERR("Failed to init I2C");
-		return result;
-	}
-
-	// Find the battery on the bus and read startup info
-	if (search_addresses() != PX4_OK) {
-		PX4_ERR("Failed to init I2C");
-		return result;
-	}
-
-	// Retry up to 10 times to read startup info
-	for (size_t i = 0; i < 10; i++) {
-		result = get_startup_info();
-
-		if (result == PX4_OK) {
-			break;
-		}
-	}
-
-	if (result != PX4_OK) {
-		PX4_ERR("Failed to get battery startup info");
-		return result;
-	}
-
-	// Start the work queue.
-	start();
-
-	// Initialize the orb ID.
-	_batt_orb_id = ORB_ID(battery_status);
-
-	return result;
+	BATT_SMBUS *dev = (BATT_SMBUS *)arg;
+	dev->cycle();
 }
 
-uint16_t
-BATT_SMBUS::manufacture_date()
+int BATT_SMBUS::dataflash_read(uint16_t &address, void *data)
 {
-	uint16_t mfg_date;
+	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
 
-	if (read_reg(BATT_SMBUS_MANUFACTURE_DATE, mfg_date) == PX4_OK) {
-		return mfg_date;
+	// address is 2 bytes
+	block_write(code, &address, 2);
+	// @NOTE: The data buffer MUST be 32 bytes.
+	block_read(code, data, DATA_BUFFER_SIZE);
+
+	// for debug only: print out the receieved buffer
+	for (unsigned i = 0; i < DATA_BUFFER_SIZE ; i++) {
+		PX4_INFO("%d", ((uint8_t *)data)[i]);
 	}
 
-	// Return an error if could not read the date correctly.
-	return PX4_ERROR;
+	return PX4_OK;
 }
 
-uint8_t
-BATT_SMBUS::manufacturer_name(uint8_t *mfr_name, uint8_t max_length)
+
+int BATT_SMBUS::dataflash_write(uint16_t &address, void *data, const unsigned length)
 {
-	uint8_t length = read_block(BATT_SMBUS_MANUFACTURER_NAME, mfr_name, max_length, false);
+	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
 
-	if (length > 0) {
-		if (length >= max_length - 1) {
-			mfr_name[max_length - 1] = 0;
+	// @NOTE: The data buffer can be 1 - 32 bytes. The address field is 2 bytes.
+	uint8_t tx_buf[DATA_BUFFER_SIZE + 2] = {0};
 
-		} else {
-			mfr_name[length] = 0;
-		}
-	}
+	tx_buf[0] = ((uint8_t *)&address)[0];
+	tx_buf[1] = ((uint8_t *)&address)[1];
+	memcpy(&tx_buf[2], data, length);
 
-	return length;
+	// code (1), byte_count (1), addr(2), data(32) + pec
+	block_write(code, tx_buf, length + 2);
+
+	return PX4_OK;
 }
 
-int
-BATT_SMBUS::search_addresses()
+uint8_t BATT_SMBUS::get_pec(uint8_t *buff, const uint8_t len)
 {
-	bool found_slave = false;
-	uint16_t tmp;
-	uint8_t orig_addr = get_device_address();
+	// Initialise CRC to zero.
+	uint8_t crc = 0;
+	uint8_t shift_register = 0;
+	bool invert_crc;
 
-	int result = PX4_ERROR;
+	// Calculate crc for each byte in the stream.
+	for (uint8_t i = 0; i < len; i++) {
+		// Load next data byte into the shift register
+		shift_register = buff[i];
 
-	// search through all valid SMBus addresses
-	for (uint8_t i = BATT_SMBUS_ADDR_MIN; i < BATT_SMBUS_ADDR_MAX; i++) {
-		set_device_address(i);
+		// Calculate crc for each bit in the current byte.
+		for (uint8_t j = 0; j < 8; j++) {
+			invert_crc = (crc ^ shift_register) & 0x80;
+			crc <<= 1;
+			shift_register <<= 1;
 
-		if (read_reg(BATT_SMBUS_VOLTAGE, tmp) == PX4_OK) {
-			if (tmp > 0) {
-				PX4_INFO("battery found at 0x%x", get_device_address());
-				found_slave = true;
-				break;
+			if (invert_crc) {
+				crc ^= BATT_SMBUS_PEC_POLYNOMIAL;
 			}
 		}
-
-		// short sleep
-		usleep(1);
 	}
 
-	if (found_slave == false) {
-		// restore original i2c address
-		set_device_address(orig_addr);
+	return crc;
+}
+
+int BATT_SMBUS::get_startup_info()
+{
+	int result = PX4_ERROR;
+	const unsigned name_length = 22;
+
+	// Try and get battery SBS info.
+	if (_manufacturer_name == nullptr) {
+		char man_name[name_length] = {0};
+		result = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
+
+		if (PX4_OK != result) {
+			PX4_WARN("Failed to get manufacturer name");
+			return PX4_ERROR;
+		}
+
+		_manufacturer_name = new char[sizeof(man_name)];
+		strcpy(_manufacturer_name, man_name);
 	}
 
-	// display completion message
-	if (found_slave) {
-		PX4_INFO("smart battery connected");
+	// Temporary variable for storing SMBUS reads.
+	uint16_t tmp = 0;
+
+	// Read battery serial number on startup.
+	if (read_word(BATT_SMBUS_SERIAL_NUMBER, &tmp) == PX4_OK) {
+		_serial_number = tmp;
 		result = PX4_OK;
-
-	} else {
-		PX4_WARN("No smart batteries found.");
 	}
+
+	// Read battery capacity on startup.
+	if (read_word(BATT_SMBUS_REMAINING_CAPACITY, &tmp) == PX4_OK) {
+		_batt_startup_capacity = tmp;
+		result = PX4_OK;
+	}
+
+	// Read battery cycle count on startup.
+	if (read_word(BATT_SMBUS_CYCLE_COUNT, &tmp) == PX4_OK) {
+		_cycle_count = tmp;
+		result = PX4_OK;
+	}
+
+	// Read battery design capacity on startup.
+	if (read_word(BATT_SMBUS_FULL_CHARGE_CAPACITY, &tmp) == PX4_OK) {
+		_batt_capacity = tmp;
+		result = PX4_OK;
+	}
+
+	// Read battery threshold params on startup.
+	param_get(param_find("BAT_CRIT_THR"), &_crit_thr);
+	param_get(param_find("BAT_LOW_THR"), &_low_thr);
+	param_get(param_find("BAT_EMERGEN_THR"), &_emergency_thr);
 
 	return result;
 }
 
-uint16_t
-BATT_SMBUS::serial_number()
+uint16_t BATT_SMBUS::get_serial_number()
 {
 	uint16_t serial_num = 0;
 
-	if (read_reg(BATT_SMBUS_SERIAL_NUMBER, serial_num) == PX4_OK) {
+	if (read_word(BATT_SMBUS_SERIAL_NUMBER, &serial_num) == PX4_OK) {
 		return serial_num;
 	}
 
 	return PX4_ERROR;
 }
 
-int
-BATT_SMBUS::probe()
+int BATT_SMBUS::info()
 {
-	// Always return OK if the BATT_SMBUS object exists.
+	print_message(_last_report);
 	return PX4_OK;
 }
 
-void
-BATT_SMBUS::start()
+int BATT_SMBUS::init()
+{
+	if (PX4_OK != CDev::init()) {
+		PX4_ERR("CDev init failed");
+		return PX4_ERROR;
+	}
+
+	// Find the battery on the bus and read startup info.
+	if (search_addresses() != PX4_OK) {
+		PX4_ERR("Failed to init I2C");
+		return PX4_ERROR;
+	}
+
+	// Retry up to 10 times to read startup info.
+	for (unsigned i = 0; i < 10; i++) {
+		if (PX4_OK == get_startup_info()) {
+			break;
+		}
+
+		if (i == 9) {
+			PX4_ERR("Failed to get battery startup info");
+			return 	PX4_ERROR;
+		}
+	}
+
+	// Initialize the orb ID.
+	_batt_orb_id = ORB_ID(battery_status);
+
+	// Start the work queue.
+	start();
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::manufacture_date(void *man_date)
+{
+	uint8_t code = BATT_SMBUS_MANUFACTURE_DATE;
+
+	int result = read_word(code, man_date);
+
+	if (PX4_OK != result) {
+		PX4_WARN("Could not read manufacturer name");
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::manufacturer_name(uint8_t *man_name, const uint8_t length)
+{
+	uint8_t code = BATT_SMBUS_MANUFACTURER_NAME;
+	uint8_t rx_buf[21] = {0};
+
+	// Returns 21 bytes, add 1 byte for null terminator.
+	int result = block_read(code, rx_buf, length - 1);
+
+	memcpy(man_name, rx_buf, sizeof(rx_buf));
+
+	man_name[21] = '\0';
+
+	if (PX4_OK != result) {
+		PX4_WARN("Could not read manufacturer name");
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::manufacturer_read(const uint16_t cmd_code, void *data, const unsigned length)
+{
+	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
+
+	uint8_t address[2] = {0};
+	address[0] = ((uint8_t *)&cmd_code)[0];
+	address[1] = ((uint8_t *)&cmd_code)[1];
+
+	block_write(code, address, sizeof(address));
+
+	// returns the 2 bytes of addr info + data[]
+	block_read(code, data, length);
+
+	uint8_t rx_buf[DATA_BUFFER_SIZE] = {0};
+	memcpy(rx_buf, data, DATA_BUFFER_SIZE);
+
+	PX4_INFO("Received data: %d %d %d %d %d %d %d %d %d %d %d %d", rx_buf[0], rx_buf[1], rx_buf[2], rx_buf[3], rx_buf[4],
+		 rx_buf[5], rx_buf[6], rx_buf[7], rx_buf[8], rx_buf[9], rx_buf[10], rx_buf[11]);
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::manufacturer_write(const uint16_t cmd_code, void *data, const unsigned length)
+{
+	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
+
+	uint8_t address[2] = {0};
+	address[0] = ((uint8_t *)&cmd_code)[0];
+	address[1] = ((uint8_t *)&cmd_code)[1];
+
+	uint8_t tx_buf[DATA_BUFFER_SIZE + 2] = {0};
+	memcpy(tx_buf, address, 2);
+	memcpy(&tx_buf[2], data, length);
+
+	block_write(code, tx_buf, length + 2);
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::read_word(const uint8_t cmd_code, void *data)
+{
+	// 2 data bytes + pec byte
+	int result = _interface->read(cmd_code, data, 3);
+
+	if (PX4_OK == result) {
+		// Check PEC.
+		uint8_t addr = (get_device_address() << 1);
+		uint8_t full_data_packet[5];
+		full_data_packet[0] = addr | 0x00;
+		full_data_packet[1] = cmd_code;
+		full_data_packet[2] = addr | 0x01;
+		memcpy(&full_data_packet[3], data, 2);
+
+		uint8_t pec = get_pec(full_data_packet, sizeof(full_data_packet));
+
+		if (pec == ((uint8_t *)data)[2]) {
+			return PX4_OK;
+
+		} else {
+			return PX4_ERROR;
+		}
+	}
+
+	return PX4_ERROR;
+}
+
+int BATT_SMBUS::search_addresses()
+{
+	uint16_t tmp;
+
+	set_device_address(BATT_SMBUS_ADDR);
+
+	if (PX4_OK != read_word(BATT_SMBUS_VOLTAGE, &tmp)) {
+		// Search through all valid SMBus addresses.
+		for (uint8_t i = BATT_SMBUS_ADDR_MIN; i < BATT_SMBUS_ADDR_MAX; i++) {
+			set_device_address(i);
+
+			if (read_word(BATT_SMBUS_VOLTAGE, &tmp) == PX4_OK) {
+				if (tmp > 0) {
+					break;
+				}
+			}
+
+			if (i == BATT_SMBUS_ADDR_MAX - 1) {
+				PX4_WARN("No smart batteries found.");
+				return PX4_ERROR;
+			}
+		}
+	}
+
+	PX4_INFO("Smart battery found at 0x%x", get_device_address());
+	PX4_INFO("Smart battery connected");
+
+	return PX4_OK;
+}
+
+void BATT_SMBUS::start()
 {
 	// Schedule a cycle to start things.
 	work_queue(HPWORK, &_work, (worker_t)&BATT_SMBUS::cycle_trampoline, this, 1);
 }
 
-void
-BATT_SMBUS::stop()
+void BATT_SMBUS::stop()
 {
 	// Cancel the work queue.
 	work_cancel(HPWORK, &_work);
 }
 
-int
-BATT_SMBUS::test()
+int BATT_SMBUS::unseal()
 {
-	int sub = orb_subscribe(ORB_ID(battery_status));
-	bool updated = false;
-	struct battery_status_s status;
-	uint64_t start_time = hrt_absolute_time();
+	// See pg85 of bq40z50 technical reference.
+	uint16_t keys[2] = {0x0414, 0x3672};
 
-	// Loop for 3 seconds
-	while ((hrt_absolute_time() - start_time) < 3000000) {
-
-		// Display new info that has arrived from the orb
-		orb_check(sub, &updated);
-
-		if (updated) {
-			if (orb_copy(ORB_ID(battery_status), sub, &status) == PX4_OK) {
-				print_message(status);
-			}
-		}
-
-		// Sleep for 0.2 seconds
-		usleep(200000);
+	if (PX4_OK != manufacturer_write(keys[0], &keys[1], 2)) {
+		PX4_INFO("Failed to unseal device.");
+		return PX4_ERROR;
 	}
 
 	return PX4_OK;
-}
-
-int
-BATT_SMBUS::read_reg(uint8_t reg, uint16_t &val)
-{
-	// Buffer to hold 2 bytes of data.
-	uint8_t buffer[3];
-
-	// Read from register.
-	int result = transfer(&reg, 1, buffer, 3);
-
-	if (result == PX4_OK) {
-		// Check PEC.
-		uint8_t pec = get_PEC(reg, true, buffer, 2);
-
-		if (pec == buffer[2]) {
-			val = (uint16_t)buffer[1] << 8 | (uint16_t)buffer[0];
-
-		} else {
-			PX4_WARN("BATT_SMBUS PEC Check Failed");
-			result = PX4_ERROR;
-		}
-	}
-
-	// Return success or failure.
-	return result;
-}
-
-uint8_t
-BATT_SMBUS::read_block(uint8_t reg, uint8_t *data, uint8_t max_length, bool append_zero)
-{
-	uint8_t buffer[max_length + 2];  // buffer to hold results
-
-	// Read bytes including PEC.
-	int result = transfer(&reg, 1, buffer, max_length + 2);
-
-	// Return zero on failure.
-	if (result != PX4_OK) {
-		PX4_WARN("Read register block data transfer failed.");
-		return PX4_ERROR;
-	}
-
-	// Initialize the buffer length.
-	uint8_t buffer_length = buffer[0];
-
-	// Sanity check length returned by smbus.
-	if (buffer_length == 0 ||
-	    buffer_length > max_length) {
-		PX4_WARN("Buffer length error.");
-		return PX4_ERROR;
-	}
-
-	// Check PEC.
-	uint8_t pec = get_PEC(reg, true, buffer, buffer_length + 1);
-
-	if (pec != buffer[buffer_length + 1]) {
-		PX4_WARN("PEC failure.");
-		return PX4_ERROR;
-	}
-
-	// Copy data.
-	memcpy(data, &buffer[1], buffer_length);
-
-	// Optionally add zero to end.
-	if (append_zero) {
-		data[buffer_length] = '\0';
-	}
-
-	// Return success.
-	return buffer_length;
-}
-
-int
-BATT_SMBUS::write_reg(uint8_t reg, uint16_t val)
-{
-	uint8_t buff[4];  // reg + 2 bytes of data + PEC
-
-	buff[0] = reg;
-	buff[2] = uint8_t(val << 8) & 0xff;
-	buff[1] = (uint8_t)val;
-	buff[3] = get_PEC(reg, false, &buff[1],  2); // Append PEC
-
-	// write bytes to register
-	int ret = transfer(buff, 3, nullptr, 0);
-
-	if (ret != PX4_OK) {
-		PX4_DEBUG("Register write ERROR");
-	}
-
-	// return success or failure
-	return ret;
-}
-
-uint8_t
-BATT_SMBUS::write_block(uint8_t reg, uint8_t *data, uint8_t length)
-{
-	// buffer to hold results
-	uint8_t buff[length + 3];
-	int result = PX4_ERROR;
-
-	usleep(1);
-
-	buff[0] = reg;
-	buff[1] = length;
-	memcpy(&buff[2], data, length);
-
-	// Append PEC
-	buff[length + 2] = get_PEC(reg, false, &buff[1],  length + 1);
-
-	// Send bytes
-	result = transfer(buff, length + 3, nullptr, 0);
-
-	// Return zero on failure
-	if (result != PX4_OK) {
-		PX4_DEBUG("Block write ERROR");
-		return 0;
-	}
-
-	// Return success.
-	return result;
-}
-
-uint8_t
-BATT_SMBUS::get_PEC(uint8_t cmd, bool reading, const uint8_t buff[], uint8_t len)
-{
-	// Exit immediately if no data
-	if (len <= 0) {
-		return 0;
-	}
-
-	/**
-	 *  Note: The PEC is calculated on all the message bytes.
-	 *        See http://cache.freescale.com/files/32bit/doc/app_note/AN4471.pdf
-	 *        and http://www.ti.com/lit/an/sloa132/sloa132.pdf for more details.
-	 */
-
-	// Prepare temp buffer for calculating crc.
-	uint8_t tmp_buff_len;
-
-	if (reading) {
-		tmp_buff_len = len + 3;
-
-	} else {
-		tmp_buff_len = len + 2;
-	}
-
-	uint8_t tmp_buff[tmp_buff_len];
-	tmp_buff[0] = (uint8_t)get_device_address() << 1;
-	tmp_buff[1] = cmd;
-
-	if (reading) {
-		tmp_buff[2] = tmp_buff[0] | (uint8_t)reading;
-		memcpy(&tmp_buff[3], buff, len);
-
-	} else {
-		memcpy(&tmp_buff[2], buff, len);
-	}
-
-	// Initialise crc to zero
-	uint8_t crc = 0;
-	uint8_t shift_register = 0;
-	bool do_invert;
-
-	// Calculate crc for each byte in the stream
-	for (uint8_t i = 0; i < sizeof(tmp_buff); i++) {
-		// Load next data byte into the shift register
-		shift_register = tmp_buff[i];
-
-		// Calculate crc for each bit in the current byte
-		for (uint8_t j = 0; j < 8; j++) {
-			do_invert = (crc ^ shift_register) & 0x80;
-			crc <<= 1;
-			shift_register <<= 1;
-
-			if (do_invert) {
-				crc ^= BATT_SMBUS_PEC_POLYNOMIAL;
-			}
-		}
-	}
-
-	// Return result
-	return crc;
-}
-
-uint8_t
-BATT_SMBUS::get_startup_info()
-{
-	int result = PX4_ERROR;
-
-	// Try and get battery SBS info.
-	if (_manufacturer_name == nullptr) {
-		char man_name[21];
-		uint8_t len = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
-
-		if (len > 0) {
-			_manufacturer_name = new char[len + 1];
-			strcpy(_manufacturer_name, man_name);
-		}
-	}
-
-	// Temporary variable for storing SMBUS reads.
-	uint16_t tmp;
-
-	// Read battery serial number on startup
-	if (_serial_number == 0) {
-		if (read_reg(BATT_SMBUS_SERIAL_NUMBER, tmp) == PX4_OK) {
-			_serial_number = tmp;
-			result = PX4_OK;
-		}
-	}
-
-	// Read battery capacity on startup
-	if (_batt_startup_capacity == 0) {
-		if (read_reg(BATT_SMBUS_REMAINING_CAPACITY, tmp) == PX4_OK) {
-			_batt_startup_capacity = tmp;
-			result = PX4_OK;
-		}
-	}
-
-	// Read battery cycle count on startup
-	if (_cycle_count == 0) {
-		if (read_reg(BATT_SMBUS_CYCLE_COUNT, tmp) == PX4_OK) {
-			_cycle_count = tmp;
-			result = PX4_OK;
-		}
-	}
-
-	// Read battery design capacity on startup
-	if (_batt_capacity == 0) {
-		if (read_reg(BATT_SMBUS_FULL_CHARGE_CAPACITY, tmp) == PX4_OK) {
-			_batt_capacity = tmp;
-			result = PX4_OK;
-		}
-	}
-
-	// Read battery threshold params on startup
-	if (_crit_thr < 0.01f) {
-		param_get(param_find("BAT_CRIT_THR"), &_crit_thr);
-	}
-
-	if (_low_thr < 0.01f) {
-		param_get(param_find("BAT_LOW_THR"), &_low_thr);
-	}
-
-	if (_emergency_thr < 0.01f) {
-		param_get(param_find("BAT_EMERGEN_THR"), &_emergency_thr);
-	}
-
-	return result;
-}
-
-uint8_t
-BATT_SMBUS::manufacturer_access(uint16_t cmd)
-{
-	// write bytes to Manufacturer Access
-	int result = write_reg(BATT_SMBUS_MANUFACTURER_ACCESS, cmd);
-
-	if (result != PX4_OK
-	   ) {
-		PX4_WARN("Manufacturer Access ERROR");
-	}
-
-	return result;
-}
-
-///////////////////////// shell functions ///////////////////////
-namespace batt_smbus
-{
-void usage();
-int manufacture_date();
-int manufacturer_name();
-int serial_number();
-
-void
-usage()
-{
-	PX4_INFO("missing command: try 'start', 'test', 'stop', 'search', 'man_name', 'man_date', 'dev_name', 'serial_num', 'dev_chem',  'sbs_info'");
-	PX4_INFO("options:");
-	PX4_INFO("    -b i2cbus (%d)", BATT_SMBUS_I2C_BUS);
-	PX4_INFO("    -a addr (0x%x)", BATT_SMBUS_ADDR);
-}
-
-int
-manufacture_date()
-{
-	uint16_t man_date = g_batt_smbus->manufacture_date();
-
-	int result = PX4_ERROR;
-
-	if (man_date > 0) {
-		// Convert the uint16_t into human-readable date format
-		uint16_t year = ((man_date >> 9) & 0xFF) + 1980;
-		uint8_t month = (man_date >> 5) & 0xF;
-		uint8_t day = man_date & 0x1F;
-		PX4_INFO("The manufacturer date is: %d which is %4d-%02d-%02d", man_date, year, month, day);
-		result = PX4_OK;
-
-	} else {
-		PX4_WARN("Unable to read the manufacturer date.");
-	}
-
-	return result;
-}
-
-int
-manufacturer_name()
-{
-	int result = PX4_ERROR;
-
-	uint8_t man_name[21];
-	uint8_t length = g_batt_smbus->manufacturer_name(man_name, sizeof(man_name));
-
-	if (length > 0) {
-		PX4_INFO("The manufacturer name: %s", man_name);
-		result = PX4_OK;
-
-	} else {
-		PX4_WARN("Unable to read manufacturer name.");
-	}
-
-	return result;
-}
-
-int
-serial_number()
-{
-	uint16_t serial_num = g_batt_smbus->serial_number();
-	PX4_INFO("The serial number: 0x%04x (%d in decimal)", serial_num, serial_num);
-
-	return PX4_OK;
-}
-
-} //namespace
-
-int
-batt_smbus_main(int argc, char *argv[])
-{
-	int i2cdevice = BATT_SMBUS_I2C_BUS;
-	int batt_smbusadr = BATT_SMBUS_ADDR; // 7bit address
-
-	int ch;
-
-	// Jump over start/off/etc and look at options first
-	while ((ch = getopt(argc, argv, "a:b")) != EOF) {
-		switch (ch) {
-		case 'a':
-			batt_smbusadr = strtol(optarg, nullptr, 0);
-			break;
-
-		case 'b':
-			i2cdevice = strtol(optarg, nullptr, 0);
-			break;
-
-		default:
-			batt_smbus::usage();
-			return 0;
-		}
-	}
-
-	if (optind >= argc) {
-		batt_smbus::usage();
-		return 1;
-	}
-
-	const char *verb = argv[optind];
-
-	if (!strcmp(verb, "start")) {
-		if (g_batt_smbus != nullptr) {
-			PX4_ERR("already started");
-			return 1;
-
-		} else {
-			// create new global object
-			g_batt_smbus = new BATT_SMBUS(i2cdevice, batt_smbusadr);
-
-			if (g_batt_smbus == nullptr) {
-				PX4_ERR("new failed");
-				return 1;
-			}
-
-			if (PX4_OK != g_batt_smbus->init()) {
-				delete g_batt_smbus;
-				g_batt_smbus = nullptr;
-				PX4_ERR("init failed");
-				return 1;
-			}
-		}
-
-		return 0;
-	}
-
-	// need the driver past this point
-	if (g_batt_smbus == nullptr) {
-		PX4_INFO("not started");
-		batt_smbus::usage();
-		return 1;
-	}
-
-	if (!strcmp(verb, "test")) {
-		g_batt_smbus->test();
-		return 0;
-	}
-
-	if (!strcmp(verb, "stop")) {
-		delete g_batt_smbus;
-		g_batt_smbus = nullptr;
-		return 0;
-	}
-
-	if (!strcmp(verb, "search")) {
-		g_batt_smbus->search_addresses();
-		return 0;
-	}
-
-	if (!strcmp(verb, "man_name")) {
-		batt_smbus::manufacturer_name();
-		return 0;
-	}
-
-	if (!strcmp(verb, "man_date")) {
-		batt_smbus::manufacture_date();
-		return 0;
-	}
-
-	if (!strcmp(verb, "serial_num")) {
-		batt_smbus::serial_number();
-		return 0;
-	}
-
-	if (!strcmp(verb, "sbs_info")) {
-		batt_smbus::manufacturer_name();
-		batt_smbus::manufacture_date();
-		batt_smbus::serial_number();
-		return 0;
-	}
-
-	if (!strcmp(verb, "write_reg")) {
-		if (argv[2] && argv[3]) {
-			if (PX4_OK != g_batt_smbus->write_reg((uint8_t)atoi(argv[2]), (uint16_t)atoi(argv[3]))) {
-				PX4_INFO("Register write failed");
-
-			} else {
-				PX4_INFO("Register successfully written to");
-			}
-
-		} else {
-			PX4_WARN("Unrecognized arguments");
-		}
-
-		return 0;
-	}
-
-	batt_smbus::usage();
-	return 0;
 }

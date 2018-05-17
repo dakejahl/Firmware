@@ -32,9 +32,11 @@
  ****************************************************************************/
 
 /**
- * @file lps22hb_i2c.cpp
+ * @file batt_smbus_i2c.cpp
  *
- * I2C interface for lps22hb
+ * I2C interface for batt_smbus
+ *
+ * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
 #include "batt_smbus.h"
@@ -48,75 +50,82 @@
 
 #include "board_config.h"
 
-#define LPS22HB_ADDRESS		0x5D
+device::Device *BATT_SMBUS_I2C_interface(int bus);
 
-device::Device *LPS22HB_I2C_interface(int bus);
-
-class LPS22HB_I2C : public device::I2C
+class BATT_SMBUS_I2C : public device::I2C
 {
 public:
-	LPS22HB_I2C(int bus);
-	virtual ~LPS22HB_I2C() = default;
+	BATT_SMBUS_I2C(int bus);
+	virtual ~BATT_SMBUS_I2C() = default;
 
-	virtual int	read(unsigned address, void *data, unsigned count);
-	virtual int	write(unsigned address, void *data, unsigned count);
+	/**
+	 * @brief Sends a block read command.
+	 * @param cmd_code The command code.
+	 * @param data Pointer to the data being returned.
+	 * @param count The number of bytes being read
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	virtual int read(unsigned cmd_code, void *data, unsigned count);
+
+	/**
+	 * @brief Sends a block write command.
+	 * @param cmd_code The command code.
+	 * @param data Pointer to the data to be written.
+	 * @param count The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	virtual int write(unsigned cmd_code, void *data, unsigned count);
+
+	/**
+	 * @brief Sends a block read command.
+	 * @param cmd_code The command code.
+	 * @param data Pointer to the data being returned.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int read(unsigned cmd_code, void *data);
+
+
+	/**
+	 * @brief Sends a block write command.
+	 * @param cmd_code The command code.
+	 * @param data Pointer to the data to be written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int write(unsigned cmd_code, void *data);
 
 protected:
-	virtual int	probe();
+
+	/**
+	 * @brief Calculates the PEC from the data.
+	 * @param buffer The buffer that stores the data.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	uint8_t get_pec(uint8_t *buffer, uint8_t length);
 
 };
 
 device::Device *
-LPS22HB_I2C_interface(int bus)
+BATT_SMBUS_I2C_interface(int bus)
 {
-	return new LPS22HB_I2C(bus);
+	return new BATT_SMBUS_I2C(bus);
 }
 
-LPS22HB_I2C::LPS22HB_I2C(int bus) :
-	I2C("LPS22HB_I2C", nullptr, bus, LPS22HB_ADDRESS, 400000)
+BATT_SMBUS_I2C::BATT_SMBUS_I2C(int bus) :
+	I2C("BATT_SMBUS_I2C", nullptr, bus, BATT_SMBUS_ADDR, 100000)
 {
+}
+
+
+int
+BATT_SMBUS_I2C::read(unsigned cmd_code, void *data, unsigned length)
+{
+	uint8_t buf = (uint8_t) cmd_code;
+	return transfer(&buf, 1, (uint8_t *)data, length);
 }
 
 int
-LPS22HB_I2C::probe()
+BATT_SMBUS_I2C::write(unsigned cmd_code, void *data, unsigned length)
 {
-	uint8_t id;
-
-	_retries = 10;
-
-	if (read(WHO_AM_I, &id, 1)) {
-		DEVICE_DEBUG("read_reg fail");
-		return -EIO;
-	}
-
-	_retries = 2;
-
-	if (id != LPS22HB_ID_WHO_AM_I) {
-		DEVICE_DEBUG("ID byte mismatch (%02x != %02x)", LPS22HB_ID_WHO_AM_I, id);
-		return -EIO;
-	}
-
-	return OK;
-}
-
-int
-LPS22HB_I2C::write(unsigned address, void *data, unsigned count)
-{
-	uint8_t buf[32];
-
-	if (sizeof(buf) < (count + 1)) {
-		return -EIO;
-	}
-
-	buf[0] = address;
-	memcpy(&buf[1], data, count);
-
-	return transfer(&buf[0], count + 1, nullptr, 0);
-}
-
-int
-LPS22HB_I2C::read(unsigned address, void *data, unsigned count)
-{
-	uint8_t cmd = address;
-	return transfer(&cmd, 1, (uint8_t *)data, count);
+	return transfer((uint8_t *)data, length, nullptr, 0);
 }
