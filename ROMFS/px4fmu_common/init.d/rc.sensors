@@ -182,24 +182,24 @@ if ver hwcmp PX4FMU_V4
 then
 	# External I2C bus
 	hmc5883 -C -T -X start
-	lis3mdl -X start
+	#lis3mdl -X -R 6 start
 	bmp280 -I start
 
 	# expansion i2c used for BMM150 rotated by 90deg
 	bmm150 -R 2 start
 
-	if hmc5883 -C -T -S -R 2 start
-	then
-		# hmc5883 internal SPI bus is rotated 90 deg yaw
-	else
-		if lis3mdl start
-		then
-			# lis3mdl internal SPI bus is rotated 90 deg yaw
-		else
-			# BMI055 gyro internal SPI bus
-			bmi055 -G start
-		fi
-	fi
+	# if hmc5883 -C -T -S -R 2 start
+	# then
+		# # hmc5883 internal SPI bus is rotated 90 deg yaw
+	# else
+		# if lis3mdl start
+		# then
+			# # lis3mdl internal SPI bus is rotated 90 deg yaw
+		# else
+			# # BMI055 gyro internal SPI bus
+			# bmi055 -G start
+		# fi
+	# fi
 
 	# Start either ICM2060X or BMI055. They are both connected to the same SPI bus and use the same
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
@@ -218,17 +218,48 @@ then
 		# fi
 	# fi
 
+
 	# Start either MPU9250 or BMI160. They are both connected to the same SPI bus and use the same
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
 
-	if mpu9250 -R 2 start
+	# mpu9250 on the internal SPI bus
+	if mpu9250 -s -R 8 start
 	then
 		# mpu9250 internal SPI bus mpu9250 is rotated 90 deg yaw
 	else
 		# BMI160 internal SPI bus
 		bmi160 start
 	fi
+
+	# mpu9250 on the internal SPI bus
+	if mpu9250 -t -R 8 start
+	then
+		# Start the smart battery
+		param set BAT_SOURCE 1
+		batt_smbus start
+		param set CAL_ACC0_EN 1
+		param set CAL_ACC1_EN 0
+		param set CAL_GYRO0_EN 1
+		param set CAL_GYRO1_EN 0
+		param set CAL_ACC_PRIME 1442826
+		param set CAL_GYRO_PRIME 2360330
+	else
+		# mpu9250 on external i2c
+		if mpu9250 -X -R 8 start
+		then
+			# Use the ADC voltage measurement
+			param set BAT_SOURCE 0
+			param set CAL_ACC0_EN 1
+			param set CAL_ACC1_EN 0
+			param set CAL_GYRO0_EN 1
+			param set CAL_GYRO1_EN 0
+			param set CAL_ACC_PRIME 1442826
+			param set CAL_GYRO_PRIME 2360330
+		else
+		fi
+	fi
+
 fi
 
 if ver hwcmp MINDPX_V2
@@ -396,6 +427,12 @@ then
 	teraranger start
 fi
 
+# pga460 sonar sensor
+if param greater SENS_EN_PGA460 0
+then
+	pga460 start
+fi
+
 # Benewake TFMini
 if param greater SENS_EN_TFMINI 0
 then
@@ -442,3 +479,4 @@ fi
 # Wait 20 ms for sensors (because we need to wait for the HRT and work queue callbacks to fire)
 usleep 20000
 sensors start
+heater start

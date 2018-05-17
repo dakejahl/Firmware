@@ -36,7 +36,7 @@ px4_add_module(
 	STACK_MAIN 1024
 	COMPILE_FLAGS
 	SRCS
-		Heater.cpp
+		heater.cpp
 		heater_main.cpp
 	DEPENDS
 		platforms__common
