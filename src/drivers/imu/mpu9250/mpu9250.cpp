@@ -42,6 +42,7 @@
  */
 
 #include <px4_config.h>
+#include <ecl/geo/geo.h>
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -58,7 +59,7 @@
 #include <unistd.h>
 #include <getopt.h>
 
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
 #include <systemlib/conversions.h>
 #include <systemlib/px4_macros.h>
@@ -147,7 +148,6 @@ MPU9250::MPU9250(device::Device *interface, device::Device *mag_interface, const
 	_good_transfers(perf_alloc(PC_COUNT, "mpu9250_good_trans")),
 	_reset_retries(perf_alloc(PC_COUNT, "mpu9250_reset")),
 	_duplicates(perf_alloc(PC_COUNT, "mpu9250_dupe")),
-	_controller_latency_perf(perf_alloc_once(PC_ELAPSED, "ctrl_latency")),
 	_register_wait(0),
 	_reset_wait(0),
 	_accel_filter_x(MPU9250_ACCEL_DEFAULT_RATE, MPU9250_ACCEL_DEFAULT_DRIVER_FILTER_FREQ),
@@ -461,9 +461,6 @@ int MPU9250::reset_mpu()
 	// SAMPLE RATE
 	_set_sample_rate(_sample_rate);
 
-	// FS & DLPF   FS=2000 deg/s, DLPF = 20Hz (low pass filter)
-	// was 90 Hz, but this ruins quality and does not improve the
-	// system response
 	_set_dlpf_filter(MPU9250_DEFAULT_ONCHIP_FILTER_FREQ);
 
 	// Gyro scale 2000 deg/s ()
@@ -829,14 +826,12 @@ MPU9250::ioctl(struct file *filp, int cmd, unsigned long arg)
 					// adjust filters
 					float cutoff_freq_hz = _accel_filter_x.get_cutoff_freq();
 					float sample_rate = 1.0e6f / ticks;
-					_set_dlpf_filter(cutoff_freq_hz);
 					_accel_filter_x.set_cutoff_frequency(sample_rate, cutoff_freq_hz);
 					_accel_filter_y.set_cutoff_frequency(sample_rate, cutoff_freq_hz);
 					_accel_filter_z.set_cutoff_frequency(sample_rate, cutoff_freq_hz);
 
 
 					float cutoff_freq_hz_gyro = _gyro_filter_x.get_cutoff_freq();
-					_set_dlpf_filter(cutoff_freq_hz_gyro);
 					_gyro_filter_x.set_cutoff_frequency(sample_rate, cutoff_freq_hz_gyro);
 					_gyro_filter_y.set_cutoff_frequency(sample_rate, cutoff_freq_hz_gyro);
 					_gyro_filter_z.set_cutoff_frequency(sample_rate, cutoff_freq_hz_gyro);
@@ -918,7 +913,7 @@ MPU9250::ioctl(struct file *filp, int cmd, unsigned long arg)
 		return set_accel_range(arg);
 
 	case ACCELIOCGRANGE:
-		return (unsigned long)((_accel_range_m_s2) / MPU9250_ONE_G + 0.5f);
+		return (unsigned long)((_accel_range_m_s2) / CONSTANTS_ONE_G + 0.5f);
 
 	case ACCELIOCSELFTEST:
 		return accel_self_test();
@@ -1086,8 +1081,8 @@ MPU9250::set_accel_range(unsigned max_g_in)
 	}
 
 	write_checked_reg(MPUREG_ACCEL_CONFIG, afs_sel << 3);
-	_accel_range_scale = (MPU9250_ONE_G / lsb_per_g);
-	_accel_range_m_s2 = max_accel_g * MPU9250_ONE_G;
+	_accel_range_scale = (CONSTANTS_ONE_G / lsb_per_g);
+	_accel_range_m_s2 = max_accel_g * CONSTANTS_ONE_G;
 
 	return OK;
 }
@@ -1145,17 +1140,7 @@ MPU9250::cycle_trampoline(void *arg)
 void
 MPU9250::cycle()
 {
-
-//	int ret = measure();
-
 	measure();
-
-//	if (ret != OK) {
-//		/* issue a reset command to the sensor */
-//		reset();
-//		start();
-//		return;
-//	}
 
 	if (_call_interval != 0) {
 		work_queue(HPWORK,
@@ -1312,7 +1297,8 @@ MPU9250::measure()
 		return;
 	}
 
-	check_registers();
+	// this does not have an use being in the measure loop
+	//check_registers();
 
 	if (check_duplicate(&mpu_report.accel_x[0])) {
 		return;
@@ -1353,22 +1339,6 @@ MPU9250::measure()
 		return;
 	}
 
-	/*
-	 * Swap axes and negate y
-	 */
-	int16_t accel_xt = report.accel_y;
-	int16_t accel_yt = ((report.accel_x == -32768) ? 32767 : -report.accel_x);
-
-	int16_t gyro_xt = report.gyro_y;
-	int16_t gyro_yt = ((report.gyro_x == -32768) ? 32767 : -report.gyro_x);
-
-	/*
-	 * Apply the swap
-	 */
-	report.accel_x = accel_xt;
-	report.accel_y = accel_yt;
-	report.gyro_x = gyro_xt;
-	report.gyro_y = gyro_yt;
 
 	/*
 	 * Report buffers.
@@ -1376,9 +1346,7 @@ MPU9250::measure()
 	accel_report		arb;
 	gyro_report		grb;
 
-	/*
-	 * Adjust and scale results to m/s^2.
-	 */
+
 	grb.timestamp = arb.timestamp = hrt_absolute_time();
 
 	// report the error count as the sum of the number of bad
@@ -1401,8 +1369,6 @@ MPU9250::measure()
 	 *	 	  the offset is 74 from the origin and subtracting
 	 *		  74 from all measurements centers them around zero.
 	 */
-
-	/* NOTE: Axes have been swapped to match the board a few lines above. */
 
 	arb.x_raw = report.accel_x;
 	arb.y_raw = report.accel_y;
@@ -1434,7 +1400,7 @@ MPU9250::measure()
 	arb.scaling = _accel_range_scale;
 	arb.range_m_s2 = _accel_range_m_s2;
 
-	_last_temperature = (report.temp) / 361.0f + 35.0f;
+	_last_temperature = (report.temp) / 333.87f + 21.0f;
 
 	arb.temperature_raw = report.temp;
 	arb.temperature = _last_temperature;
@@ -1491,8 +1457,6 @@ MPU9250::measure()
 	}
 
 	if (accel_notify && !(_pub_blocked)) {
-		/* log the time of this report */
-		perf_begin(_controller_latency_perf);
 		/* publish it */
 		orb_publish(ORB_ID(sensor_accel), _accel_topic, &arb);
 	}

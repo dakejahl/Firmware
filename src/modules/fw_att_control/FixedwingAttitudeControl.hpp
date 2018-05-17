@@ -43,8 +43,8 @@
 #include <px4_defines.h>
 #include <px4_posix.h>
 #include <px4_tasks.h>
-#include <systemlib/param/param.h>
-#include <systemlib/perf_counter.h>
+#include <parameters/param.h>
+#include <perf/perf_counter.h>
 #include <uORB/Subscription.hpp>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/airspeed.h>
@@ -202,6 +202,7 @@ private:
 		int32_t vtol_type;					/**< VTOL type: 0 = tailsitter, 1 = tiltrotor */
 
 		int32_t bat_scale_en;			/**< Battery scaling enabled */
+		bool airspeed_disabled;
 
 	} _parameters{};			/**< local copies of interesting parameters */
 
@@ -269,6 +270,7 @@ private:
 		param_t vtol_type;
 
 		param_t bat_scale_en;
+		param_t airspeed_mode;
 
 	} _parameter_handles{};		/**< handles for interesting parameters */
 

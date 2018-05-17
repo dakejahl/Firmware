@@ -74,13 +74,13 @@
 
 #include <systemlib/px4_macros.h>
 #include <systemlib/cpuload.h>
-#include <systemlib/perf_counter.h>
+#include <perf/perf_counter.h>
 #include <systemlib/err.h>
 
 #include <systemlib/hardfault_log.h>
 
 #include <systemlib/systemlib.h>
-#include <systemlib/param/param.h>
+#include <parameters/param.h>
 
 /****************************************************************************
  * Pre-Processor Definitions
@@ -236,6 +236,10 @@ stm32_boardinitialize(void)
 	/* configure SPI all interfaces GPIO */
 
 	stm32_spiinitialize(PX4_SPI_BUS_RAMTRON | PX4_SPI_BUS_SENSORS);
+
+	/* configure heater GPIO */
+
+	stm32_configgpio(GPIO_HEATER);
 
 }
 

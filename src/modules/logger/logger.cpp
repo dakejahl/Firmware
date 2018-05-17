@@ -628,6 +628,7 @@ void Logger::add_default_topics()
 	add_topic("vehicle_vision_position");
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind_estimate", 200);
+	add_topic("timesync_status");
 
 #ifdef CONFIG_ARCH_BOARD_SITL
 	add_topic("actuator_armed");
@@ -640,11 +641,8 @@ void Logger::add_default_topics()
 	add_topic("mc_virtual_attitude_setpoint");
 	add_topic("multirotor_motor_limits");
 	add_topic("offboard_control_mode");
-	add_topic("parameter_update");
 	add_topic("time_offset");
-	add_topic("tune_control");
 	add_topic("vehicle_attitude_groundtruth", 10);
-	add_topic("vehicle_command_ack");
 	add_topic("vehicle_global_position_groundtruth", 100);
 	add_topic("vehicle_local_position_groundtruth", 100);
 	add_topic("vehicle_roi");
@@ -680,11 +678,12 @@ void Logger::add_estimator_replay_topics()
 	add_topic("airspeed");
 	add_topic("distance_sensor");
 	add_topic("optical_flow");
-	add_topic("sensor_baro");
 	add_topic("sensor_combined");
 	add_topic("sensor_selection");
+	add_topic("vehicle_air_data");
 	add_topic("vehicle_gps_position");
 	add_topic("vehicle_land_detected");
+	add_topic("vehicle_magnetometer");
 	add_topic("vehicle_status");
 	add_topic("vehicle_vision_attitude");
 	add_topic("vehicle_vision_position");
@@ -1778,9 +1777,8 @@ void Logger::write_header()
 	write_message(&header, sizeof(header));
 
 	// write the Flags message: this MUST be written right after the ulog header
-	ulog_message_flag_bits_s flag_bits;
+	ulog_message_flag_bits_s flag_bits{};
 
-	memset(&flag_bits, 0, sizeof(flag_bits));
 	flag_bits.msg_size = sizeof(flag_bits) - ULOG_MSG_HEADER_LEN;
 	flag_bits.msg_type = static_cast<uint8_t>(ULogMessageType::FLAG_BITS);
 

@@ -75,7 +75,7 @@ else
 	then
 		if mount -t vfat /dev/mmcsd0 /fs/microsd
 		then
-			echo "INFO  [init] card formatted"
+			echo "INFO [init] card formatted"
 		else
 			echo "ERROR [init] format failed"
 			tone_alarm MNBG
@@ -151,8 +151,8 @@ then
 	#
 	if param compare SYS_AUTOCONFIG 1
 	then
-		# Wipe out params except RC* and total flight time
-		param reset_nostart RC* LND_FLIGHT_T_*
+		# Wipe out params except RC*, flight modes and total flight time
+		param reset_nostart RC* COM_FLTMODE* LND_FLIGHT_T_*
 		set AUTOCNF yes
 	else
 		set AUTOCNF no
@@ -202,8 +202,8 @@ then
 	# Enforce the default airframe as a Teal 1 if no airframe has been set
 	#
 	if param compare SYS_AUTOSTART 4100
-		echo "SYS_AUTOSTART already 4100"
 	then
+		echo "SYS_AUTOSTART already 4100"
 	else
 		echo "SYS_AUTOSTART not 4100, setting to 4100"
 		param set SYS_AUTOSTART 4100
