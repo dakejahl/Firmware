@@ -201,6 +201,7 @@ then
 	#
 	# Enforce the default airframe as a Teal One
 	#
+	echo "Enforcing Teal One airframe and parameter defaults."
 	param set SYS_AUTOSTART 4100
 	set AUTOCNF yes
 
