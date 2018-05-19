@@ -199,16 +199,10 @@ then
 	set LOGGER_BUF 14
 
 	#
-	# Enforce the default airframe as a Teal 1 if no airframe has been set
+	# Enforce the default airframe as a Teal One
 	#
-	if param compare SYS_AUTOSTART 4100
-	then
-		echo "SYS_AUTOSTART already 4100"
-	else
-		echo "SYS_AUTOSTART not 4100, setting to 4100"
-		param set SYS_AUTOSTART 4100
-		set AUTOCNF yes
-	fi
+	param set SYS_AUTOSTART 4100
+	set AUTOCNF yes
 
 	if ver hwcmp PX4FMU_V5
 	then
