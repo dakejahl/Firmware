@@ -55,6 +55,7 @@
 #include <drivers/drv_rc_input.h>
 #include <lib/ecl/geo/geo.h>
 #include <mathlib/mathlib.h>
+#include <matrix/math.hpp>
 #include <px4_time.h>
 #include <systemlib/err.h>
 #include <systemlib/mavlink_log.h>
@@ -801,7 +802,7 @@ private:
 	uint64_t _raw_accel_time;
 	uint64_t _raw_gyro_time;
 
-	// do not allow top copy this class
+	// Do not allow copy construction or move assignment.
 	MavlinkStreamScaledIMU(MavlinkStreamScaledIMU &) = delete;
 	MavlinkStreamScaledIMU &operator = (const MavlinkStreamScaledIMU &) = delete;
 
@@ -886,7 +887,7 @@ private:
 	uint64_t _raw_accel_time;
 	uint64_t _raw_gyro_time;
 
-	// do not allow top copy this class
+	// Do not allow copy construction or move assignment.
 	MavlinkStreamScaledIMU2(MavlinkStreamScaledIMU2 &) = delete;
 	MavlinkStreamScaledIMU2 &operator = (const MavlinkStreamScaledIMU2 &) = delete;
 
@@ -970,7 +971,7 @@ private:
 	uint64_t _raw_accel_time;
 	uint64_t _raw_gyro_time;
 
-	// do not allow top copy this class
+	// Do not allow copy construction or move assignment.
 	MavlinkStreamScaledIMU3(MavlinkStreamScaledIMU3 &) = delete;
 	MavlinkStreamScaledIMU3 &operator = (const MavlinkStreamScaledIMU3 &) = delete;
 

@@ -77,6 +77,28 @@ pipeline {
           builds["eagle (linux)"] = createBuildNodeDockerLogin(docker_snapdragon, 'docker_hub_dagar', 'posix_eagle_default')
           builds["eagle (qurt)"] = createBuildNodeDockerLogin(docker_snapdragon, 'docker_hub_dagar', 'qurt_eagle_default')
 
+          // posix_sitl_default with package
+          builds["sitl"] = {
+            node {
+              stage("Build Test sitl") {
+                docker.image(docker_ros).inside('-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE') {
+                  stage("sitl") {
+                    checkout scm
+                    sh "export"
+                    sh "make distclean"
+                    sh "ccache -z"
+                    sh "make posix_sitl_default"
+                    sh "make posix_sitl_default sitl_gazebo"
+                    sh "make posix_sitl_default package"
+                    sh "ccache -s"
+                    stash name: "px4_sitl_package", includes: "build/posix_sitl_default/*.bz2"
+                    sh "make distclean"
+                  }
+                }
+              }
+            }
+          }
+
           // MAC OS posix_sitl_default
           builds["sitl (OSX)"] = {
             node("mac") {
@@ -224,37 +246,6 @@ pipeline {
           }
         }
 
-        stage('test mission (address sanitizer)') {
-          agent {
-            docker {
-              image 'px4io/px4-dev-ros:2018-03-30'
-              args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
-            }
-          }
-          steps {
-            sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'PX4_ASAN=1 make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh 'PX4_ASAN=1 ./test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=standard_vtol'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
-          }
-          post {
-            always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
-              archiveArtifacts '.ros/**/*.pdf'
-              archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
-            }
-            failure {
-              archiveArtifacts '.ros/**/*.ulg'
-              archiveArtifacts '.ros/**/rosunit-*.xml'
-              archiveArtifacts '.ros/**/rostest-*.log'
-            }
-          }
-        }
-
         stage('test mission (code coverage)') {
           agent {
             docker {
@@ -273,24 +264,51 @@ pipeline {
           }
         }
 
-        stage('tests (address sanitizer)') {
-          agent {
-            docker {
-              image 'px4io/px4-dev-base:2018-03-30'
-              args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
-            }
-          }
-          environment {
-              PX4_ASAN = 1
-              ASAN_OPTIONS = "color=always:check_initialization_order=1:detect_stack_use_after_return=1"
-          }
-          steps {
-            sh 'export'
-            sh 'make distclean'
-            sh 'make tests'
-            sh 'make distclean'
-          }
-        }
+        // TODO: PX4 requires clean shutdown first
+        // stage('tests (address sanitizer)') {
+        //   agent {
+        //     docker {
+        //       image 'px4io/px4-dev-base:2018-03-30'
+        //       args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
+        //     }
+        //   }
+        //   environment {
+        //       PX4_ASAN = 1
+        //       ASAN_OPTIONS = "color=always:check_initialization_order=1:detect_stack_use_after_return=1"
+        //   }
+        //   steps {
+        //     sh 'export'
+        //     sh 'make distclean'
+        //     sh 'make tests'
+        //     sh 'make distclean'
+        //   }
+        // }
+
+        // TODO: test and re-enable once GDB is available in px4-dev-ros
+        // stage('tests (code coverage)') {
+        //   agent {
+        //     docker {
+        //       image 'px4io/px4-dev-ros:2018-03-30'
+        //       args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
+        //     }
+        //   }
+        //   steps {
+        //     sh 'export'
+        //     sh 'make distclean'
+        //     sh 'ulimit -c unlimited; make tests_coverage'
+        //     sh 'ls'
+        //     withCredentials([string(credentialsId: 'FIRMWARE_CODECOV_TOKEN', variable: 'CODECOV_TOKEN')]) {
+        //       sh 'curl -s https://codecov.io/bash | bash -s'
+        //     }
+        //     sh 'make distclean'
+        //   }
+        //   post {
+        //     failure {
+        //       sh('find . -name core')
+        //       sh('gdb --batch --quiet -ex "thread apply all bt full" -ex "quit" build/posix_sitl_default/px4 core')
+        //     }
+        //   }
+        // }
 
         stage('check stack') {
           agent {
@@ -314,21 +332,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=standard_vtol'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=standard_vtol'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -345,21 +364,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=tailsitter'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=tailsitter'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -376,21 +396,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=tiltrotor'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_1 vehicle:=tiltrotor'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -407,21 +428,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_2 vehicle:=standard_vtol'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_new_2 vehicle:=standard_vtol'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -438,21 +460,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_old_1 vehicle:=standard_vtol'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_old_1 vehicle:=standard_vtol'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -469,21 +492,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_old_2 vehicle:=standard_vtol'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=vtol_old_2 vehicle:=standard_vtol'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -500,21 +524,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=multirotor_box vehicle:=iris'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_test_mission.test mission:=multirotor_box vehicle:=iris'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -531,21 +556,22 @@ pipeline {
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw -e HOME=$WORKSPACE'
             }
           }
+          options {
+            skipDefaultCheckout()
+          }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_tests_offboard_attctl.test'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_tests_offboard_attctl.test'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -564,19 +590,17 @@ pipeline {
           }
           steps {
             sh 'export'
-            sh 'make distclean; rm -rf .ros; rm -rf .gazebo'
-            sh 'git fetch --tags'
-            sh 'make posix_sitl_default'
-            sh 'make posix_sitl_default sitl_gazebo'
-            sh './test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test'
-            sh './Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
+            sh 'rm -rf build; rm -rf .ros; rm -rf .gazebo'
+            unstash 'px4_sitl_package'
+            sh 'tar -xjpf build/posix_sitl_default/px4-posix_sitl_default*.bz2'
+            sh 'px4-posix_sitl_default*/px4/test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test'
+            sh 'px4-posix_sitl_default*/px4/Tools/ecl_ekf/process_logdata_ekf.py `find . -name *.ulg -print -quit`'
           }
           post {
             always {
-              sh './Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
+              sh 'px4-posix_sitl_default*/px4/Tools/upload_log.py -q --description "${JOB_NAME}: ${STAGE_NAME}" --feedback "${JOB_NAME} ${CHANGE_TITLE} ${CHANGE_URL}" --source CI .ros/rootfs/fs/microsd/log/*/*.ulg'
               archiveArtifacts '.ros/**/*.pdf'
               archiveArtifacts '.ros/**/*.csv'
-              sh 'make distclean'
             }
             failure {
               archiveArtifacts '.ros/**/*.ulg'
@@ -689,7 +713,7 @@ def createBuildNode(String docker_repo, String target) {
           sh('make ' + target)
           sh('ccache -s')
           sh('make sizes')
-          archiveArtifacts(allowEmptyArchive: true, artifacts: 'build/**/*.px4, build/**/*.elf', fingerprint: true, onlyIfSuccessful: true)
+          archiveArtifacts(allowEmptyArchive: true, artifacts: 'build/**/*.px4, build/**/*.elf, build/**/*.bin', fingerprint: true, onlyIfSuccessful: true)
           sh('make distclean')
         }
       }
@@ -711,7 +735,7 @@ def createBuildNodeDockerLogin(String docker_repo, String docker_credentials, St
             sh('make ' + target)
             sh('ccache -s')
             sh('make sizes')
-            archiveArtifacts(allowEmptyArchive: true, artifacts: 'build/**/*.px4, build/**/*.elf', fingerprint: true, onlyIfSuccessful: true)
+            archiveArtifacts(allowEmptyArchive: true, artifacts: 'build/**/*.px4, build/**/*.elf, build/**/*.bin', fingerprint: true, onlyIfSuccessful: true)
             sh('make distclean')
           }
         }
