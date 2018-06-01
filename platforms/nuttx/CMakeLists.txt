@@ -52,7 +52,6 @@ list(APPEND nuttx_libs
 	nuttx_apps
 	nuttx_arch
 	nuttx_binfmt
-	nuttx_binfmt
 	nuttx_c
 	nuttx_configs
 	nuttx_cxx
@@ -103,6 +102,8 @@ target_link_libraries(${FW_NAME} PRIVATE
 	-Wl,--start-group
 	${nuttx_libs}
 	-Wl,--end-group
+
+	m
 	)
 
 target_link_libraries(${FW_NAME} PRIVATE ${module_libraries})
@@ -118,8 +119,8 @@ set(fw_file ${PX4_BINARY_DIR}/${FW_NAME})
 string(REPLACE ".elf" ".px4" fw_file ${fw_file})
 string(REPLACE "nuttx_" "" fw_file ${fw_file})
 
-add_custom_command(OUTPUT ${BOARD}.bin
-	COMMAND ${OBJCOPY} -O binary ${PX4_BINARY_DIR_REL}/${FW_NAME} ${BOARD}.bin
+add_custom_command(OUTPUT ${PX4_BINARY_DIR_REL}/${BOARD}.bin
+	COMMAND ${OBJCOPY} -O binary ${PX4_BINARY_DIR_REL}/${FW_NAME} ${PX4_BINARY_DIR_REL}/${BOARD}.bin
 	DEPENDS ${FW_NAME}
 	)
 
@@ -134,8 +135,8 @@ if (TARGET parameters_xml AND TARGET airframes_xml)
 			--git_identity ${PX4_SOURCE_DIR}
 			--parameter_xml ${PX4_BINARY_DIR}/parameters.xml
 			--airframe_xml ${PX4_BINARY_DIR}/airframes.xml
-			--image ${BOARD}.bin > ${fw_file}
-		DEPENDS ${BOARD}.bin parameters_xml airframes_xml
+			--image ${PX4_BINARY_DIR}/${BOARD}.bin > ${fw_file}
+		DEPENDS ${PX4_BINARY_DIR}/${BOARD}.bin parameters_xml airframes_xml
 		COMMENT "Creating ${fw_file}"
 		)
 
@@ -218,6 +219,47 @@ add_custom_target(stack_check
 	WORKING_DIRECTORY ${PX4_BINARY_DIR}
 	VERBATIM
 	)
+
+find_program(BLOATY_PROGRAM bloaty)
+if (BLOATY_PROGRAM)
+	# bloaty symbols
+	add_custom_target(bloaty_symbols
+		COMMAND ${BLOATY_PROGRAM} -d symbols -C full -n 50 -s vm $<TARGET_FILE:${FW_NAME}>
+		DEPENDS ${FW_NAME}
+		USES_TERMINAL
+		)
+
+	# bloaty compilation units
+	add_custom_target(bloaty_compileunits
+		COMMAND ${BLOATY_PROGRAM} -d compileunits -C full -n 50 -s vm $<TARGET_FILE:${FW_NAME}>
+		DEPENDS ${FW_NAME}
+		USES_TERMINAL
+		)
+
+	# bloaty templates
+	add_custom_target(bloaty_templates
+		COMMAND ${BLOATY_PROGRAM} -d shortsymbols,fullsymbols -n 50 $<TARGET_FILE:${FW_NAME}>
+		DEPENDS ${FW_NAME}
+		USES_TERMINAL
+		)
+
+	# bloaty inlines
+	add_custom_target(bloaty_inlines
+		COMMAND ${BLOATY_PROGRAM} -d inlines -C full -n 50 $<TARGET_FILE:${FW_NAME}>
+		DEPENDS ${FW_NAME}
+		USES_TERMINAL
+		)
+
+	# bloaty compare with last master build
+	add_custom_target(bloaty_compare_master
+		COMMAND wget --no-verbose https://s3.amazonaws.com/px4-travis/Firmware/master/${FW_NAME} -O master_${FW_NAME}
+		COMMAND ${BLOATY_PROGRAM} -d symbols -n 50 -C full -s vm $<TARGET_FILE:${FW_NAME}> -- master_${FW_NAME}
+		DEPENDS ${FW_NAME}
+		WORKING_DIRECTORY ${PX4_BINARY_DIR}
+		VERBATIM
+		USES_TERMINAL
+		)
+endif()
 
 # debugger helpers
 configure_file(gdbinit.in .gdbinit)

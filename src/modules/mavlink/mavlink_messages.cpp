@@ -55,6 +55,7 @@
 #include <drivers/drv_rc_input.h>
 #include <lib/ecl/geo/geo.h>
 #include <mathlib/mathlib.h>
+#include <matrix/math.hpp>
 #include <px4_time.h>
 #include <systemlib/err.h>
 #include <systemlib/mavlink_log.h>
@@ -332,8 +333,8 @@ private:
 	MavlinkOrbSubscription *_status_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamHeartbeat(MavlinkStreamHeartbeat &);
-	MavlinkStreamHeartbeat &operator = (const MavlinkStreamHeartbeat &);
+	MavlinkStreamHeartbeat(MavlinkStreamHeartbeat &) = delete;
+	MavlinkStreamHeartbeat &operator = (const MavlinkStreamHeartbeat &) = delete;
 
 protected:
 	explicit MavlinkStreamHeartbeat(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -397,14 +398,14 @@ public:
 
 private:
 	/* do not allow top copying this class */
-	MavlinkStreamStatustext(MavlinkStreamStatustext &);
-	MavlinkStreamStatustext &operator = (const MavlinkStreamStatustext &);
+	MavlinkStreamStatustext(MavlinkStreamStatustext &) = delete;
+	MavlinkStreamStatustext &operator = (const MavlinkStreamStatustext &) = delete;
 
 protected:
 	explicit MavlinkStreamStatustext(Mavlink *mavlink) : MavlinkStream(mavlink)
 	{}
 
-	~MavlinkStreamStatustext() {}
+	~MavlinkStreamStatustext() = default;
 
 
 	bool send(const hrt_abstime t)
@@ -465,16 +466,14 @@ public:
 
 private:
 	MavlinkOrbSubscription *_cmd_sub;
-	uint64_t _cmd_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamCommandLong(MavlinkStreamCommandLong &);
-	MavlinkStreamCommandLong &operator = (const MavlinkStreamCommandLong &);
+	MavlinkStreamCommandLong(MavlinkStreamCommandLong &) = delete;
+	MavlinkStreamCommandLong &operator = (const MavlinkStreamCommandLong &) = delete;
 
 protected:
 	explicit MavlinkStreamCommandLong(Mavlink *mavlink) : MavlinkStream(mavlink),
-		_cmd_sub(_mavlink->add_orb_subscription(ORB_ID(vehicle_command))),
-		_cmd_time(0)
+		_cmd_sub(_mavlink->add_orb_subscription(ORB_ID(vehicle_command)))
 	{}
 
 	bool send(const hrt_abstime t)
@@ -544,8 +543,8 @@ private:
 	uint64_t _battery_status_timestamp{0};
 
 	/* do not allow top copying this class */
-	MavlinkStreamSysStatus(MavlinkStreamSysStatus &);
-	MavlinkStreamSysStatus &operator = (const MavlinkStreamSysStatus &);
+	MavlinkStreamSysStatus(MavlinkStreamSysStatus &) = delete;
+	MavlinkStreamSysStatus &operator = (const MavlinkStreamSysStatus &) = delete;
 
 protected:
 	explicit MavlinkStreamSysStatus(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -669,8 +668,8 @@ private:
 	uint64_t _dpres_timestamp;
 
 	/* do not allow top copying this class */
-	MavlinkStreamHighresIMU(MavlinkStreamHighresIMU &);
-	MavlinkStreamHighresIMU &operator = (const MavlinkStreamHighresIMU &);
+	MavlinkStreamHighresIMU(MavlinkStreamHighresIMU &) = delete;
+	MavlinkStreamHighresIMU &operator = (const MavlinkStreamHighresIMU &) = delete;
 
 protected:
 	explicit MavlinkStreamHighresIMU(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -764,7 +763,6 @@ protected:
 };
 
 
-// TEMP This is temporary for the Snapdragon Flight and VISLAM to get unfiltered IMU data
 class MavlinkStreamScaledIMU : public MavlinkStream
 {
 public:
@@ -804,12 +802,181 @@ private:
 	uint64_t _raw_accel_time;
 	uint64_t _raw_gyro_time;
 
-	// do not allow top copy this class
-	MavlinkStreamScaledIMU(MavlinkStreamScaledIMU &);
-	MavlinkStreamScaledIMU &operator = (const MavlinkStreamScaledIMU &);
+	// Do not allow copy construction or move assignment.
+	MavlinkStreamScaledIMU(MavlinkStreamScaledIMU &) = delete;
+	MavlinkStreamScaledIMU &operator = (const MavlinkStreamScaledIMU &) = delete;
 
 protected:
 	explicit MavlinkStreamScaledIMU(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_raw_accel_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_accel))),
+		_raw_gyro_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_gyro))),
+		_raw_accel_time(0),
+		_raw_gyro_time(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		sensor_accel_s sensor_accel = {};
+		sensor_accel_s sensor_gyro = {};
+
+		bool updated = false;
+		updated |= _raw_accel_sub->update(&_raw_accel_time, &sensor_accel);
+		updated |= _raw_gyro_sub->update(&_raw_gyro_time, &sensor_gyro);
+
+		if (updated) {
+
+			mavlink_scaled_imu_t msg = {};
+
+			msg.time_boot_ms = sensor_accel.timestamp / 1000;
+			msg.xacc = (int16_t)(sensor_accel.x_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.yacc = (int16_t)(sensor_accel.y_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.zacc = (int16_t)(sensor_accel.z_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.xgyro = sensor_gyro.x_raw; // [milli rad/s]
+			msg.ygyro = sensor_gyro.y_raw; // [milli rad/s]
+			msg.zgyro = sensor_gyro.z_raw; // [milli rad/s]
+			msg.xmag = 0;
+			msg.ymag = 0;
+			msg.zmag = 0;
+
+			mavlink_msg_scaled_imu_send_struct(_mavlink->get_channel(), &msg);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
+
+class MavlinkStreamScaledIMU2 : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamScaledIMU2::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "SCALED_IMU2";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_SCALED_IMU2;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamScaledIMU2(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return _raw_accel_sub->is_published() ? (MAVLINK_MSG_ID_SCALED_IMU_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
+	}
+
+private:
+	MavlinkOrbSubscription *_raw_accel_sub;
+	MavlinkOrbSubscription *_raw_gyro_sub;
+	uint64_t _raw_accel_time;
+	uint64_t _raw_gyro_time;
+
+	// Do not allow copy construction or move assignment.
+	MavlinkStreamScaledIMU2(MavlinkStreamScaledIMU2 &) = delete;
+	MavlinkStreamScaledIMU2 &operator = (const MavlinkStreamScaledIMU2 &) = delete;
+
+protected:
+	explicit MavlinkStreamScaledIMU2(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_raw_accel_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_accel))),
+		_raw_gyro_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_gyro))),
+		_raw_accel_time(0),
+		_raw_gyro_time(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		sensor_accel_s sensor_accel = {};
+		sensor_accel_s sensor_gyro = {};
+
+		bool updated = false;
+		updated |= _raw_accel_sub->update(&_raw_accel_time, &sensor_accel);
+		updated |= _raw_gyro_sub->update(&_raw_gyro_time, &sensor_gyro);
+
+		if (updated) {
+
+			mavlink_scaled_imu_t msg = {};
+
+			msg.time_boot_ms = sensor_accel.timestamp / 1000;
+			msg.xacc = (int16_t)(sensor_accel.x_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.yacc = (int16_t)(sensor_accel.y_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.zacc = (int16_t)(sensor_accel.z_raw / CONSTANTS_ONE_G); // [milli g]
+			msg.xgyro = sensor_gyro.x_raw; // [milli rad/s]
+			msg.ygyro = sensor_gyro.y_raw; // [milli rad/s]
+			msg.zgyro = sensor_gyro.z_raw; // [milli rad/s]
+			msg.xmag = 0;
+			msg.ymag = 0;
+			msg.zmag = 0;
+
+			mavlink_msg_scaled_imu_send_struct(_mavlink->get_channel(), &msg);
+
+			return true;
+		}
+
+		return false;
+	}
+};
+
+class MavlinkStreamScaledIMU3 : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamScaledIMU3::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "SCALED_IMU3";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_SCALED_IMU3;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamScaledIMU3(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return _raw_accel_sub->is_published() ? (MAVLINK_MSG_ID_SCALED_IMU_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES) : 0;
+	}
+
+private:
+	MavlinkOrbSubscription *_raw_accel_sub;
+	MavlinkOrbSubscription *_raw_gyro_sub;
+	uint64_t _raw_accel_time;
+	uint64_t _raw_gyro_time;
+
+	// Do not allow copy construction or move assignment.
+	MavlinkStreamScaledIMU3(MavlinkStreamScaledIMU3 &) = delete;
+	MavlinkStreamScaledIMU3 &operator = (const MavlinkStreamScaledIMU3 &) = delete;
+
+protected:
+	explicit MavlinkStreamScaledIMU3(Mavlink *mavlink) : MavlinkStream(mavlink),
 		_raw_accel_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_accel))),
 		_raw_gyro_sub(_mavlink->add_orb_subscription(ORB_ID(sensor_gyro))),
 		_raw_accel_time(0),
@@ -888,8 +1055,8 @@ private:
 	uint64_t _att_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamAttitude(MavlinkStreamAttitude &);
-	MavlinkStreamAttitude &operator = (const MavlinkStreamAttitude &);
+	MavlinkStreamAttitude(MavlinkStreamAttitude &) = delete;
+	MavlinkStreamAttitude &operator = (const MavlinkStreamAttitude &) = delete;
 
 
 protected:
@@ -961,8 +1128,8 @@ private:
 	uint64_t _att_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamAttitudeQuaternion(MavlinkStreamAttitudeQuaternion &);
-	MavlinkStreamAttitudeQuaternion &operator = (const MavlinkStreamAttitudeQuaternion &);
+	MavlinkStreamAttitudeQuaternion(MavlinkStreamAttitudeQuaternion &) = delete;
+	MavlinkStreamAttitudeQuaternion &operator = (const MavlinkStreamAttitudeQuaternion &) = delete;
 
 protected:
 	explicit MavlinkStreamAttitudeQuaternion(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1049,8 +1216,8 @@ private:
 	MavlinkOrbSubscription *_air_data_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamVFRHUD(MavlinkStreamVFRHUD &);
-	MavlinkStreamVFRHUD &operator = (const MavlinkStreamVFRHUD &);
+	MavlinkStreamVFRHUD(MavlinkStreamVFRHUD &) = delete;
+	MavlinkStreamVFRHUD &operator = (const MavlinkStreamVFRHUD &) = delete;
 
 protected:
 	explicit MavlinkStreamVFRHUD(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1173,8 +1340,8 @@ private:
 	uint64_t _gps_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamGPSRawInt(MavlinkStreamGPSRawInt &);
-	MavlinkStreamGPSRawInt &operator = (const MavlinkStreamGPSRawInt &);
+	MavlinkStreamGPSRawInt(MavlinkStreamGPSRawInt &) = delete;
+	MavlinkStreamGPSRawInt &operator = (const MavlinkStreamGPSRawInt &) = delete;
 
 protected:
 	explicit MavlinkStreamGPSRawInt(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1250,8 +1417,8 @@ public:
 
 private:
 	/* do not allow top copying this class */
-	MavlinkStreamSystemTime(MavlinkStreamSystemTime &);
-	MavlinkStreamSystemTime &operator = (const MavlinkStreamSystemTime &);
+	MavlinkStreamSystemTime(MavlinkStreamSystemTime &) = delete;
+	MavlinkStreamSystemTime &operator = (const MavlinkStreamSystemTime &) = delete;
 
 protected:
 	explicit MavlinkStreamSystemTime(Mavlink *mavlink) : MavlinkStream(mavlink)
@@ -1313,8 +1480,8 @@ public:
 
 private:
 	/* do not allow top copying this class */
-	MavlinkStreamTimesync(MavlinkStreamTimesync &);
-	MavlinkStreamTimesync &operator = (const MavlinkStreamTimesync &);
+	MavlinkStreamTimesync(MavlinkStreamTimesync &) = delete;
+	MavlinkStreamTimesync &operator = (const MavlinkStreamTimesync &) = delete;
 
 protected:
 	explicit MavlinkStreamTimesync(Mavlink *mavlink) : MavlinkStream(mavlink)
@@ -1376,8 +1543,8 @@ private:
 	uint64_t _pos_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamADSBVehicle(MavlinkStreamADSBVehicle &);
-	MavlinkStreamADSBVehicle &operator = (const MavlinkStreamADSBVehicle &);
+	MavlinkStreamADSBVehicle(MavlinkStreamADSBVehicle &) = delete;
+	MavlinkStreamADSBVehicle &operator = (const MavlinkStreamADSBVehicle &) = delete;
 
 protected:
 	explicit MavlinkStreamADSBVehicle(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1468,8 +1635,8 @@ private:
 	uint64_t _collision_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamCollision(MavlinkStreamCollision &);
-	MavlinkStreamCollision &operator = (const MavlinkStreamCollision &);
+	MavlinkStreamCollision(MavlinkStreamCollision &) = delete;
+	MavlinkStreamCollision &operator = (const MavlinkStreamCollision &) = delete;
 
 protected:
 	explicit MavlinkStreamCollision(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1544,8 +1711,8 @@ private:
 	uint64_t _trigger_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamCameraTrigger(MavlinkStreamCameraTrigger &);
-	MavlinkStreamCameraTrigger &operator = (const MavlinkStreamCameraTrigger &);
+	MavlinkStreamCameraTrigger(MavlinkStreamCameraTrigger &) = delete;
+	MavlinkStreamCameraTrigger &operator = (const MavlinkStreamCameraTrigger &) = delete;
 
 protected:
 	explicit MavlinkStreamCameraTrigger(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1653,8 +1820,8 @@ private:
 	uint64_t _capture_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamCameraImageCaptured(MavlinkStreamCameraImageCaptured &);
-	MavlinkStreamCameraImageCaptured &operator = (const MavlinkStreamCameraImageCaptured &);
+	MavlinkStreamCameraImageCaptured(MavlinkStreamCameraImageCaptured &) = delete;
+	MavlinkStreamCameraImageCaptured &operator = (const MavlinkStreamCameraImageCaptured &) = delete;
 
 protected:
 	explicit MavlinkStreamCameraImageCaptured(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1738,8 +1905,8 @@ private:
 	MavlinkOrbSubscription *_air_data_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamGlobalPositionInt(MavlinkStreamGlobalPositionInt &);
-	MavlinkStreamGlobalPositionInt &operator = (const MavlinkStreamGlobalPositionInt &);
+	MavlinkStreamGlobalPositionInt(MavlinkStreamGlobalPositionInt &) = delete;
+	MavlinkStreamGlobalPositionInt &operator = (const MavlinkStreamGlobalPositionInt &) = delete;
 
 protected:
 	explicit MavlinkStreamGlobalPositionInt(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1852,8 +2019,8 @@ private:
 	uint64_t _att_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamVisionPositionEstimate(MavlinkStreamVisionPositionEstimate &);
-	MavlinkStreamVisionPositionEstimate &operator = (const MavlinkStreamVisionPositionEstimate &);
+	MavlinkStreamVisionPositionEstimate(MavlinkStreamVisionPositionEstimate &) = delete;
+	MavlinkStreamVisionPositionEstimate &operator = (const MavlinkStreamVisionPositionEstimate &) = delete;
 
 protected:
 	explicit MavlinkStreamVisionPositionEstimate(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -1928,8 +2095,8 @@ private:
 	uint64_t _pos_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamLocalPositionNED(MavlinkStreamLocalPositionNED &);
-	MavlinkStreamLocalPositionNED &operator = (const MavlinkStreamLocalPositionNED &);
+	MavlinkStreamLocalPositionNED(MavlinkStreamLocalPositionNED &) = delete;
+	MavlinkStreamLocalPositionNED &operator = (const MavlinkStreamLocalPositionNED &) = delete;
 
 protected:
 	explicit MavlinkStreamLocalPositionNED(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2000,8 +2167,8 @@ private:
 	uint64_t _est_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamLocalPositionNEDCOV(MavlinkStreamLocalPositionNEDCOV &);
-	MavlinkStreamLocalPositionNEDCOV &operator = (const MavlinkStreamLocalPositionNEDCOV &);
+	MavlinkStreamLocalPositionNEDCOV(MavlinkStreamLocalPositionNEDCOV &) = delete;
+	MavlinkStreamLocalPositionNEDCOV &operator = (const MavlinkStreamLocalPositionNEDCOV &) = delete;
 
 protected:
 	explicit MavlinkStreamLocalPositionNEDCOV(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2082,8 +2249,8 @@ private:
 	uint64_t _est_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamEstimatorStatus(MavlinkStreamEstimatorStatus &);
-	MavlinkStreamEstimatorStatus &operator = (const MavlinkStreamEstimatorStatus &);
+	MavlinkStreamEstimatorStatus(MavlinkStreamEstimatorStatus &) = delete;
+	MavlinkStreamEstimatorStatus &operator = (const MavlinkStreamEstimatorStatus &) = delete;
 
 protected:
 	explicit MavlinkStreamEstimatorStatus(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2163,8 +2330,8 @@ private:
 	uint64_t _mocap_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamAttPosMocap(MavlinkStreamAttPosMocap &);
-	MavlinkStreamAttPosMocap &operator = (const MavlinkStreamAttPosMocap &);
+	MavlinkStreamAttPosMocap(MavlinkStreamAttPosMocap &) = delete;
+	MavlinkStreamAttPosMocap &operator = (const MavlinkStreamAttPosMocap &) = delete;
 
 protected:
 	explicit MavlinkStreamAttPosMocap(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2235,8 +2402,8 @@ private:
 	MavlinkOrbSubscription *_home_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamHomePosition(MavlinkStreamHomePosition &);
-	MavlinkStreamHomePosition &operator = (const MavlinkStreamHomePosition &);
+	MavlinkStreamHomePosition(MavlinkStreamHomePosition &) = delete;
+	MavlinkStreamHomePosition &operator = (const MavlinkStreamHomePosition &) = delete;
 
 protected:
 	explicit MavlinkStreamHomePosition(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2335,8 +2502,8 @@ private:
 	uint64_t _act_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamServoOutputRaw(MavlinkStreamServoOutputRaw &);
-	MavlinkStreamServoOutputRaw &operator = (const MavlinkStreamServoOutputRaw &);
+	MavlinkStreamServoOutputRaw(MavlinkStreamServoOutputRaw &) = delete;
+	MavlinkStreamServoOutputRaw &operator = (const MavlinkStreamServoOutputRaw &) = delete;
 
 protected:
 	explicit MavlinkStreamServoOutputRaw(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2422,8 +2589,8 @@ private:
 	uint64_t _att_ctrl_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamActuatorControlTarget(MavlinkStreamActuatorControlTarget &);
-	MavlinkStreamActuatorControlTarget &operator = (const MavlinkStreamActuatorControlTarget &);
+	MavlinkStreamActuatorControlTarget(MavlinkStreamActuatorControlTarget &) = delete;
+	MavlinkStreamActuatorControlTarget &operator = (const MavlinkStreamActuatorControlTarget &) = delete;
 
 protected:
 	explicit MavlinkStreamActuatorControlTarget(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2513,8 +2680,8 @@ private:
 	uint64_t _act_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamHILActuatorControls(MavlinkStreamHILActuatorControls &);
-	MavlinkStreamHILActuatorControls &operator = (const MavlinkStreamHILActuatorControls &);
+	MavlinkStreamHILActuatorControls(MavlinkStreamHILActuatorControls &) = delete;
+	MavlinkStreamHILActuatorControls &operator = (const MavlinkStreamHILActuatorControls &) = delete;
 
 protected:
 	explicit MavlinkStreamHILActuatorControls(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2672,8 +2839,8 @@ private:
 	uint64_t _pos_sp_triplet_timestamp{0};
 
 	/* do not allow top copying this class */
-	MavlinkStreamPositionTargetGlobalInt(MavlinkStreamPositionTargetGlobalInt &);
-	MavlinkStreamPositionTargetGlobalInt &operator = (const MavlinkStreamPositionTargetGlobalInt &);
+	MavlinkStreamPositionTargetGlobalInt(MavlinkStreamPositionTargetGlobalInt &) = delete;
+	MavlinkStreamPositionTargetGlobalInt &operator = (const MavlinkStreamPositionTargetGlobalInt &) = delete;
 
 protected:
 	explicit MavlinkStreamPositionTargetGlobalInt(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2741,8 +2908,8 @@ private:
 	uint64_t _pos_sp_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamLocalPositionSetpoint(MavlinkStreamLocalPositionSetpoint &);
-	MavlinkStreamLocalPositionSetpoint &operator = (const MavlinkStreamLocalPositionSetpoint &);
+	MavlinkStreamLocalPositionSetpoint(MavlinkStreamLocalPositionSetpoint &) = delete;
+	MavlinkStreamLocalPositionSetpoint &operator = (const MavlinkStreamLocalPositionSetpoint &) = delete;
 
 protected:
 	explicit MavlinkStreamLocalPositionSetpoint(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2820,8 +2987,8 @@ private:
 	uint64_t _att_sp_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamAttitudeTarget(MavlinkStreamAttitudeTarget &);
-	MavlinkStreamAttitudeTarget &operator = (const MavlinkStreamAttitudeTarget &);
+	MavlinkStreamAttitudeTarget(MavlinkStreamAttitudeTarget &) = delete;
+	MavlinkStreamAttitudeTarget &operator = (const MavlinkStreamAttitudeTarget &) = delete;
 
 protected:
 	explicit MavlinkStreamAttitudeTarget(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -2904,8 +3071,8 @@ private:
 	uint64_t _rc_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamRCChannels(MavlinkStreamRCChannels &);
-	MavlinkStreamRCChannels &operator = (const MavlinkStreamRCChannels &);
+	MavlinkStreamRCChannels(MavlinkStreamRCChannels &) = delete;
+	MavlinkStreamRCChannels &operator = (const MavlinkStreamRCChannels &) = delete;
 
 protected:
 	explicit MavlinkStreamRCChannels(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3009,8 +3176,8 @@ private:
 	uint64_t _manual_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamManualControl(MavlinkStreamManualControl &);
-	MavlinkStreamManualControl &operator = (const MavlinkStreamManualControl &);
+	MavlinkStreamManualControl(MavlinkStreamManualControl &) = delete;
+	MavlinkStreamManualControl &operator = (const MavlinkStreamManualControl &) = delete;
 
 protected:
 	explicit MavlinkStreamManualControl(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3086,8 +3253,8 @@ private:
 	uint64_t _flow_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamOpticalFlowRad(MavlinkStreamOpticalFlowRad &);
-	MavlinkStreamOpticalFlowRad &operator = (const MavlinkStreamOpticalFlowRad &);
+	MavlinkStreamOpticalFlowRad(MavlinkStreamOpticalFlowRad &) = delete;
+	MavlinkStreamOpticalFlowRad &operator = (const MavlinkStreamOpticalFlowRad &) = delete;
 
 protected:
 	explicit MavlinkStreamOpticalFlowRad(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3163,8 +3330,8 @@ private:
 	uint64_t _debug_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamNamedValueFloat(MavlinkStreamNamedValueFloat &);
-	MavlinkStreamNamedValueFloat &operator = (const MavlinkStreamNamedValueFloat &);
+	MavlinkStreamNamedValueFloat(MavlinkStreamNamedValueFloat &) = delete;
+	MavlinkStreamNamedValueFloat &operator = (const MavlinkStreamNamedValueFloat &) = delete;
 
 protected:
 	explicit MavlinkStreamNamedValueFloat(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3232,8 +3399,8 @@ private:
 	uint64_t _debug_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamDebug(MavlinkStreamDebug &);
-	MavlinkStreamDebug &operator = (const MavlinkStreamDebug &);
+	MavlinkStreamDebug(MavlinkStreamDebug &) = delete;
+	MavlinkStreamDebug &operator = (const MavlinkStreamDebug &) = delete;
 
 protected:
 	explicit MavlinkStreamDebug(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3299,8 +3466,8 @@ private:
 	uint64_t _debug_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamDebugVect(MavlinkStreamDebugVect &);
-	MavlinkStreamDebugVect &operator = (const MavlinkStreamDebugVect &);
+	MavlinkStreamDebugVect(MavlinkStreamDebugVect &) = delete;
+	MavlinkStreamDebugVect &operator = (const MavlinkStreamDebugVect &) = delete;
 
 protected:
 	explicit MavlinkStreamDebugVect(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3374,8 +3541,8 @@ private:
 	uint64_t _tecs_status_timestamp{0};
 
 	/* do not allow top copying this class */
-	MavlinkStreamNavControllerOutput(MavlinkStreamNavControllerOutput &);
-	MavlinkStreamNavControllerOutput &operator = (const MavlinkStreamNavControllerOutput &);
+	MavlinkStreamNavControllerOutput(MavlinkStreamNavControllerOutput &) = delete;
+	MavlinkStreamNavControllerOutput &operator = (const MavlinkStreamNavControllerOutput &) = delete;
 
 protected:
 	explicit MavlinkStreamNavControllerOutput(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3450,8 +3617,8 @@ private:
 	MavlinkOrbSubscription *_status_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamCameraCapture(MavlinkStreamCameraCapture &);
-	MavlinkStreamCameraCapture &operator = (const MavlinkStreamCameraCapture &);
+	MavlinkStreamCameraCapture(MavlinkStreamCameraCapture &) = delete;
+	MavlinkStreamCameraCapture &operator = (const MavlinkStreamCameraCapture &) = delete;
 
 protected:
 	explicit MavlinkStreamCameraCapture(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3524,8 +3691,8 @@ private:
 	uint64_t _dist_sensor_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamDistanceSensor(MavlinkStreamDistanceSensor &);
-	MavlinkStreamDistanceSensor &operator = (const MavlinkStreamDistanceSensor &);
+	MavlinkStreamDistanceSensor(MavlinkStreamDistanceSensor &) = delete;
+	MavlinkStreamDistanceSensor &operator = (const MavlinkStreamDistanceSensor &) = delete;
 
 protected:
 	explicit MavlinkStreamDistanceSensor(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3620,8 +3787,8 @@ private:
 	mavlink_extended_sys_state_t _msg;
 
 	/* do not allow top copying this class */
-	MavlinkStreamExtendedSysState(MavlinkStreamExtendedSysState &);
-	MavlinkStreamExtendedSysState &operator = (const MavlinkStreamExtendedSysState &);
+	MavlinkStreamExtendedSysState(MavlinkStreamExtendedSysState &) = delete;
+	MavlinkStreamExtendedSysState &operator = (const MavlinkStreamExtendedSysState &) = delete;
 
 protected:
 	explicit MavlinkStreamExtendedSysState(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3736,8 +3903,8 @@ private:
 	uint64_t _local_pos_time{0};
 
 	/* do not allow top copying this class */
-	MavlinkStreamAltitude(MavlinkStreamAltitude &);
-	MavlinkStreamAltitude &operator = (const MavlinkStreamAltitude &);
+	MavlinkStreamAltitude(MavlinkStreamAltitude &) = delete;
+	MavlinkStreamAltitude &operator = (const MavlinkStreamAltitude &) = delete;
 
 protected:
 	explicit MavlinkStreamAltitude(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3858,8 +4025,8 @@ private:
 	MavlinkOrbSubscription *_local_pos_sub;
 
 	/* do not allow top copying this class */
-	MavlinkStreamWind(MavlinkStreamWind &);
-	MavlinkStreamWind &operator = (const MavlinkStreamWind &);
+	MavlinkStreamWind(MavlinkStreamWind &) = delete;
+	MavlinkStreamWind &operator = (const MavlinkStreamWind &) = delete;
 
 protected:
 	explicit MavlinkStreamWind(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -3939,8 +4106,8 @@ private:
 	uint64_t _mount_orientation_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamMountOrientation(MavlinkStreamMountOrientation &);
-	MavlinkStreamMountOrientation &operator = (const MavlinkStreamMountOrientation &);
+	MavlinkStreamMountOrientation(MavlinkStreamMountOrientation &) = delete;
+	MavlinkStreamMountOrientation &operator = (const MavlinkStreamMountOrientation &) = delete;
 
 protected:
 	explicit MavlinkStreamMountOrientation(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -4010,8 +4177,8 @@ private:
 	uint64_t _gpos_time;
 
 	/* do not allow top copying this class */
-	MavlinkStreamGroundTruth(MavlinkStreamGroundTruth &);
-	MavlinkStreamGroundTruth &operator = (const MavlinkStreamGroundTruth &);
+	MavlinkStreamGroundTruth(MavlinkStreamGroundTruth &) = delete;
+	MavlinkStreamGroundTruth &operator = (const MavlinkStreamGroundTruth &) = delete;
 
 protected:
 	explicit MavlinkStreamGroundTruth(Mavlink *mavlink) : MavlinkStream(mavlink),
@@ -4064,6 +4231,71 @@ protected:
 	}
 };
 
+class MavlinkStreamPing : public MavlinkStream
+{
+public:
+	const char *get_name() const
+	{
+		return MavlinkStreamPing::get_name_static();
+	}
+
+	static const char *get_name_static()
+	{
+		return "PING";
+	}
+
+	static uint16_t get_id_static()
+	{
+		return MAVLINK_MSG_ID_PING;
+	}
+
+	uint16_t get_id()
+	{
+		return get_id_static();
+	}
+
+	static MavlinkStream *new_instance(Mavlink *mavlink)
+	{
+		return new MavlinkStreamPing(mavlink);
+	}
+
+	unsigned get_size()
+	{
+		return MAVLINK_MSG_ID_PING_LEN + MAVLINK_NUM_NON_PAYLOAD_BYTES;
+	}
+
+	bool const_rate()
+	{
+		return true;
+	}
+
+private:
+	uint32_t _sequence;
+
+	/* do not allow top copying this class */
+	MavlinkStreamPing(MavlinkStreamPing &) = delete;
+	MavlinkStreamPing &operator = (const MavlinkStreamPing &) = delete;
+
+protected:
+	explicit MavlinkStreamPing(Mavlink *mavlink) : MavlinkStream(mavlink),
+		_sequence(0)
+	{}
+
+	bool send(const hrt_abstime t)
+	{
+		mavlink_ping_t msg = {};
+
+		msg.time_usec = hrt_absolute_time();
+		msg.seq = _sequence++;
+		msg.target_system = 0; // All systems
+		msg.target_component = 0; // All components
+
+		mavlink_msg_ping_send_struct(_mavlink->get_channel(), &msg);
+
+		return true;
+	}
+};
+
 static const StreamListItem streams_list[] = {
 	StreamListItem(&MavlinkStreamHeartbeat::new_instance, &MavlinkStreamHeartbeat::get_name_static, &MavlinkStreamHeartbeat::get_id_static),
 	StreamListItem(&MavlinkStreamStatustext::new_instance, &MavlinkStreamStatustext::get_name_static, &MavlinkStreamStatustext::get_id_static),
@@ -4071,6 +4303,8 @@ static const StreamListItem streams_list[] = {
 	StreamListItem(&MavlinkStreamSysStatus::new_instance, &MavlinkStreamSysStatus::get_name_static, &MavlinkStreamSysStatus::get_id_static),
 	StreamListItem(&MavlinkStreamHighresIMU::new_instance, &MavlinkStreamHighresIMU::get_name_static, &MavlinkStreamHighresIMU::get_id_static),
 	StreamListItem(&MavlinkStreamScaledIMU::new_instance, &MavlinkStreamScaledIMU::get_name_static, &MavlinkStreamScaledIMU::get_id_static),
+	StreamListItem(&MavlinkStreamScaledIMU2::new_instance, &MavlinkStreamScaledIMU2::get_name_static, &MavlinkStreamScaledIMU2::get_id_static),
+	StreamListItem(&MavlinkStreamScaledIMU3::new_instance, &MavlinkStreamScaledIMU3::get_name_static, &MavlinkStreamScaledIMU3::get_id_static),
 	StreamListItem(&MavlinkStreamAttitude::new_instance, &MavlinkStreamAttitude::get_name_static, &MavlinkStreamAttitude::get_id_static),
 	StreamListItem(&MavlinkStreamAttitudeQuaternion::new_instance, &MavlinkStreamAttitudeQuaternion::get_name_static, &MavlinkStreamAttitudeQuaternion::get_id_static),
 	StreamListItem(&MavlinkStreamVFRHUD::new_instance, &MavlinkStreamVFRHUD::get_name_static, &MavlinkStreamVFRHUD::get_id_static),
@@ -4114,7 +4348,8 @@ static const StreamListItem streams_list[] = {
 	StreamListItem(&MavlinkStreamWind::new_instance, &MavlinkStreamWind::get_name_static, &MavlinkStreamWind::get_id_static),
 	StreamListItem(&MavlinkStreamMountOrientation::new_instance, &MavlinkStreamMountOrientation::get_name_static, &MavlinkStreamMountOrientation::get_id_static),
 	StreamListItem(&MavlinkStreamHighLatency2::new_instance, &MavlinkStreamHighLatency2::get_name_static, &MavlinkStreamHighLatency2::get_id_static),
-	StreamListItem(&MavlinkStreamGroundTruth::new_instance, &MavlinkStreamGroundTruth::get_name_static, &MavlinkStreamGroundTruth::get_id_static)
+	StreamListItem(&MavlinkStreamGroundTruth::new_instance, &MavlinkStreamGroundTruth::get_name_static, &MavlinkStreamGroundTruth::get_id_static),
+	StreamListItem(&MavlinkStreamPing::new_instance, &MavlinkStreamPing::get_name_static, &MavlinkStreamPing::get_id_static)
 };
 
 const char *get_stream_name(const uint16_t msg_id)
