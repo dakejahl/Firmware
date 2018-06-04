@@ -2123,6 +2123,9 @@ Mavlink::task_main(int argc, char *argv[])
 		configure_stream("PING", 1.0f);
 		configure_stream("POSITION_TARGET_GLOBAL_INT", 10.0f);
 		configure_stream("RC_CHANNELS", 10.0f);
+		configure_stream("SCALED_IMU", 50.0f);
+		configure_stream("SCALED_IMU2", 50.0f);
+		configure_stream("SCALED_IMU3", 50.0f);
 		configure_stream("SERVO_OUTPUT_RAW_0", 20.0f);
 		configure_stream("SERVO_OUTPUT_RAW_1", 20.0f);
 		configure_stream("SYS_STATUS", 1.0f);
