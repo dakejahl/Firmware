@@ -237,7 +237,8 @@ then
 	then
 		# Start the smart battery
 		param set BAT_SOURCE 1
-		batt_smbus start
+		batt_smbus -X start
+		sh /etc/init.d/rc.battery_setup
 		param set CAL_ACC0_EN 1
 		param set CAL_ACC1_EN 0
 		param set CAL_GYRO0_EN 1
