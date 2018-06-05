@@ -1,0 +1,92 @@
+#!nsh
+#
+# Startup script for writing battery parameters for BQ40Z50 SMBus smart battery
+#
+usleep 100000
+
+batt_smbus -X suspend
+
+usleep 100000
+
+batt_smbus -X unseal
+
+usleep 50000
+
+# "Settings","Configuration","Power Config"
+batt_smbus -X write_flash 18571 2 1 0
+echo "Wrote smart battery param 1"
+# "Settings","Configuration","DA Configuration"
+batt_smbus -X write_flash 19069 2 27 0
+echo "Wrote smart battery param 2"
+# "Settings","AFE","AFE Protection Control"
+batt_smbus -X write_flash 19072 1 115
+echo "Wrote smart battery param 3"
+# "Settings","Manufacturing","Mfg Status init"
+batt_smbus -X write_flash 17920 2 56 2
+echo "Wrote smart battery param 4"
+
+
+# "Power","Sleep","Bus Timeout"
+batt_smbus -X write_flash 18597 1 255
+echo "Wrote smart battery param 5"
+# "Power","Ship","Auto Ship Time"
+batt_smbus -X write_flash 18607 2 224 16
+echo "Wrote smart battery param 6"
+
+
+# "SBS Configuration","Data","Specification Information"
+batt_smbus -X write_flash 18642 2 51 0
+echo "Wrote smart battery param 7"
+
+
+# "Protections","AOLD","Latch Limit"
+batt_smbus -X write_flash 18803 1 100
+echo "Wrote smart battery param 8"
+# "Protections","AOLD","Counter Dec Delay"
+batt_smbus -X write_flash 18804 1 1
+echo "Wrote smart battery param 9"
+# "Protections","AOLD","Recovery"
+batt_smbus -X write_flash 18805 1 15
+echo "Wrote smart battery param 10"
+# "Protections","AOLD","Reset"
+batt_smbus -X write_flash 18806 1 15
+echo "Wrote smart battery param 11"
+# "Protections","AOLD","Threshold"
+batt_smbus -X write_flash 19073 1 207
+echo "Wrote smart battery param 12"
+
+
+# "Protections","ASCD","Latch Limit"
+batt_smbus -X write_flash 18811 1 10
+echo "Wrote smart battery param 13"
+# "Protections","ASCD","Counter Dec Delay"
+batt_smbus -X write_flash 18812 1 1
+echo "Wrote smart battery param 14"
+# "Protections","ASCD","Recovery"
+batt_smbus -X write_flash 18813 1 15
+echo "Wrote smart battery param 15"
+# "Protections","ASCD","Reset"
+batt_smbus -X write_flash 18814 1 15
+echo "Wrote smart battery param 16"
+
+
+# "Protections","ASCD","Threshold 1"
+batt_smbus -X write_flash 19075 1 52
+echo "Wrote smart battery param 17"
+# "Protections","ASCD","Threshold 2"
+batt_smbus -X write_flash 19076 1 21
+echo "Wrote smart battery param 18"
+
+
+# "Protections","OTD","Threshold"
+batt_smbus -X write_flash 18820 2 48 14
+echo "Wrote smart battery param 19"
+# "Protections","OTD","Delay"
+batt_smbus -X write_flash 18822 1 2
+echo "Wrote smart battery param 20"
+# "Protections","OTD","Recovery"
+batt_smbus -X write_flash 18823 2 254 13
+echo "Wrote smart battery param 21"
+
+
+batt_smbus -X resume
