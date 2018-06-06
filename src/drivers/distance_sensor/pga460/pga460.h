@@ -249,12 +249,15 @@ public:
 	/**
 	 * @brief Writes a value to a register.
 	 * @return Returns true for success or false for fail.
+	 * @param reg The register address to write to.
+	 * @param val The value to write.
 	 */
 	bool write_register(const uint8_t reg, const uint8_t val);
 
 	/**
 	 * @brief Reads a register.
 	 * @return Returns the value of the register at the specified address.
+	 * @param reg The register to read from.
 	 */
 	uint8_t read_register(const uint8_t reg);
 
@@ -266,6 +269,7 @@ public:
 
 	/**
 	 * @brief Reports the diagnostic data the diagnostic byte (first byte from slave).
+	 * @param diagnostic_byte The diagnostic byte that contains the bitflags.
 	 */
 	void print_diagnostics(const uint8_t diagnostic_byte);
 
@@ -294,6 +298,7 @@ public:
 
 	/**
 	 * @brief Sets the minimum distance.
+	 * @param dist The minimum distance to be set.
 	 */
 	void set_minimum_distance(const float dist);
 
@@ -305,6 +310,7 @@ public:
 
 	/**
 	 * @brief Sets the maximum distance.
+	 * @param dist The maximum distance to be set.
 	 */
 	void set_maximum_distance(const float dist);
 
@@ -352,6 +358,7 @@ private:
 	/**
 	 * @brief Calculates the distance from the measurement time of flight (time_of_flight) and current temperature.
 	 * @return Returns the distance measurement in meters.
+	 * @param time_of_flight The reported time of flight in ms from the device.
 	 */
 	float calculate_object_distance(uint16_t time_of_flight);
 
@@ -363,6 +370,7 @@ private:
 
 	/**
 	 * @brief Commands the device to publish the measurement results to uORB.
+	 * @param dist The calculated distance to the object.
 	 */
 	void uORB_publish_results(const float &dist);
 
@@ -385,6 +393,8 @@ private:
 	/**
 	 * @brief Calculates the checksum of the transmitted commmand + data
 	 * @return Returns the single byte checksum.
+	 * @param data The data to calculate the CRC over.
+	 * @param size The size of the data buffer.
 	 */
 	uint8_t calc_checksum(uint8_t *data, const uint8_t size);
 
