@@ -150,6 +150,8 @@ struct batt_smbus_bus_option &find_bus(enum BATT_SMBUS_BUS busid)
 	}
 
 	errx(1, "Could not find a smart battery: Did you start it?");
+	// to satisfy other compilers
+	return bus_options[0];
 }
 
 int manufacture_date()

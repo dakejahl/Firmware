@@ -109,7 +109,7 @@ int BATT_SMBUS::block_read(const uint8_t cmd_code, void *data, const unsigned le
 
 	// addr(wr), cmd_code, addr(r), byte_count, rx_data[]
 	uint8_t device_address = get_device_address();
-	uint8_t full_data_packet[byte_count + 4] = {0};
+	uint8_t full_data_packet[DATA_BUFFER_SIZE + 4] = {0};
 
 	full_data_packet[0] = (device_address << 1) | 0x00;
 	full_data_packet[1] = cmd_code;
@@ -118,7 +118,7 @@ int BATT_SMBUS::block_read(const uint8_t cmd_code, void *data, const unsigned le
 
 	memcpy(&full_data_packet[4], &rx_data[1], byte_count);
 
-	uint8_t pec = get_pec(full_data_packet, sizeof(full_data_packet));
+	uint8_t pec = get_pec(full_data_packet, byte_count + 4);
 
 	// First byte is byte count, followed by data.
 	if (pec != ((uint8_t *)rx_data)[byte_count + 1]) {

@@ -364,7 +364,7 @@ private:
 	/**
 	 * @brief Commands the device to publish the measurement results to uORB.
 	 */
-	void uORB_publish_results(const float &dist, const float &temp);
+	void uORB_publish_results(const float &dist);
 
 	/**
 	 * @brief Send the unlock command to the EEPROM to enable reading and writing -- not needed w/ bulk write
