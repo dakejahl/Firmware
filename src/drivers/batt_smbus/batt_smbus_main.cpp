@@ -143,8 +143,8 @@ int start(enum BATT_SMBUS_BUS busid)
 struct batt_smbus_bus_option &find_bus(enum BATT_SMBUS_BUS busid)
 {
 	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
-		if ((busid == BATT_SMBUS_BUS_ALL ||
-		     busid == bus_options[i].busid) && bus_options[i].dev != NULL) {
+		if ((busid == BATT_SMBUS_BUS_ALL || busid == bus_options[i].busid) &&
+		    bus_options[i].dev != NULL) {
 			return bus_options[i];
 		}
 	}
@@ -153,6 +153,8 @@ struct batt_smbus_bus_option &find_bus(enum BATT_SMBUS_BUS busid)
 	// to satisfy other compilers
 	return bus_options[0];
 }
+
+
 
 int manufacture_date()
 {
