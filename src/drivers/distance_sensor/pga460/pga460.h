@@ -248,12 +248,15 @@ public:
 
 	/**
 	 * @brief Writes a value to a register.
+	 * @param reg The register address to write to.
+	 * @param val The value to write.
 	 * @return Returns true for success or false for fail.
 	 */
 	bool write_register(const uint8_t reg, const uint8_t val);
 
 	/**
 	 * @brief Reads a register.
+	 * @param reg The register to read from.
 	 * @return Returns the value of the register at the specified address.
 	 */
 	uint8_t read_register(const uint8_t reg);
@@ -266,6 +269,7 @@ public:
 
 	/**
 	 * @brief Reports the diagnostic data the diagnostic byte (first byte from slave).
+	 * @param diagnostic_byte The diagnostic byte that contains the bitflags.
 	 */
 	void print_diagnostics(const uint8_t diagnostic_byte);
 
@@ -294,6 +298,7 @@ public:
 
 	/**
 	 * @brief Sets the minimum distance.
+	 * @param dist The minimum distance to be set.
 	 */
 	void set_minimum_distance(const float dist);
 
@@ -305,6 +310,7 @@ public:
 
 	/**
 	 * @brief Sets the maximum distance.
+	 * @param dist The maximum distance to be set.
 	 */
 	void set_maximum_distance(const float dist);
 
@@ -351,6 +357,7 @@ private:
 
 	/**
 	 * @brief Calculates the distance from the measurement time of flight (time_of_flight) and current temperature.
+	 * @param time_of_flight The reported time of flight in ms from the device.
 	 * @return Returns the distance measurement in meters.
 	 */
 	float calculate_object_distance(uint16_t time_of_flight);
@@ -363,8 +370,9 @@ private:
 
 	/**
 	 * @brief Commands the device to publish the measurement results to uORB.
+	 * @param dist The calculated distance to the object.
 	 */
-	void uORB_publish_results(const float &dist, const float &temp);
+	void uORB_publish_results(const float &dist);
 
 	/**
 	 * @brief Send the unlock command to the EEPROM to enable reading and writing -- not needed w/ bulk write
@@ -383,9 +391,11 @@ private:
 	bool init_thresholds();
 
 	/**
-	 * @brief Calculates the checksum of the transmitted commmand + data
-	 * @return Returns the single byte checksum.
-	 */
+	* @brief Calculates the checksum of the transmitted commmand + data.
+	* @param data Pointer to the data a checksum will be calculated for.
+	* @param size The size of the data (bytes) the checksum will be calculated for.
+	* @return Returns the single byte checksum.
+	*/
 	uint8_t calc_checksum(uint8_t *data, const uint8_t size);
 
 	/** @param _task_handle Handle for the task.  */
