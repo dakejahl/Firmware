@@ -248,16 +248,16 @@ public:
 
 	/**
 	 * @brief Writes a value to a register.
-	 * @return Returns true for success or false for fail.
 	 * @param reg The register address to write to.
 	 * @param val The value to write.
+	 * @return Returns true for success or false for fail.
 	 */
 	bool write_register(const uint8_t reg, const uint8_t val);
 
 	/**
 	 * @brief Reads a register.
-	 * @return Returns the value of the register at the specified address.
 	 * @param reg The register to read from.
+	 * @return Returns the value of the register at the specified address.
 	 */
 	uint8_t read_register(const uint8_t reg);
 
@@ -357,8 +357,8 @@ private:
 
 	/**
 	 * @brief Calculates the distance from the measurement time of flight (time_of_flight) and current temperature.
-	 * @return Returns the distance measurement in meters.
 	 * @param time_of_flight The reported time of flight in ms from the device.
+	 * @return Returns the distance measurement in meters.
 	 */
 	float calculate_object_distance(uint16_t time_of_flight);
 
@@ -391,11 +391,11 @@ private:
 	bool init_thresholds();
 
 	/**
-	 * @brief Calculates the checksum of the transmitted commmand + data
-	 * @return Returns the single byte checksum.
-	 * @param data The data to calculate the CRC over.
-	 * @param size The size of the data buffer.
-	 */
+	* @brief Calculates the checksum of the transmitted commmand + data.
+	* @param data Pointer to the data a checksum will be calculated for.
+	* @param size The size of the data (bytes) the checksum will be calculated for.
+	* @return Returns the single byte checksum.
+	*/
 	uint8_t calc_checksum(uint8_t *data, const uint8_t size);
 
 	/** @param _task_handle Handle for the task.  */
