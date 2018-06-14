@@ -112,7 +112,7 @@ int PGA460::start()
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
 					  SCHED_PRIORITY_DEFAULT,
-					  1600,
+					  1000,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
@@ -313,12 +313,14 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 	float millseconds_to_meters = 0.000001f;
 	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
 
-	// if measurement is within range, filter it.
-	if ((object_distance > MAX_DETECTABLE_DISTANCE) && (_previous_measurement < MAX_DETECTABLE_DISTANCE)) {
+	if (object_distance > MAX_DETECTABLE_DISTANCE) {
+		float temporary_var = object_distance;
 		object_distance = _previous_measurement;
-	}
+		_previous_measurement = temporary_var;
 
-	_previous_measurement = object_distance;
+	} else {
+		_previous_measurement = object_distance;
+	}
 
 	return object_distance;
 }

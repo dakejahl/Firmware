@@ -575,7 +575,7 @@ then
 		then
 			set MAVLINK_F "-r 1200 -d /dev/ttyS1"
 			# Start MAVLink on Wifi (ESP8266 port)
-			mavlink start -r 20000 -b 921600 -d /dev/ttyS0
+			#mavlink start -r 20000 -b 921600 -d /dev/ttyS0
 		fi
 
 		# Use ttyS3 (TELEM4) for MAVLink on FMUv5 in addition to ttyS1 (TELEM1) and ttyS2 (TELEM2)
@@ -625,7 +625,7 @@ fi
 		if ver hwcmp PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2
 		then
 			# This is TELEM4 on Pixhawk 3 Pro
-			frsky_telemetry start -d /dev/ttyS6
+			#frsky_telemetry start -d /dev/ttyS6
 		fi
 	fi
 
@@ -708,11 +708,6 @@ fi
 	fi
 	if param compare SYS_COMPANION 1921600
 	then
-		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 921600 -r 20000
-	fi
-	if param compare SYS_COMPANION 2921600
-	then
-		mavlink start -d ${MAVLINK_F} -b 57600 -m normal -r 20000
 		mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 921600 -m onboard -r 20000
 	fi
 
@@ -746,7 +741,7 @@ fi
 	if ver hwcmp PX4FMU_V2 PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2 PX4FMU_V5 OMNIBUS_F4SD
 	then
 		# Check for flow sensor - as it is a background task, launch it last
-		px4flow start &
+		#px4flow start &
 	fi
 
 	if ver hwcmp AEROFC_V1
