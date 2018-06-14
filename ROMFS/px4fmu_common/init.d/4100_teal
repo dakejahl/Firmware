@@ -198,7 +198,7 @@ then
 	param set SDLOG_PROFILE 109
 
 	# system
-	param set SYS_COMPANION 2921600
+	param set SYS_COMPANION 1921600
 	param set SYS_LOGGER 1
 
 	param save

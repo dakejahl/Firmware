@@ -55,9 +55,9 @@ struct batt_smbus_bus_option {
 	uint8_t busnum;
 	BATT_SMBUS	*dev;
 } bus_options[] = {
-	{ BATT_SMBUS_BUS_I2C_EXTERNAL, "/dev/batt_smbus_ext", &BATT_SMBUS_I2C_interface, PX4_I2C_BUS_EXPANSION, NULL },
+	{ BATT_SMBUS_BUS_I2C_EXTERNAL, "/dev/batt_smbus_ext", &BATT_SMBUS_I2C_interface, PX4_I2C_BUS_EXPANSION, nullptr },
 #ifdef PX4_I2C_BUS_ONBOARD
-	{ BATT_SMBUS_BUS_I2C_INTERNAL, "/dev/batt_smbus_int", &BATT_SMBUS_I2C_interface, PX4_I2C_BUS_ONBOARD, NULL },
+	{ BATT_SMBUS_BUS_I2C_INTERNAL, "/dev/batt_smbus_int", &BATT_SMBUS_I2C_interface, PX4_I2C_BUS_ONBOARD, nullptr },
 #endif
 };
 
@@ -115,7 +115,7 @@ bool start_bus(struct batt_smbus_bus_option &bus)
 int start(enum BATT_SMBUS_BUS busid)
 {
 	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
-		if (busid == BATT_SMBUS_BUS_ALL && bus_options[i].dev != NULL) {
+		if (busid == BATT_SMBUS_BUS_ALL && bus_options[i].dev != nullptr) {
 			// This device is already started.
 			PX4_INFO("Smart battery %d already started", bus_options[i].dev);
 			continue;
@@ -144,7 +144,7 @@ struct batt_smbus_bus_option &find_bus(enum BATT_SMBUS_BUS busid)
 {
 	for (unsigned i = 0; i < NUM_BUS_OPTIONS; i++) {
 		if ((busid == BATT_SMBUS_BUS_ALL || busid == bus_options[i].busid) &&
-		    bus_options[i].dev != NULL) {
+		    bus_options[i].dev != nullptr) {
 			return bus_options[i];
 		}
 	}
