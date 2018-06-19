@@ -50,7 +50,7 @@
 #include <uORB/topics/parameter_update.h>
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"
-#define MAX_DETECTABLE_DISTANCE         5.0f
+#define MAX_DETECTABLE_DISTANCE         3.5f
 #define MIN_DETECTABLE_DISTANCE         0.0f
 #define MAX_DETECTABLE_TEMPERATURE      100.0f
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
@@ -131,7 +131,7 @@
 #define PULSE_P2        0x0C    //reg addr      0x1F
 #define CURR_LIM_P1     0x3F    //reg addr      0x20
 #define CURR_LIM_P2     0x5E    //reg addr      0x21
-#define REC_LENGTH      0xE8    //reg addr      0x22
+#define REC_LENGTH      0x5D    //reg addr      0x22
 #define FREQ_DIAG       0x1B    //reg addr      0x23
 #define SAT_FDIAG_TH    0x2C    //reg addr      0x24
 #define FVOLT_DEC       0x7C    //reg addr      0x25
@@ -156,38 +156,38 @@
 #define DEV_STAT0       0x80    //reg addr      0x4C
 #define DEV_STAT1       0x0     //reg addr      0x4D
 #define P1_THR_0        0x64    //reg addr      0x5F
-#define P1_THR_1        0x8C    //reg addr      0x60
-#define P1_THR_2        0xEE    //reg addr      0x61
-#define P1_THR_3        0xEC    //reg addr      0x62
-#define P1_THR_4        0xDF    //reg addr      0x63
+#define P1_THR_1        0x8B    //reg addr      0x60
+#define P1_THR_2        0xBD    //reg addr      0x61
+#define P1_THR_3        0xE0    //reg addr      0x62
+#define P1_THR_4        0x6     //reg addr      0x63
 #define P1_THR_5        0xCF    //reg addr      0x64
 #define P1_THR_6        0xF6    //reg addr      0x65
 #define P1_THR_7        0x8E    //reg addr      0x66
-#define P1_THR_8        0x74    //reg addr      0x67
-#define P1_THR_9        0x25    //reg addr      0x68
-#define P1_THR_10       0x6C    //reg addr      0x69
-#define P1_THR_11       0x64    //reg addr      0x6A
-#define P1_THR_12       0x64    //reg addr      0x6B
-#define P1_THR_13       0x64    //reg addr      0x6C
-#define P1_THR_14       0x64    //reg addr      0x6D
+#define P1_THR_8        0x86    //reg addr      0x67
+#define P1_THR_9        0xB6    //reg addr      0x68
+#define P1_THR_10       0x5A    //reg addr      0x69
+#define P1_THR_11       0xFF    //reg addr      0x6A
+#define P1_THR_12       0xFF    //reg addr      0x6B
+#define P1_THR_13       0xFF    //reg addr      0x6C
+#define P1_THR_14       0xFF    //reg addr      0x6D
 #define P1_THR_15       0x0     //reg addr      0x6E
 #define P2_THR_0        0x30    //reg addr      0x6F
 #define P2_THR_1        0xE8    //reg addr      0x70
-#define P2_THR_2        0x32    //reg addr      0x71
+#define P2_THR_2        0x30    //reg addr      0x71
 #define P2_THR_3        0xDD    //reg addr      0x72
-#define P2_THR_4        0x68    //reg addr      0x73
+#define P2_THR_4        0xA8    //reg addr      0x73
 #define P2_THR_5        0x5F    //reg addr      0x74
 #define P2_THR_6        0x1     //reg addr      0x75
-#define P2_THR_7        0x7E    //reg addr      0x76
+#define P2_THR_7        0x78    //reg addr      0x76
 #define P2_THR_8        0x3A    //reg addr      0x77
-#define P2_THR_9        0xF7    //reg addr      0x78
+#define P2_THR_9        0xF3    //reg addr      0x78
 #define P2_THR_10       0x45    //reg addr      0x79
-#define P2_THR_11       0x82    //reg addr      0x7A
+#define P2_THR_11       0x92    //reg addr      0x7A
 #define P2_THR_12       0x48    //reg addr      0x7B
 #define P2_THR_13       0xEE    //reg addr      0x7C
 #define P2_THR_14       0x4     //reg addr      0x7D
 #define P2_THR_15       0xAC    //reg addr      0x7E
-#define THR_CRC         0x16    //reg addr      0x7F
+#define THR_CRC 0x6B    //reg addr      0x7F
 
 
 bool    start();
@@ -248,12 +248,15 @@ public:
 
 	/**
 	 * @brief Writes a value to a register.
+	 * @param reg The register address to write to.
+	 * @param val The value to write.
 	 * @return Returns true for success or false for fail.
 	 */
 	bool write_register(const uint8_t reg, const uint8_t val);
 
 	/**
 	 * @brief Reads a register.
+	 * @param reg The register to read from.
 	 * @return Returns the value of the register at the specified address.
 	 */
 	uint8_t read_register(const uint8_t reg);
@@ -266,6 +269,7 @@ public:
 
 	/**
 	 * @brief Reports the diagnostic data the diagnostic byte (first byte from slave).
+	 * @param diagnostic_byte The diagnostic byte that contains the bitflags.
 	 */
 	void print_diagnostics(const uint8_t diagnostic_byte);
 
@@ -294,6 +298,7 @@ public:
 
 	/**
 	 * @brief Sets the minimum distance.
+	 * @param dist The minimum distance to be set.
 	 */
 	void set_minimum_distance(const float dist);
 
@@ -305,6 +310,7 @@ public:
 
 	/**
 	 * @brief Sets the maximum distance.
+	 * @param dist The maximum distance to be set.
 	 */
 	void set_maximum_distance(const float dist);
 
@@ -351,6 +357,7 @@ private:
 
 	/**
 	 * @brief Calculates the distance from the measurement time of flight (time_of_flight) and current temperature.
+	 * @param time_of_flight The reported time of flight in ms from the device.
 	 * @return Returns the distance measurement in meters.
 	 */
 	float calculate_object_distance(uint16_t time_of_flight);
@@ -363,8 +370,9 @@ private:
 
 	/**
 	 * @brief Commands the device to publish the measurement results to uORB.
+	 * @param dist The calculated distance to the object.
 	 */
-	void uORB_publish_results(const float &dist, const float &temp);
+	void uORB_publish_results(const float &dist);
 
 	/**
 	 * @brief Send the unlock command to the EEPROM to enable reading and writing -- not needed w/ bulk write
@@ -383,9 +391,11 @@ private:
 	bool init_thresholds();
 
 	/**
-	 * @brief Calculates the checksum of the transmitted commmand + data
-	 * @return Returns the single byte checksum.
-	 */
+	* @brief Calculates the checksum of the transmitted commmand + data.
+	* @param data Pointer to the data a checksum will be calculated for.
+	* @param size The size of the data (bytes) the checksum will be calculated for.
+	* @return Returns the single byte checksum.
+	*/
 	uint8_t calc_checksum(uint8_t *data, const uint8_t size);
 
 	/** @param _task_handle Handle for the task.  */

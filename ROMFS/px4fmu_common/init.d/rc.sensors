@@ -181,12 +181,12 @@ fi
 if ver hwcmp PX4FMU_V4
 then
 	# External I2C bus
-	hmc5883 -C -T -X start
+	#hmc5883 -C -T -X start
 	#lis3mdl -X -R 6 start
-	bmp280 -I start
+	#bmp280 -I start
 
 	# expansion i2c used for BMM150 rotated by 90deg
-	bmm150 -R 2 start
+	#bmm150 -R 2 start
 
 	# if hmc5883 -C -T -S -R 2 start
 	# then

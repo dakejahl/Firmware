@@ -112,7 +112,7 @@ int PGA460::start()
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
 					  SCHED_PRIORITY_DEFAULT,
-					  1600,
+					  1000,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
@@ -289,10 +289,8 @@ uint32_t PGA460::collect_results()
 
 	float object_distance = calculate_object_distance(time_of_flight);
 
-	// delete this out when done characterizing flight temperature
-	float temperature = get_temperature();
 
-	uORB_publish_results(object_distance, temperature);
+	uORB_publish_results(object_distance);
 
 	// B1,2: time_of_flight  B3: Width  B4: Amplitude
 	uint32_t results = (time_of_flight << 16) | (Width << 8) | (Amplitude << 0);
@@ -315,17 +313,19 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 	float millseconds_to_meters = 0.000001f;
 	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
 
-	// if measurement is within range, filter it.
-	if ((object_distance > MAX_DETECTABLE_DISTANCE) && (_previous_measurement < MAX_DETECTABLE_DISTANCE)) {
+	if (object_distance > MAX_DETECTABLE_DISTANCE) {
+		float temporary_var = object_distance;
 		object_distance = _previous_measurement;
-	}
+		_previous_measurement = temporary_var;
 
-	_previous_measurement = object_distance;
+	} else {
+		_previous_measurement = object_distance;
+	}
 
 	return object_distance;
 }
 
-void PGA460::uORB_publish_results(const float &object_distance, const float &temperature)
+void PGA460::uORB_publish_results(const float &object_distance)
 {
 	struct distance_sensor_s report = {};
 	report.timestamp = hrt_absolute_time();
@@ -335,8 +335,7 @@ void PGA460::uORB_publish_results(const float &object_distance, const float &tem
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
 	report.id = 0;
-	// use this temporarily
-	report.covariance = temperature;
+	report.covariance = 0;
 
 	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 }
@@ -592,7 +591,7 @@ bool PGA460::write_register(const uint8_t reg, const uint8_t val)
 	}
 
 	uint8_t buf_tx[5] = {SYNCBYTE, SRW, reg, val, 0xFF};
-	uint8_t checksum = calc_checksum(&buf_tx[1], sizeof(buf_tx - 2));
+	uint8_t checksum = calc_checksum(&buf_tx[1], sizeof(buf_tx) - 2);
 	buf_tx[4] = checksum;
 
 	uint8_t ret = px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
