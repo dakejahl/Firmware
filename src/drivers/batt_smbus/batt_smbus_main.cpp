@@ -32,6 +32,7 @@
  ****************************************************************************/
 
 #include "batt_smbus.h"
+#include <px4_module.h>
 
 extern "C" __EXPORT int batt_smbus_main(int argc, char *argv[]);
 
@@ -69,7 +70,7 @@ struct batt_smbus_bus_option &find_bus(enum BATT_SMBUS_BUS busid);
 int reset(enum BATT_SMBUS_BUS busid);
 int info();
 
-void usage();
+void usage(const char *reason);
 int manufacture_date();
 int manufacturer_name();
 int serial_number();
@@ -227,23 +228,67 @@ int serial_number()
 	return PX4_OK;
 }
 
-void usage()
+// void usage()
+// {
+// 	PX4_INFO("\n\tstart            	 	- Starts the driver."
+// 		 "\n\tstop 				- Stops the driver."
+// 		 "\n\tman_name			- Prints the name of the manufacturer."
+// 		 "\n\tman_date			- Prints the date of manufacture."
+// 		 "\n\tserial_num			- Prints the serial number."
+// 		 "\n\tsbs_info			- Prints the manufacturer name, date, and serial number."
+// 		 "\n\tinfo				- Prints the last report"
+// 		 "\n\tread_word			- Uses the SMbus read-word command. Argument is the command word. (see datasheet)"
+// 		 "\n\twrite_word			- Uses the SMbus write-word command. Argument is the command word (see datasheet)"
+// 		 "\n\tman_read			- Uses the SMbus block-read with ManufacturerAccess() command: cmd_code, length"
+// 		 "\n\tread_flash			- Reads from flash: start address, number of bytes to read"
+// 		 "\n\twrite_flash			- Writes to flash: start address, N number of bytes to write, byte1, byte2, ...byteN"
+// 		 "\n\t"
+// 		 "\n\tWhen writing to flash be sure to separate each byte by a space"
+// 		 "\n\t");
+// }
+
+void usage(const char *reason)
 {
-	PX4_INFO("\n\tstart            	 	- Starts the driver."
-		 "\n\tstop 				- Stops the driver."
-		 "\n\tman_name			- Prints the name of the manufacturer."
-		 "\n\tman_date			- Prints the date of manufacture."
-		 "\n\tserial_num			- Prints the serial number."
-		 "\n\tsbs_info			- Prints the manufacturer name, date, and serial number."
-		 "\n\tinfo				- Prints the last report"
-		 "\n\tread_word			- Uses the SMbus read-word command. Argument is the command word. (see datasheet)"
-		 "\n\twrite_word			- Uses the SMbus write-word command. Argument is the command word (see datasheet)"
-		 "\n\tman_read			- Uses the SMbus block-read with ManufacturerAccess() command: cmd_code, length"
-		 "\n\tread_flash			- Reads from flash: start address, number of bytes to read"
-		 "\n\twrite_flash			- Writes to flash: start address, N number of bytes to write, byte1, byte2, ...byteN"
-		 "\n\t"
-		 "\n\tWhen writing to flash be sure to separate each byte by a space"
-		 "\n\t");
+	if (reason) {
+		PX4_WARN("%s\n", reason);
+	}
+
+	PRINT_MODULE_DESCRIPTION(
+		R"DESCR_STR(
+### Description
+GPS driver module that handles the communication with the device and publishes the position via uORB.
+It supports multiple protocols (device vendors) and by default automatically selects the correct one.
+
+The module supports a secondary GPS device, specified via `-e` parameter. The position will be published
+on the second uORB topic instance, but it's currently not used by the rest of the system (however the
+data will be logged, so that it can be used for comparisons).
+
+### Implementation
+There is a thread for each device polling for data. The GPS protocol classes are implemented with callbacks
+so that they can be used in other projects as well (eg. QGroundControl uses them too).
+
+### Examples
+For testing it can be useful to fake a GPS signal (it will signal the system that it has a valid position):
+$ gps stop
+$ gps start -f
+)DESCR_STR");
+
+	PRINT_MODULE_USAGE_NAME("batt_smbus", "driver");
+	PRINT_MODULE_USAGE_COMMAND("start");
+	PRINT_MODULE_USAGE_PARAM_STRING('X', "BATT_SMBUS_BUS_I2C_EXTERNAL", "", "", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('I', "BATT_SMBUS_BUS_I2C_INTERNAL", "", "", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('A', "BATT_SMBUS_BUS_ALL", "", "", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the driver.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("man_nam", "Prints the name of the manufacturer.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("man_date", "Prints the date of manufacture.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("serial_num", "Prints the serial number.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("sbs_info", "Prints the manufacturer name, date, and serial number.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("info",  "Prints the last report.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("read_word", "Uses the SMbus read-word command. Argument is the command word. (see datasheet)");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write_word",  "Uses the SMbus write-word command. Argument is the command word. (see datasheet)");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("man_read", "Uses the SMbus block-read with ManufacturerAccess() command: cmd_code, length.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("read_flash", "Reads from flash: start address, number of bytes to read.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write_flash", "Writes to flash: start address, N number of bytes to write, byte1, byte2, ...byteN.");
 }
 
 } //namespace
@@ -251,7 +296,7 @@ void usage()
 int
 batt_smbus_main(int argc, char *argv[])
 {
-	enum BATT_SMBUS_BUS busid = BATT_SMBUS_BUS_I2C_INTERNAL;
+	enum BATT_SMBUS_BUS busid = BATT_SMBUS_BUS_I2C_EXTERNAL;
 	int ch;
 
 
@@ -271,12 +316,17 @@ batt_smbus_main(int argc, char *argv[])
 			break;
 
 		default:
-			batt_smbus::usage();
+			batt_smbus::usage("unrecognized argument");
 			return 0;
 		}
 	}
 
 	const char *input = argv[optind];
+
+	if(!input) {
+		batt_smbus::usage("Please enter an appropriate command.");
+		return 1;
+	}
 
 	if (!strcmp(input, "start")) {
 		return batt_smbus::start(busid);
@@ -284,50 +334,50 @@ batt_smbus_main(int argc, char *argv[])
 
 	struct batt_smbus::batt_smbus_bus_option &bus = batt_smbus::find_bus(busid);
 
-	if (!strcmp(argv[2], "stop")) {
+	if (!strcmp(input, "stop")) {
 		delete bus.dev;
 		bus.dev = nullptr;
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "suspend")) {
+	if (!strcmp(input, "suspend")) {
 		bus.dev->stop();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "resume")) {
+	if (!strcmp(input, "resume")) {
 		bus.dev->start();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "man_name")) {
+	if (!strcmp(input, "man_name")) {
 		batt_smbus::manufacturer_name();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "man_date")) {
+	if (!strcmp(input, "man_date")) {
 		batt_smbus::manufacture_date();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "serial_num")) {
+	if (!strcmp(input, "serial_num")) {
 		batt_smbus::serial_number();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "sbs_info")) {
+	if (!strcmp(input, "sbs_info")) {
 		batt_smbus::manufacturer_name();
 		batt_smbus::manufacture_date();
 		batt_smbus::serial_number();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "info")) {
+	if (!strcmp(input, "info")) {
 		bus.dev->info();
 		return 0;
 	}
 
-	if (!strcmp(argv[2], "unseal")) {
+	if (!strcmp(input, "unseal")) {
 		bus.dev->unseal();
 		return 0;
 	}
@@ -476,10 +526,8 @@ batt_smbus_main(int argc, char *argv[])
 				return 0;
 			}
 		}
-
-		return 1;
 	}
 
-	batt_smbus::usage();
-	return 0;
+	batt_smbus::usage("unrecognized argument");
+	return 1;
 }

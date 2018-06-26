@@ -337,7 +337,7 @@ private:
 	/**
 	 * @brief Writes program defined threshold defaults to the register map and checks/writes the EEPROM.
 	 */
-	void init_pga460();
+	int init_pga460();
 
 	/**
 	 * @brief Commands the device to perform an ultrasonic measurement.

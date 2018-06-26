@@ -98,7 +98,8 @@ then
 
 	# land detector
 	param set LNDMC_THR_RANGE 0.35
-	param set LNDMC_XY_VEL_MAX 1.5
+	param set LNDMC_XY_VEL_MAX 2.0
+	param set LNDMC_ROT_MAX 25.0
 	param set LNDMC_Z_VEL_MAX 0.5
 
 	# mc_att_control

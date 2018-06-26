@@ -257,8 +257,13 @@ void BATT_SMBUS::cycle()
 					new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
 
 				} else {
-					PX4_WARN("Battery Warning Emergency: %4.2f", (double)new_report.remaining);
+					uint64_t timer = hrt_absolute_time() - now;
 					new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+
+					/* Only warn every 5 seconds */
+					if (timer > 5000000) {
+						PX4_WARN("Battery Warning Emergency: %4.2f", (double)new_report.remaining);
+					}
 				}
 			}
 
