@@ -54,7 +54,7 @@ struct batt_smbus_bus_option {
 	const char *devpath;
 	BATT_SMBUS_constructor interface_constructor;
 	uint8_t busnum;
-	BATT_SMBUS	*dev;
+	BATT_SMBUS      *dev;
 } bus_options[] = {
 	{ BATT_SMBUS_BUS_I2C_EXTERNAL, "/dev/batt_smbus_ext", &BATT_SMBUS_I2C_interface, PX4_I2C_BUS_EXPANSION, nullptr },
 #ifdef PX4_I2C_BUS_ONBOARD
@@ -237,21 +237,16 @@ void usage(const char *reason)
 	PRINT_MODULE_DESCRIPTION(
 		R"DESCR_STR(
 ### Description
-GPS driver module that handles the communication with the device and publishes the position via uORB.
-It supports multiple protocols (device vendors) and by default automatically selects the correct one.
-
-The module supports a secondary GPS device, specified via `-e` parameter. The position will be published
-on the second uORB topic instance, but it's currently not used by the rest of the system (however the
-data will be logged, so that it can be used for comparisons).
+Smart battery driver for the BQ40Z50 fuel gauge IC.
 
 ### Implementation
 There is a thread for each device polling for data. The GPS protocol classes are implemented with callbacks
 so that they can be used in other projects as well (eg. QGroundControl uses them too).
 
 ### Examples
-For testing it can be useful to fake a GPS signal (it will signal the system that it has a valid position):
-$ gps stop
-$ gps start -f
+To write to flash to set parameters. In this example 19069 is the address, 2 is the number of bytes to send, 27 is the first byte and 0 is the second byte.
+$ batt_smbus -X write_flash 19069 2 27 0
+
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("batt_smbus", "driver");
