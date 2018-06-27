@@ -228,25 +228,6 @@ int serial_number()
 	return PX4_OK;
 }
 
-// void usage()
-// {
-// 	PX4_INFO("\n\tstart            	 	- Starts the driver."
-// 		 "\n\tstop 				- Stops the driver."
-// 		 "\n\tman_name			- Prints the name of the manufacturer."
-// 		 "\n\tman_date			- Prints the date of manufacture."
-// 		 "\n\tserial_num			- Prints the serial number."
-// 		 "\n\tsbs_info			- Prints the manufacturer name, date, and serial number."
-// 		 "\n\tinfo				- Prints the last report"
-// 		 "\n\tread_word			- Uses the SMbus read-word command. Argument is the command word. (see datasheet)"
-// 		 "\n\twrite_word			- Uses the SMbus write-word command. Argument is the command word (see datasheet)"
-// 		 "\n\tman_read			- Uses the SMbus block-read with ManufacturerAccess() command: cmd_code, length"
-// 		 "\n\tread_flash			- Reads from flash: start address, number of bytes to read"
-// 		 "\n\twrite_flash			- Writes to flash: start address, N number of bytes to write, byte1, byte2, ...byteN"
-// 		 "\n\t"
-// 		 "\n\tWhen writing to flash be sure to separate each byte by a space"
-// 		 "\n\t");
-// }
-
 void usage(const char *reason)
 {
 	if (reason) {
