@@ -275,20 +275,33 @@ $ gps start -f
 
 	PRINT_MODULE_USAGE_NAME("batt_smbus", "driver");
 	PRINT_MODULE_USAGE_COMMAND("start");
-	PRINT_MODULE_USAGE_PARAM_STRING('X', "BATT_SMBUS_BUS_I2C_EXTERNAL", "", "", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('I', "BATT_SMBUS_BUS_I2C_INTERNAL", "", "", true);
-	PRINT_MODULE_USAGE_PARAM_STRING('A', "BATT_SMBUS_BUS_ALL", "", "", true);
+	PRINT_MODULE_USAGE_PARAM_STRING('X', "BATT_SMBUS_BUS_I2C_EXTERNAL", nullptr, nullptr, true);
+	PRINT_MODULE_USAGE_PARAM_STRING('I', "BATT_SMBUS_BUS_I2C_INTERNAL", nullptr, nullptr, true);
+	PRINT_MODULE_USAGE_PARAM_STRING('A', "BATT_SMBUS_BUS_ALL", nullptr, nullptr, true);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the driver.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("man_nam", "Prints the name of the manufacturer.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("man_date", "Prints the date of manufacture.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("serial_num", "Prints the serial number.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("sbs_info", "Prints the manufacturer name, date, and serial number.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("info",  "Prints the last report.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("read_word", "Uses the SMbus read-word command. Argument is the command word. (see datasheet)");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("write_word",  "Uses the SMbus write-word command. Argument is the command word. (see datasheet)");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("man_read", "Uses the SMbus block-read with ManufacturerAccess() command: cmd_code, length.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("read_flash", "Reads from flash: start address, number of bytes to read.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("write_flash", "Writes to flash: start address, N number of bytes to write, byte1, byte2, ...byteN.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("read_word", "Uses the SMbus read-word command.");
+	PRINT_MODULE_USAGE_ARG("command code", "The SMbus command .", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("man_read", "Uses the SMbus block-read with ManufacturerAccess().");
+	PRINT_MODULE_USAGE_ARG("command code", "The SMbus command .", true);
+	PRINT_MODULE_USAGE_ARG("number of bytes", "Number of bytes to read.", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("read_flash", "Reads 32 bytes from flash starting from the address specified.");
+	PRINT_MODULE_USAGE_ARG("address", "The address to start reading from. .", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write_flash", "Writes to flash.");
+	PRINT_MODULE_USAGE_ARG("address", "The address to start writing.", true);
+	PRINT_MODULE_USAGE_ARG("number of bytes", "Number of bytes to send.", true);
+	PRINT_MODULE_USAGE_ARG("data[0]...data[n]", "One byte of data at a time separated by spaces.", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("block_read", "Performs a SMBus block read.");
+	PRINT_MODULE_USAGE_ARG("command code", "The SMbus command .", true);
+	PRINT_MODULE_USAGE_ARG("number of bytes", "Number of bytes to read.", true);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("block_write", "Performs a SMBus block write.");
+	PRINT_MODULE_USAGE_ARG("command code", "The SMbus command code.", true);
+	PRINT_MODULE_USAGE_ARG("number of bytes", "Number of bytes to send.", true);
+	PRINT_MODULE_USAGE_ARG("data[0]...data[n]", "One byte of data at a time separated by spaces.", true);
 }
 
 } //namespace
