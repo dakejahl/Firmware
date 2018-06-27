@@ -105,14 +105,14 @@ int PGA460::start()
 	param_get(_paramHandle.resonant_frequency, &_params.resonant_frequency);
 
 	if (init() != OK) {
-		PX4_WARN("PGA460: Driver not started!");
+		PX4_INFO("PGA460: Driver not started!");
 		return PX4_ERROR;
 	}
 
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
 					  SCHED_PRIORITY_DEFAULT,
-					  1000,
+					  1100,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
@@ -141,11 +141,9 @@ int PGA460::init()
 		return PX4_ERROR;
 	}
 
-	open_serial();
-
-	init_pga460();
-
-	close_serial();
+	if (init_pga460() != OK) {
+		return PX4_ERROR;
+	}
 
 	_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
 
@@ -169,10 +167,13 @@ int PGA460::init()
 	return OK;
 }
 
-void PGA460::init_pga460()
+int PGA460::init_pga460()
 {
+	open_serial();
+
 	if (!init_thresholds()) {
 		PX4_WARN("Thresholds not initialized");
+		return PX4_ERROR;
 	}
 
 	usleep(10000);
@@ -183,6 +184,17 @@ void PGA460::init_pga460()
 	}
 
 	usleep(10000);
+
+	/* Check if the device is even alive*/
+	if (read_register(0x00) != USER_DATA1) {
+		close_serial();
+		return PX4_ERROR;
+	}
+
+	close_serial();
+
+
+	return OK;
 }
 
 bool PGA460::init_thresholds()
@@ -503,7 +515,7 @@ bool PGA460::write_eeprom()
 		usleep(1000);
 
 		if (result & 1 << 2) {
-			PX4_INFO("PGA460: EEPROM written to successfully");
+			PX4_WARN("PGA460: EEPROM written to successfully");
 			return 1;
 		}
 	}
@@ -679,7 +691,7 @@ bool PGA460::read_threshold_registers()
 	int mismatch = memcmp(buf_rx + 1, user_settings, sizeof(buf_rx) - 2);
 
 	if (mismatch == 0) {
-		PX4_WARN("Threshold registers have program settings");
+		PX4_INFO("Threshold registers have program settings");
 		return 1;
 
 	} else {
@@ -957,7 +969,7 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 bool start()
 {
 	if (pga460_task != nullptr) {
-		PX4_WARN("driver already started");
+		PX4_INFO("driver already started");
 		return 0;
 	}
 
@@ -969,6 +981,7 @@ bool start()
 	}
 
 	if (OK != pga460_task->start()) {
+		PX4_ERR("Failed to start PGA460: could not reach device.");
 		delete pga460_task;
 		pga460_task = nullptr;
 		return 1;
@@ -985,7 +998,7 @@ bool stop()
 		pga460_task = nullptr;
 
 	} else {
-		PX4_WARN("driver not running");
+		PX4_INFO("driver not running");
 	}
 
 	return 0;
@@ -1093,7 +1106,7 @@ int pga460_main(int argc, char *argv[])
 			PX4_INFO("Register has value %d", ret);
 
 		} else {
-			PX4_WARN("Unrecognized arguments");
+			PX4_INFO("Unrecognized arguments");
 		}
 
 		return 0;
@@ -1111,7 +1124,7 @@ int pga460_main(int argc, char *argv[])
 			if (ret) { PX4_INFO("Register successfully written to"); }
 
 		} else {
-			PX4_WARN("Unrecognized arguments");
+			PX4_INFO("Unrecognized arguments");
 		}
 
 		return 0;
@@ -1130,6 +1143,6 @@ int pga460_main(int argc, char *argv[])
 	}
 
 
-	PX4_WARN("Unrecognized arguments, try: start [device_name], stop, info ");
+	PX4_INFO("Unrecognized arguments, try: start [device_name], stop, info ");
 	return 1;
 }
