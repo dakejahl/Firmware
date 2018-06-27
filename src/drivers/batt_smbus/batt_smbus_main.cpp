@@ -239,10 +239,6 @@ void usage(const char *reason)
 ### Description
 Smart battery driver for the BQ40Z50 fuel gauge IC.
 
-### Implementation
-There is a thread for each device polling for data. The GPS protocol classes are implemented with callbacks
-so that they can be used in other projects as well (eg. QGroundControl uses them too).
-
 ### Examples
 To write to flash to set parameters. In this example 19069 is the address, 2 is the number of bytes to send, 27 is the first byte and 0 is the second byte.
 $ batt_smbus -X write_flash 19069 2 27 0
