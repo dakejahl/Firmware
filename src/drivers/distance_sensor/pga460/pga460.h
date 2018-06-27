@@ -156,7 +156,7 @@
 #define DEV_STAT0       0x80    //reg addr      0x4C
 #define DEV_STAT1       0x0     //reg addr      0x4D
 #define P1_THR_0        0x64    //reg addr      0x5F
-#define P1_THR_1        0x8B    //reg addr      0x60
+#define P1_THR_1        0x8C     //reg addr      0x60
 #define P1_THR_2        0xBD    //reg addr      0x61
 #define P1_THR_3        0xE0    //reg addr      0x62
 #define P1_THR_4        0x6     //reg addr      0x63
