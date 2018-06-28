@@ -109,6 +109,11 @@ public:
 	 */
 	void			display_status();
 
+	/**
+	 * Display the status of all enabled streams.
+	 */
+	void			display_status_streams();
+
 	static int		stream_command(int argc, char *argv[]);
 
 	static int		instance_count();
@@ -136,7 +141,7 @@ public:
 
 	static int		destroy_all_instances();
 
-	static int		get_status_all_instances();
+	static int		get_status_all_instances(bool show_streams_status);
 
 	static bool		instance_exists(const char *device_name, Mavlink *self);
 
@@ -316,14 +321,12 @@ public:
 
 	int			get_instance_id();
 
-#ifndef __PX4_QURT
 	/**
 	 * Enable / disable hardware flow control.
 	 *
 	 * @param enabled	True if hardware flow control should be enabled
 	 */
 	int			enable_flow_control(enum FLOW_CONTROL_MODE enabled);
-#endif
 
 	mavlink_channel_t	get_channel();
 
@@ -434,7 +437,7 @@ public:
 
 	const in_addr compute_broadcast_addr(const in_addr &host_addr, const in_addr &netmask_addr);
 
-	struct sockaddr_in 	*get_client_source_address() { return &_src_addr; }
+	struct sockaddr_in 	&get_client_source_address() { return _src_addr; }
 
 	void			set_client_source_initialized() { _src_addr_initialized = true; }
 
@@ -542,9 +545,9 @@ private:
 
 	bool			_forwarding_on;
 	bool			_ftp_on;
-#ifndef __PX4_QURT
+
 	int			_uart_fd;
-#endif
+
 	int			_baudrate;
 	int			_datarate;		///< data rate for normal streams (attitude, position, etc.)
 	int			_datarate_events;	///< data rate for params, waypoints, text messages
@@ -561,7 +564,7 @@ private:
 	bool			mavlink_link_termination_allowed;
 
 	char 			*_subscribe_to_stream;
-	float			_subscribe_to_stream_rate;
+	float			_subscribe_to_stream_rate;  ///< rate of stream to subscribe to (0=disable, -1=unlimited, -2=default)
 	bool 			_udp_initialised;
 
 	enum FLOW_CONTROL_MODE	_flow_control_mode;
@@ -631,9 +634,7 @@ private:
 
 	void			mavlink_update_system();
 
-#ifndef __PX4_QURT
 	int			mavlink_open_uart(int baudrate, const char *uart_name, bool force_flow_control);
-#endif
 
 	static int		interval_from_rate(float rate);
 
@@ -641,7 +642,21 @@ private:
 	static constexpr unsigned RADIO_BUFFER_LOW_PERCENTAGE = 35;
 	static constexpr unsigned RADIO_BUFFER_HALF_PERCENTAGE = 50;
 
+	/**
+	 * Configure a single stream.
+	 * @param stream_name
+	 * @param rate streaming rate in Hz, -1 = unlimited rate
+	 * @return 0 on success, <0 on error
+	 */
 	int configure_stream(const char *stream_name, const float rate = -1.0f);
+
+	/**
+	 * Configure default streams according to _mode for either all streams or only a single
+	 * stream.
+	 * @param configure_single_stream: if nullptr, configure all streams, else only a single stream
+	 * @return 0 on success, <0 on error
+	 */
+	int configure_streams_to_default(const char *configure_single_stream = nullptr);
 
 	/**
 	 * Adjust the stream rates based on the current rate

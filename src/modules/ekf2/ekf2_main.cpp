@@ -41,8 +41,9 @@
 #include <cfloat>
 
 #include <drivers/drv_hrt.h>
-#include <ecl/EKF/ekf.h>
-#include <mathlib/mathlib.h>
+#include <lib/ecl/EKF/ekf.h>
+#include <lib/mathlib/mathlib.h>
+#include <lib/perf/perf_counter.h>
 #include <px4_defines.h>
 #include <px4_module.h>
 #include <px4_module_params.h>
@@ -118,6 +119,9 @@ private:
 	uint64_t _integrated_time_us = 0;	///< integral of gyro delta time from start (uSec)
 	uint64_t _start_time_us = 0;		///< system time at EKF start (uSec)
 	int64_t _last_time_slip_us = 0;		///< Last time slip (uSec)
+
+	perf_counter_t _perf_update_data;
+	perf_counter_t _perf_ekf_update;
 
 	// Initialise time stamps used to send sensor data to the EKF and for logging
 	uint8_t _invalid_mag_id_count = 0;	///< number of times an invalid magnetomer device ID has been detected
@@ -322,7 +326,6 @@ private:
 		(ParamExtInt<px4::params::EKF2_OF_QMIN>) _flow_qual_min,	///< minimum acceptable quality integer from  the flow sensor
 		(ParamExtFloat<px4::params::EKF2_OF_GATE>)
 		_flow_innov_gate,	///< optical flow fusion innovation consistency gate size (STD)
-		(ParamExtFloat<px4::params::EKF2_OF_RMAX>) _flow_rate_max,	///< maximum valid optical flow rate (rad/sec)
 
 		// sensor positions in body frame
 		(ParamExtFloat<px4::params::EKF2_IMU_POS_X>) _imu_pos_x,		///< X position of IMU in body frame (m)
@@ -404,6 +407,8 @@ private:
 
 Ekf2::Ekf2():
 	ModuleParams(nullptr),
+	_perf_update_data(perf_alloc_once(PC_ELAPSED, "EKF2 data acquisition")),
+	_perf_ekf_update(perf_alloc_once(PC_ELAPSED, "EKF2 update")),
 	_vehicle_local_position_pub(ORB_ID(vehicle_local_position)),
 	_vehicle_global_position_pub(ORB_ID(vehicle_global_position)),
 	_params(_ekf.getParamHandle()),
@@ -470,7 +475,6 @@ Ekf2::Ekf2():
 	_flow_noise_qual_min(_params->flow_noise_qual_min),
 	_flow_qual_min(_params->flow_qual_min),
 	_flow_innov_gate(_params->flow_innov_gate),
-	_flow_rate_max(_params->flow_rate_max),
 	_imu_pos_x(_params->imu_pos_body(0)),
 	_imu_pos_y(_params->imu_pos_body(1)),
 	_imu_pos_z(_params->imu_pos_body(2)),
@@ -523,6 +527,9 @@ Ekf2::Ekf2():
 
 Ekf2::~Ekf2()
 {
+	perf_free(_perf_update_data);
+	perf_free(_perf_ekf_update);
+
 	orb_unsubscribe(_airdata_sub);
 	orb_unsubscribe(_airspeed_sub);
 	orb_unsubscribe(_ev_att_sub);
@@ -545,9 +552,14 @@ Ekf2::~Ekf2()
 
 int Ekf2::print_status()
 {
-	PX4_INFO("local position OK %s", (_ekf.local_position_is_valid()) ? "yes" : "no");
-	PX4_INFO("global position OK %s", (_ekf.global_position_is_valid()) ? "yes" : "no");
+	PX4_INFO("local position: %s", (_ekf.local_position_is_valid()) ? "valid" : "invalid");
+	PX4_INFO("global position: %s", (_ekf.global_position_is_valid()) ? "valid" : "invalid");
+
 	PX4_INFO("time slip: %" PRId64 " us", _last_time_slip_us);
+
+	perf_print_counter(_perf_update_data);
+	perf_print_counter(_perf_ekf_update);
+
 	return 0;
 }
 
@@ -603,6 +615,8 @@ void Ekf2::run()
 			// Poll timeout or no new data, do nothing
 			continue;
 		}
+
+		perf_begin(_perf_update_data);
 
 		bool params_updated = false;
 		orb_check(_params_sub, &params_updated);
@@ -903,6 +917,10 @@ void Ekf2::run()
 					_ekf.setOpticalFlowData(optical_flow.timestamp, &flow);
 				}
 
+				// Save sensor limits reported by the optical flow sensor
+				_ekf.set_optical_flow_limits(optical_flow.max_flow_rate, optical_flow.min_ground_distance,
+							     optical_flow.max_ground_distance);
+
 				ekf2_timestamps.optical_flow_timestamp_rel = (int16_t)((int64_t)optical_flow.timestamp / 100 -
 						(int64_t)ekf2_timestamps.timestamp / 100);
 			}
@@ -930,6 +948,9 @@ void Ekf2::run()
 					}
 
 					_ekf.setRangeData(range_finder.timestamp, range_finder.current_distance);
+
+					// Save sensor limits reported by the rangefinder
+					_ekf.set_rangefinder_limits(range_finder.min_distance, range_finder.max_distance);
 
 					ekf2_timestamps.distance_sensor_timestamp_rel = (int16_t)((int64_t)range_finder.timestamp / 100 -
 							(int64_t)ekf2_timestamps.timestamp / 100);
@@ -1005,8 +1026,12 @@ void Ekf2::run()
 			}
 		}
 
+		perf_end(_perf_update_data);
+
 		// run the EKF update and output
+		perf_begin(_perf_ekf_update);
 		const bool updated = _ekf.update();
+		perf_end(_perf_ekf_update);
 
 		if (updated) {
 
@@ -1127,11 +1152,23 @@ void Ekf2::run()
 			_ekf.get_velNE_reset(&lpos.delta_vxy[0], &lpos.vxy_reset_counter);
 
 			// get control limit information
-			_ekf.get_ekf_ctrl_limits(&lpos.vxy_max, &lpos.limit_hagl);
+			_ekf.get_ekf_ctrl_limits(&lpos.vxy_max, &lpos.vz_max, &lpos.hagl_min, &lpos.hagl_max);
 
-			// convert NaN to zero
+			// convert NaN to INFINITY
 			if (!PX4_ISFINITE(lpos.vxy_max)) {
-				lpos.vxy_max = 0.0f;
+				lpos.vxy_max = INFINITY;
+			}
+
+			if (!PX4_ISFINITE(lpos.vz_max)) {
+				lpos.vz_max = INFINITY;
+			}
+
+			if (!PX4_ISFINITE(lpos.hagl_min)) {
+				lpos.hagl_min = INFINITY;
+			}
+
+			if (!PX4_ISFINITE(lpos.hagl_max)) {
+				lpos.hagl_max = INFINITY;
 			}
 
 			// publish vehicle local position data

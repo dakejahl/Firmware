@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2014 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2014 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,25 +31,25 @@
  *
  ****************************************************************************/
 
-/**
- * @file board_serial.h
- * Read off the board serial
+/*
+ * @file circuit_breaker.c
  *
- * @author Lorenz Meier <lm@inf.ethz.ch>
- * @author David "Buzz" Bussenschutt <davidbuzz@gmail.com>
- *
+ * Circuit breaker parameters.
+ * Analog to real aviation circuit breakers these parameters
+ * allow to disable subsystems. They are not supported as standard
+ * operation procedure and are only provided for development purposes.
+ * To ensure they are not activated accidentally, the associated
+ * parameter needs to set to the key (magic).
  */
 
-#include <px4_config.h>
-#include <string.h>
-#include "board_serial.h"
+#include "circuit_breaker.h"
 
-int get_board_serial(uuid_byte_t serialid)
+#include <stdint.h>
+#include <px4_defines.h>
+
+bool circuit_breaker_enabled(const char *breaker, int32_t magic)
 {
-#if defined(BOARD_OVERRIDE_UUID)
-	memcpy(serialid, BOARD_OVERRIDE_UUID, PX4_CPU_UUID_BYTE_LENGTH);
-#else
-	board_get_uuid(serialid);
-#endif
-	return 0;
+	int32_t val = -1;
+
+	return (PX4_PARAM_GET_BYNAME(breaker, &val) == 0) && (val == magic);
 }

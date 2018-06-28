@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015, 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,12 +56,11 @@
 #include <px4_getopt.h>
 #include <px4_log.h>
 #include <px4_module.h>
-#include <systemlib/board_serial.h>
-#include <systemlib/circuit_breaker.h>
+#include <circuit_breaker/circuit_breaker.h>
 #include <lib/mixer/mixer.h>
 #include <parameters/param.h>
 #include <perf/perf_counter.h>
-#include <systemlib/pwm_limit/pwm_limit.h>
+#include <pwm_limit/pwm_limit.h>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
@@ -1027,7 +1026,7 @@ PX4FMU::task_spawn(int argc, char *argv[])
 		_task_id = px4_task_spawn_cmd("fmu",
 					      SCHED_DEFAULT,
 					      SCHED_PRIORITY_ACTUATOR_OUTPUTS,
-					      1310,
+					      1340,
 					      (px4_main_t)&run_trampoline,
 					      nullptr);
 

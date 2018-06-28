@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2013-2014 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,55 +32,18 @@
  ****************************************************************************/
 
 /**
- * @file state_table.h
+ * @file rc_check.h
  *
- * Finite-State-Machine helper class for state table
- * @author: Julian Oes <julian@oes.ch>
+ * RC calibration check
  */
+#include <uORB/uORB.h>
 
-#ifndef __SYSTEMLIB_STATE_TABLE_H
-#define __SYSTEMLIB_STATE_TABLE_H
+#pragma once
 
-class StateTable
-{
-public:
-	typedef void (StateTable::*Action)();
-	struct Tran {
-		Action action;
-		unsigned nextState;
-	};
-
-	StateTable(Tran const *table, unsigned nStates, unsigned nSignals)
-		: myState(0), myTable(table), myNsignals(nSignals) {}
-
-	StateTable(const StateTable &) = delete;
-	StateTable &operator=(const StateTable &) = delete;
-
-#define NO_ACTION &StateTable::doNothing
-#define ACTION(_target) StateTable::Action(_target)
-
-	virtual ~StateTable() {}
-
-	void dispatch(unsigned const sig)
-	{
-		/* get transition using state table */
-		Tran const *t = myTable + myState * myNsignals + sig;
-
-		/* accept new state */
-		myState = t->nextState;
-
-		/*  */
-		(this->*(t->action))();
-	}
-	void doNothing()
-	{
-		return;
-	}
-protected:
-	unsigned myState;
-private:
-	Tran const *myTable;
-	unsigned myNsignals;
-};
-
-#endif
+/**
+ * Check the RC calibration
+ *
+ * @return			0 / OK if RC calibration is ok, index + 1 of the first
+ *				channel that failed else (so 1 == first channel failed)
+ */
+int	rc_calibration_check(orb_advert_t *mavlink_log_pub, bool report_fail, bool isVTOL);

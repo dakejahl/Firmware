@@ -61,8 +61,10 @@ px4_add_module(
 		mavlink_ulog.cpp
 		mavlink_timesync.cpp
 	DEPENDS
+		airspeed
 		git_mavlink_v2
 		conversion
 		git_ecl
 		ecl_geo
+		version
 	)

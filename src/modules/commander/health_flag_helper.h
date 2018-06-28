@@ -1,7 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2012 PX4 Development Team. All rights reserved.
- *   Author: Lorenz Meier <lm@inf.ethz.ch>
+ *   Copyright (c) 2013 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,11 +32,18 @@
  ****************************************************************************/
 
 /**
- * @file systemlib.h
- * Definition of commonly used low-level system-call like functions.
+ * @file health_flag_helper.h
+ *
+ * Contains helper functions to efficiently set the system health flags from commander and preflight check.
+ *
+ * @author Philipp Oettershagen (philipp.oettershagen@mavt.ethz.ch)
  */
 
-#ifndef SYSTEMLIB_H_
-#define SYSTEMLIB_H_
+#pragma once
 
-#endif /* SYSTEMLIB_H_ */
+#include <px4_log.h>
+#include <uORB/topics/vehicle_status.h>
+
+void set_health_flags(uint64_t subsystem_type, bool present, bool enabled, bool ok, vehicle_status_s &status);
+void set_health_flags_present_healthy(uint64_t subsystem_type, bool present, bool healthy, vehicle_status_s &status);
+void set_health_flags_healthy(uint64_t subsystem_type, bool healthy, vehicle_status_s &status);
