@@ -74,6 +74,7 @@ if sys.version_info[0] < 3:
 else:
     runningPython3 = True
 
+
 class firmware(object):
     '''Loads a firmware file'''
 
@@ -191,8 +192,10 @@ class uploader(object):
     MAVLINK_REBOOT_ID0 = bytearray(b'\xfe\x21\x45\xff\x00\x4c\x00\x00\x40\x40\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xf6\x00\x00\x00\x00\xcc\x37')
 
     def __init__(self, portname, baudrate_bootloader, baudrate_flightstack):
-        # open the port, keep the default timeout short so we can poll quickly
-        self.port = serial.Serial(portname, baudrate_bootloader, timeout=0.5)
+        # Open the port, keep the default timeout short so we can poll quickly.
+        # On some systems writes can suddenly get stuck without having a
+        # write_timeout > 0 set.
+        self.port = serial.Serial(portname, baudrate_bootloader, timeout=0.5, write_timeout=0.5)
         self.otp = b''
         self.sn = b''
         self.baudrate_bootloader = baudrate_bootloader
@@ -224,13 +227,19 @@ class uploader(object):
                 except serial.SerialException:
                     # if open fails, try again later
                     time.sleep(0.04)
-
             else:
                 break
 
     def __send(self, c):
         # print("send " + binascii.hexlify(c))
-        self.port.write(c)
+        while True:
+            try:
+                self.port.write(c)
+                break
+            except serial.SerialTimeoutException as e:
+                print("Write timeout (%s), trying again" % e)
+                time.sleep(0.04)
+                continue
 
     def __recv(self, count=1):
         c = self.port.read(count)
@@ -324,8 +333,8 @@ class uploader(object):
         length = self.__recv_int()
         value = self.__recv(length)
         self.__getSync()
-        peices = value.split(",")
-        return peices
+        pieces = value.split(b",")
+        return pieces
 
     def __drawProgressBar(self, label, progress, maxVal):
         if maxVal < progress:
@@ -498,7 +507,7 @@ class uploader(object):
             for byte in range(0, 32*6, 4):
                 x = self.__getOTP(byte)
                 self.otp = self.otp + x
-                #print(binascii.hexlify(x).decode('Latin-1') + ' ', end='')
+                # print(binascii.hexlify(x).decode('Latin-1') + ' ', end='')
             # see src/modules/systemlib/otp.h in px4 code:
             self.otp_id = self.otp[0:4]
             self.otp_idtype = self.otp[4:5]
@@ -546,7 +555,7 @@ class uploader(object):
 
                 if self.fw_maxsize > fw.property('image_maxsize') and not force:
                     raise RuntimeError("Board can accept larger flash images (%u bytes) than board config (%u bytes). Please use the correct board configuration to avoid lacking critical functionality."
-                        % (self.fw_maxsize, fw.property('image_maxsize')))
+                                       % (self.fw_maxsize, fw.property('image_maxsize')))
         else:
             # If we're still on bootloader v4 on a Pixhawk, we don't know if we
             # have the silicon errata and therefore need to flash px4fmu-v2
@@ -611,7 +620,7 @@ class uploader(object):
             self.__send(uploader.NSH_REBOOT)
             self.port.flush()
             self.port.baudrate = self.baudrate_bootloader
-        except:
+        except Exception:
             try:
                 self.port.flush()
                 self.port.baudrate = self.baudrate_bootloader
@@ -774,6 +783,7 @@ def main():
     except KeyboardInterrupt:
         print("\n Upload aborted by user.")
         sys.exit(0)
+
 
 if __name__ == '__main__':
     main()
