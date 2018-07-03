@@ -116,21 +116,6 @@ int PGA460::start()
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
-	// notify about state change
-	struct subsystem_info_s info = {};
-	info.present = true;
-	info.enabled = true;
-	info.ok = true;
-	info.subsystem_type = subsystem_info_s::SUBSYSTEM_TYPE_RANGEFINDER;
-
-	static orb_advert_t pub = nullptr;
-
-	if (pub != nullptr) {
-		orb_publish(ORB_ID(subsystem_info), pub, &info);
-
-	} else {
-		pub = orb_advertise(ORB_ID(subsystem_info), &info);
-	}
 
 	return OK;
 }
@@ -349,7 +334,9 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.id = 0;
 	report.covariance = 0;
 
-	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	if ((object_distance > get_minimum_distance()) && (object_distance < get_maximum_distance())) {
+		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	}
 }
 
 float PGA460::get_temperature()
