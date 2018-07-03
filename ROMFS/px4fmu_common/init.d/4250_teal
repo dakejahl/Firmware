@@ -172,7 +172,6 @@ then
 	#sensors
 	param set SENS_EN_PGA460 1
 
-
 	# mission
 	param set MIS_TAKEOFF_ALT 2.5
 
