@@ -331,7 +331,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
 		/* Must have gotten an in-range sample within atleast 300ms of a previous in-range sample */
-		data_is_valid = (report.timestamp - _previous_report.timestamp > 3e5);
+		data_is_valid = (report.timestamp - _previous_report.timestamp < 3e5);
 
 		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
 		data_is_valid &= (report.current_distance < _previous_report.current_distance + 0.6f)
