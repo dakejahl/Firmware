@@ -125,7 +125,7 @@ private:
 	ringbuffer::RingBuffer		*_reports;
 	bool				_sensor_ok;
 	uint8_t				_valid;
-	int					_measure_ticks;
+	int				_measure_ticks;
 	bool				_collect_phase;
 	int				_class_instance;
 	int				_orb_class_instance;
@@ -467,7 +467,7 @@ TERARANGER::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 					bool want_start = (_measure_ticks == 0);
 
 					/* convert hz to tick interval via microseconds */
-					unsigned ticks = USEC2TICK(1000000 / arg);
+					int ticks = USEC2TICK(1000000 / arg);
 
 					/* check against maximum rate */
 					if (ticks < USEC2TICK(TERARANGER_CONVERSION_INTERVAL)) {
