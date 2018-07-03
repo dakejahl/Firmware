@@ -386,8 +386,8 @@ int commander_main(int argc, char *argv[])
 
 				struct vehicle_command_s cmd = {
 					.timestamp = hrt_absolute_time(),
-					.param5 = NAN,
-					.param6 = NAN,
+					.param5 = (double)NAN,
+					.param6 = (double)NAN,
 					/* minimum pitch */
 					.param1 = NAN,
 					.param2 = NAN,
@@ -417,8 +417,8 @@ int commander_main(int argc, char *argv[])
 
 		struct vehicle_command_s cmd = {
 			.timestamp = 0,
-			.param5 = NAN,
-			.param6 = NAN,
+			.param5 = (double)NAN,
+			.param6 = (double)NAN,
 			/* minimum pitch */
 			.param1 = NAN,
 			.param2 = NAN,
@@ -440,8 +440,8 @@ int commander_main(int argc, char *argv[])
 
 		struct vehicle_command_s cmd = {
 			.timestamp = 0,
-			.param5 = NAN,
-			.param6 = NAN,
+			.param5 = (double)NAN,
+			.param6 = (double)NAN,
 			/* transition to the other mode */
 			.param1 = (float)((status.is_rotary_wing) ? vtol_vehicle_status_s::VEHICLE_VTOL_STATE_FW : vtol_vehicle_status_s::VEHICLE_VTOL_STATE_MC),
 			.param2 = NAN,
@@ -511,8 +511,8 @@ int commander_main(int argc, char *argv[])
 
 		struct vehicle_command_s cmd = {
 			.timestamp = 0,
-			.param5 = 0.0f,
-			.param6 = 0.0f,
+			.param5 = 0.0,
+			.param6 = 0.0,
 			/* if the comparison matches for off (== 0) set 0.0f, 2.0f (on) else */
 			.param1 = strcmp(argv[2], "off") ? 2.0f : 0.0f, /* lockdown */
 			.param2 = 0.0f,
@@ -1306,8 +1306,8 @@ Commander::run()
 
 	/* Start monitoring loop */
 	unsigned counter = 0;
-	unsigned stick_off_counter = 0;
-	unsigned stick_on_counter = 0;
+	int stick_off_counter = 0;
+	int stick_on_counter = 0;
 
 	bool low_battery_voltage_actions_done = false;
 	bool critical_battery_voltage_actions_done = false;
@@ -3076,7 +3076,7 @@ Commander::set_main_state_rc(const vehicle_status_s &status_local, bool *changed
 	/* we know something has changed - check if we are in mode slot operation */
 	if (sp_man.mode_slot != manual_control_setpoint_s::MODE_SLOT_NONE) {
 
-		if (sp_man.mode_slot >= sizeof(_flight_mode_slots) / sizeof(_flight_mode_slots[0])) {
+		if (sp_man.mode_slot >= (int)(sizeof(_flight_mode_slots) / sizeof(_flight_mode_slots[0]))) {
 			warnx("m slot overflow");
 			return TRANSITION_DENIED;
 		}

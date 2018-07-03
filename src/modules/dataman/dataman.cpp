@@ -808,7 +808,7 @@ static int  _ram_restart(dm_reset_reason reason)
 static int
 _file_restart(dm_reset_reason reason)
 {
-	unsigned offset = 0;
+	int offset = 0;
 	int result = 0;
 	/* We need to scan the entire file and invalidate and data that should not persist after the last reset */
 
@@ -1031,7 +1031,7 @@ _ram_flash_flush()
 		return;
 	}
 
-	const size_t len = (dm_operations_data.ram_flash.data_end - dm_operations_data.ram_flash.data) + 1;
+	const ssize_t len = (dm_operations_data.ram_flash.data_end - dm_operations_data.ram_flash.data) + 1;
 	ret = up_progmem_write(k_dataman_flash_sector->address, dm_operations_data.ram_flash.data, len);
 
 	if (ret < len) {
