@@ -434,6 +434,8 @@ private:
 	/** @orb_advert_t orb_advert_t uORB advertisement topic. */
 	orb_advert_t _distance_sensor_topic;
 
+	struct distance_sensor_s _previous_report = {};
+
 	/**
 	* @brief Handles for interesting parameters
 	**/

@@ -305,6 +305,7 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 
 	// Formula for the speed of sound over temperature
 	float speed_of_sound = 331.0f + 0.6f * temperature;
+
 	// Calculate the distance in meters
 	float millseconds_to_meters = 0.000001f;
 	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
@@ -324,7 +325,25 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.id = 0;
 	report.covariance = 0;
 
-	if ((object_distance > get_minimum_distance()) && (object_distance < get_maximum_distance())) {
+	static bool data_is_valid = false;
+
+	/* If we are within our MIN and MAX thresholds, continue */
+	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
+
+		/* Must have gotten an in-range sample within atleast 300ms of a previous in-range sample */
+		data_is_valid = (report.timestamp - _previous_report.timestamp > 3e5);
+
+		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
+		data_is_valid &= (report.current_distance < _previous_report.current_distance + 0.6f)
+				 && (report.current_distance > _previous_report.current_distance - 0.6f);
+
+		_previous_report = report;
+
+	} else {
+		data_is_valid = false;
+	}
+
+	if (data_is_valid) {
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 	}
 }
