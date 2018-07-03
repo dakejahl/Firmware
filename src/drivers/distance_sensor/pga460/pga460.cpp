@@ -59,7 +59,6 @@ PGA460::PGA460(const char *port) :
 	_fd(-1),
 	_min_distance(MIN_DETECTABLE_DISTANCE),
 	_max_distance(MAX_DETECTABLE_DISTANCE),
-	_previous_measurement(0.0f),
 	_distance_sensor_topic(nullptr)
 {
 	// store port name
@@ -309,15 +308,6 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 	// Calculate the distance in meters
 	float millseconds_to_meters = 0.000001f;
 	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
-
-	if (object_distance > MAX_DETECTABLE_DISTANCE) {
-		float temporary_var = object_distance;
-		object_distance = _previous_measurement;
-		_previous_measurement = temporary_var;
-
-	} else {
-		_previous_measurement = object_distance;
-	}
 
 	return object_distance;
 }

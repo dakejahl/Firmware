@@ -428,8 +428,6 @@ private:
 	/** @param _max_distance Returns the set maximum distance. */
 	float _max_distance;
 
-	float _previous_measurement;
-
 	/** @param _port Stores the port name. */
 	char _port[20];
 
