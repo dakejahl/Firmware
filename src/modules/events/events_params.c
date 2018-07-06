@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017-2018 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,73 +32,40 @@
  ****************************************************************************/
 
 /**
- * @file status_display.h
- * Status Display decouples LED and tunes from commander
+ * @file events_params.c
  *
- * @author Simone Guscetti <simone@px4.io>
+ * Parameters defined by the events module.
  */
 
-#pragma once
+#include <px4_config.h>
+#include <parameters/param.h>
 
-#include "subscriber_handler.h"
+/**
+ * Status Display
+ *
+ * Enable/disable event task for displaying the vehicle status using arm-mounted
+ * LEDs. When enabled and if the vehicle supports it, LEDs will flash
+ * indicating various vehicle status changes. Currently PX4 has not implemented
+ * any specific status events.
+ * -
+ *
+ * @group Events
+ * @boolean
+ * @reboot_required true
+ */
+PARAM_DEFINE_INT32(EV_TSK_STAT_DIS, 0);
 
-#include <drivers/drv_hrt.h>
-
-#include <uORB/uORB.h>
-#include <uORB/topics/battery_status.h>
-#include <uORB/topics/cpuload.h>
-#include <uORB/topics/led_control.h>
-#include <uORB/topics/vehicle_status.h>
-#include <uORB/topics/vehicle_status_flags.h>
-
-namespace events
-{
-namespace status
-{
-
-class StatusDisplay
-{
-public:
-
-	StatusDisplay(const events::SubscriberHandler &subscriber_handler);
-
-	/** regularily called to handle state updates */
-	void process();
-
-protected:
-	/**
-	 * check for topic updates
-	 * @return true if one or more topics got updated
-	 */
-	bool check_for_updates();
-
-	/**
-	 * handle LED logic changes & call publish()
-	 */
-	void set_leds();
-
-	/** publish LED control */
-	void publish();
-
-	// TODO: review if there is a better variant that allocates this in the memory
-	struct battery_status_s _battery_status = {};
-	struct cpuload_s _cpu_load = {};
-	struct vehicle_status_s _vehicle_status = {};
-	struct vehicle_status_flags_s _vehicle_status_flags = {};
-	struct vehicle_attitude_s _vehicle_attitude = {};
-
-	struct led_control_s _led_control = {};
-
-private:
-	bool _old_gps_lock_valid = false;
-	bool _old_home_position_valid = false;
-	bool _low_battery = false;
-	bool _critical_battery = false;
-	int _old_nav_state = -1;
-	int _old_battery_status_warning = -1;
-	orb_advert_t _led_control_pub = nullptr;
-	const events::SubscriberHandler &_subscriber_handler;
-};
-
-} /* namespace status */
-} /* namespace events */
+/**
+ * RC Loss Alarm
+ *
+ * Enable/disable event task for RC Loss. When enabled, an alarm tune will be
+ * played via buzzer or ESCs, if supported. The alarm will sound after a disarm,
+ * if the vehicle was previously armed and only if the vehicle had RC signal at
+ * some point. Particularly useful for locating crashed drones without a GPS
+ * sensor.
+ *
+ * @group Events
+ * @boolean
+ * @reboot_required true
+ */
+PARAM_DEFINE_INT32(EV_TSK_RC_LOSS, 0);

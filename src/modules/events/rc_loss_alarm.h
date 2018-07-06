@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,72 +31,49 @@
  *
  ****************************************************************************/
 
+/**
+ * @file rc_loss_alarm.h
+ * Tone alarm in the event of RC loss
+ *
+ */
+
 #pragma once
 
 #include "subscriber_handler.h"
-#include "status_display.h"
-#include "rc_loss_alarm.h"
 
-#include <px4_workqueue.h>
-#include <px4_module.h>
-#include <px4_module_params.h>
-#include <uORB/topics/vehicle_command.h>
-#include <uORB/topics/vehicle_command_ack.h>
+#include <uORB/uORB.h>
+#include <uORB/topics/vehicle_status.h>
 
 namespace events
 {
+namespace rc_loss
+{
 
-extern "C" __EXPORT int send_event_main(int argc, char *argv[]);
-
-class SendEvent : public ModuleBase<SendEvent>, public ModuleParams
+class RC_Loss_Alarm
 {
 public:
-	SendEvent();
-	~SendEvent();
 
-	/**
-	 * Initialize class in the same context as the work queue. And start the background listener.
-	 * @return 0 if successful, <0 on error */
-	static int task_spawn(int argc, char *argv[]);
+	RC_Loss_Alarm(const events::SubscriberHandler &subscriber_handler);
 
-	/** @see ModuleBase */
-	static int custom_command(int argc, char *argv[]);
-
-	/** @see ModuleBase */
-	static int print_usage(const char *reason = nullptr);
+	/** regularily called to handle state updates */
+	void process();
 
 private:
+	/**
+	 * check for topic updates
+	 * @return true if one or more topics got updated
+	 */
+	bool check_for_updates();
 
-	/** Start background listening for commands
-	 *
-	 * @return 0 if successful, <0 on error. */
-	int start();
+	/** Publish tune control to sound alarm */
+	void play_tune();
 
-
-	/** Trampoline for initialisation. */
-	static void initialize_trampoline(void *arg);
-	/** Trampoline for the work queue. */
-	static void cycle_trampoline(void *arg);
-
-	/** call process_commands() and schedule the next cycle. */
-	void cycle();
-
-	/** check for new commands and process them. */
-	void process_commands();
-
-	/** return an ACK to a vehicle_command */
-	void answer_command(const vehicle_command_s &cmd, unsigned result);
-
-	static struct work_s _work;
-	SubscriberHandler _subscriber_handler;
-	status::StatusDisplay *_status_display = nullptr;
-	rc_loss::RC_Loss_Alarm *_rc_loss_alarm = nullptr;
-	orb_advert_t _command_ack_pub = nullptr;
-
-	DEFINE_PARAMETERS(
-		(ParamBool<px4::params::EV_TSK_STAT_DIS>) _param_status_display,
-		(ParamBool<px4::params::EV_TSK_RC_LOSS>) _param_rc_loss
-	)
+	struct vehicle_status_s	_vehicle_status = {};
+	bool 		_was_armed = false;
+	bool 		_had_rc = false;  // Don't trigger alarm for systems without RC
+	orb_advert_t 	_tune_control_pub = nullptr;
+	const events::SubscriberHandler &_subscriber_handler;
 };
 
+} /* namespace rc_loss */
 } /* namespace events */
