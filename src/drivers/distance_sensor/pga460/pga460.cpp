@@ -224,7 +224,7 @@ void PGA460::task_main()
 			_task_is_running = true;
 
 			/* Check last report to determine if we need to switch range modes */
-			set_range_mode();
+			//set_range_mode();
 
 			take_measurement();
 
@@ -246,30 +246,30 @@ void PGA460::task_main()
 	}
 }
 
-int PGA460::set_range_mode()
-{
-	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
+// int PGA460::set_range_mode()
+// {
+// 	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
 
-	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
-	if (!_mode_long_range && _previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
-		_mode_long_range = true;
-		write_long_range_settings();
+// 	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
+// 	if (!_mode_long_range && _previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+// 		_mode_long_range = true;
+// 		write_long_range_settings();
 
-	} else if (_mode_long_range && _previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
-		_mode_long_range = false;
-		write_short_range_settings();
-	}
-}
+// 	} else if (_mode_long_range && _previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+// 		_mode_long_range = false;
+// 		write_short_range_settings();
+// 	}
+// }
 
-int write_long_range_settings()
-{
+// int write_long_range_settings()
+// {
 
-}
+// }
 
-int write_short_range_settings()
-{
+// int write_short_range_settings()
+// {
 
-}
+// }
 
 void PGA460::take_measurement()
 {
@@ -388,7 +388,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 
 	}
 
-	if (data_is_valid) {
+	if (1) {
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 	}
 }
