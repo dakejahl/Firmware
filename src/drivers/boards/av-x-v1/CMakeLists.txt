@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2016 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,8 +31,17 @@
 #
 ############################################################################
 
-add_subdirectory(bmm150)
-add_subdirectory(hmc5883)
-add_subdirectory(ist8310)
-add_subdirectory(lis3mdl)
-add_subdirectory(lsm303agr)
+px4_add_library(drivers_board
+	init.c
+	sdio.c
+	spi.c
+	timer_config.c
+)
+target_link_libraries(drivers_board
+	PRIVATE
+		drivers__led # drv_led_start
+		nuttx_apps # up_cxxinitialize
+		nuttx_arch # sdio
+		nuttx_drivers # sdio
+		parameters # param_init
+)
