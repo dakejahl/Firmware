@@ -94,9 +94,10 @@
 #define EE_CNTRL_ADDR   0x40
 #define EE_UNLOCK_ST1   0x68
 #define EE_UNLOCK_ST2   0x69
+#define MODE_SET_THRESH	1.0f
+#define MODE_SET_HYST 	0.25f
 
-//      REGISTER MAP
-
+/* EEPROM */
 #define USER_DATA1      0x0     //reg addr      0x0
 #define USER_DATA2      0x0     //reg addr      0x1
 #define USER_DATA3      0x0     //reg addr      0x2
@@ -140,6 +141,8 @@
 #define TEMP_TRIM       0x0     //reg addr      0x28
 #define P1_GAIN_CTRL    0x0     //reg addr      0x29
 #define P2_GAIN_CTRL    0x0     //reg addr      0x2A
+
+/* Registers */
 #define EE_CRC          0x9     //reg addr      0x2B
 #define EE_CNTRL        0x0     //reg addr      0x40
 #define BPF_A2_MSB      0x85    //reg addr      0x41
@@ -336,8 +339,27 @@ private:
 
 	/**
 	 * @brief Writes program defined threshold defaults to the register map and checks/writes the EEPROM.
+	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
 	 */
 	int init_pga460();
+
+	/**
+	 * @brief Checks the measurement from last report and sets the range distance mode (long range , short range).
+	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
+	 */
+	int set_range_mode();
+
+	/**
+	 * @brief Writes the settings for long range mode.
+	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
+	 */
+	int write_long_range_settings();
+
+	/**
+	 * @brief Writes the settings for short range mode.
+	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
+	 */
+	int write_short_range_settings();
 
 	/**
 	 * @brief Commands the device to perform an ultrasonic measurement.
@@ -402,10 +424,13 @@ private:
 	px4_task_t _task_handle;
 
 	/** @param _task_is_running Indicator flag for when the driver is running. */
-	volatile bool _task_is_running;
+	bool _task_is_running;
 
 	/** @param _task_should_exit Indicator flag to stop the ultrasonic measurement process. */
-	volatile bool _task_should_exit;
+	bool _task_should_exit;
+
+	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
+	bool _mode_long_range;
 
 	/** @param _transducer_freq Value of the calibrated (from factory) transducer frequency. */
 	uint8_t _transducer_freq;
