@@ -326,12 +326,27 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.covariance = 0;
 
 	static bool data_is_valid = false;
+	static uint8_t good_data_counter = 0;
 
 	/* If we are within our MIN and MAX thresholds, continue */
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
-		/* Must have gotten an in-range sample within atleast 300ms of a previous in-range sample */
-		data_is_valid = (report.timestamp - _previous_report.timestamp < 3e5);
+		/* Must have 3 in-range samples every 1 second */
+		if (report.timestamp - _previous_report.timestamp < 1e6) {
+			good_data_counter++;
+
+			if (good_data_counter > 2) {
+				good_data_counter = 3;
+				data_is_valid = true;
+
+			} else {
+				data_is_valid = false;
+			}
+
+		} else {
+			/* Reset to zero if we've gone 1 second without an in-range value */
+			good_data_counter = 0;
+		}
 
 		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
 		data_is_valid &= (report.current_distance < _previous_report.current_distance + 0.6f)
@@ -341,6 +356,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 
 	} else {
 		data_is_valid = false;
+
 	}
 
 	if (data_is_valid) {
@@ -562,11 +578,9 @@ bool PGA460::check_eeprom()
 	int mismatch = memcmp(buf_rx + 1, user_settings, sizeof(buf_rx) - 2);
 
 	if (mismatch == 0) {
-		PX4_INFO("PGA460: EEPROM already has program settings");
 		return 1;
 
 	} else {
-		PX4_WARN("PGA460: EEPROM does not have program settings. Bytes mismatch: %d", mismatch);
 		print_diagnostics(buf_rx[0]);
 		return 0;
 	}
@@ -965,14 +979,14 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 bool start()
 {
 	if (pga460_task != nullptr) {
-		PX4_INFO("driver already started");
+		PX4_INFO("Driver already started.");
 		return 0;
 	}
 
 	pga460_task = new PGA460(PGA460_DEFAULT_PORT);
 
 	if (pga460_task == nullptr) {
-		PX4_ERR("failed to create instance of PGA460");
+		PX4_ERR("Failed to create instance of PGA460.");
 		return 1;
 	}
 
@@ -1050,7 +1064,7 @@ int pga460_main(int argc, char *argv[])
 			PX4_INFO("EEPROM has firmware default settings");
 
 		} else {
-			PX4_INFO("EEPROM does not have firmware default settings");
+			PX4_WARN("EEPROM does not have firmware default settings");
 		}
 
 		pga460_task->close_serial();
@@ -1071,7 +1085,7 @@ int pga460_main(int argc, char *argv[])
 			PX4_INFO("EEPROM successfully written to");
 
 		} else {
-			PX4_INFO("EEPROM was not successfully written to");
+			PX4_WARN("EEPROM was not successfully written to");
 		}
 
 		pga460_task->close_serial();
