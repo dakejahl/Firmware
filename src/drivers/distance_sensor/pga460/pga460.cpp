@@ -54,6 +54,7 @@ PGA460::PGA460(const char *port) :
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
+	_ranging_mode(),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_fd(-1),
@@ -224,9 +225,9 @@ void PGA460::task_main()
 			_task_is_running = true;
 
 			/* Check last report to determine if we need to switch range modes */
-			//set_range_mode();
+			uint8_t mode = set_range_mode();
 
-			take_measurement();
+			take_measurement(mode);
 
 			/* Wait long enough for a pulse to travel 10meters (~30ms) */
 			usleep(30000);
@@ -246,35 +247,31 @@ void PGA460::task_main()
 	}
 }
 
-// int PGA460::set_range_mode()
-// {
-// 	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
+uint8_t PGA460::set_range_mode()
+{
+	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
 
-// 	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
-// 	if (!_mode_long_range && _previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
-// 		_mode_long_range = true;
-// 		write_long_range_settings();
+	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
+	if ((_ranging_mode != P2BL) && _previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+		PX4_WARN("Long range mode set.");
+		_ranging_mode = P2BL;
+		return _ranging_mode;
 
-// 	} else if (_mode_long_range && _previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
-// 		_mode_long_range = false;
-// 		write_short_range_settings();
-// 	}
-// }
+	} else if ((_ranging_mode != P1BL) && _previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+		PX4_WARN("Short range mode set.");
+		_ranging_mode = P1BL;
+		return _ranging_mode;
 
-// int write_long_range_settings()
-// {
+	} else {
+		/* If in between upper hyst and lower hyst, return the current mode. */
+		return _ranging_mode;
+	}
+}
 
-// }
-
-// int write_short_range_settings()
-// {
-
-// }
-
-void PGA460::take_measurement()
+void PGA460::take_measurement(const uint8_t mode)
 {
 	// Issue a measurement command to detect one object using Preset 1 Burst/Listen
-	uint8_t buf_tx[4] = {SYNCBYTE, P1BL, 0x01, 0xFF};
+	uint8_t buf_tx[4] = {SYNCBYTE, mode, 0x01, 0xFF};
 	uint8_t checksum = calc_checksum(&buf_tx[1], 2);
 	buf_tx[3] = checksum;
 
@@ -866,7 +863,7 @@ uint8_t PGA460::find_resonant_frequency()
 		write_register(0x1C, frequency_index);
 		usleep(10000);
 
-		take_measurement();
+		take_measurement(P1BL);
 
 		usleep(100000);
 		request_results();

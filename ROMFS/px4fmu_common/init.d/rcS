@@ -208,7 +208,7 @@ then
 	# Enforce the default airframe as a Teal One
 	#
 	echo "Enforcing Teal One airframe and parameter defaults."
-	param set SYS_AUTOSTART 4100
+	param set SYS_AUTOSTART 4250
 	set AUTOCNF yes
 
 	if ver hwcmp PX4FMU_V5

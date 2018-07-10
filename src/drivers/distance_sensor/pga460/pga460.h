@@ -54,9 +54,10 @@
 #define MIN_DETECTABLE_DISTANCE         0.05f
 #define MAX_DETECTABLE_TEMPERATURE      100.0f
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
+#define MODE_SET_THRESH	1.5f
+#define MODE_SET_HYST 	0.3f
 
 #define SYNCBYTE                        0x55
-
 
 //      Define UART commands by name
 
@@ -94,8 +95,6 @@
 #define EE_CNTRL_ADDR   0x40
 #define EE_UNLOCK_ST1   0x68
 #define EE_UNLOCK_ST2   0x69
-#define MODE_SET_THRESH	1.5f
-#define MODE_SET_HYST 	0.3f
 
 /* EEPROM */
 #define	USER_DATA1	0x0	//reg addr	0x0
@@ -361,26 +360,14 @@ private:
 
 	/**
 	 * @brief Checks the measurement from last report and sets the range distance mode (long range , short range).
-	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
+	 * @return Returns the either P1Bl or P1B2. Preset 1 (P1BL) is short range mode and preset two (P2BL) is long range mode.
 	 */
-	int set_range_mode();
-
-	/**
-	 * @brief Writes the settings for long range mode.
-	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
-	 */
-	int write_long_range_settings();
-
-	/**
-	 * @brief Writes the settings for short range mode.
-	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
-	 */
-	int write_short_range_settings();
+	uint8_t set_range_mode();
 
 	/**
 	 * @brief Commands the device to perform an ultrasonic measurement.
 	 */
-	void take_measurement();
+	void take_measurement(const uint8_t mode);
 
 	/**
 	 * @brief Measurement is read from UART RX buffer and published to the uORB distance sensor topic.
@@ -446,7 +433,7 @@ private:
 	bool _task_should_exit;
 
 	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
-	bool _mode_long_range;
+	uint8_t _ranging_mode;
 
 	/** @param _transducer_freq Value of the calibrated (from factory) transducer frequency. */
 	uint8_t _transducer_freq;
