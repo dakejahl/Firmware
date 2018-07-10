@@ -54,7 +54,7 @@ PGA460::PGA460(const char *port) :
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
-	_ranging_mode(MODE_TAKEOFF),
+	_ranging_mode(MODE_SHORT_RANGE),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_fd(-1),
@@ -250,16 +250,12 @@ void PGA460::task_main()
 uint8_t PGA460::set_range_mode()
 {
 	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
-
 	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
-	if ((_ranging_mode != MODE_LONG_RANGE) && (_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST))) {
-		PX4_WARN("Long range mode set.");
+	if (_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
 		_ranging_mode = MODE_LONG_RANGE;
 		return _ranging_mode;
 
-	} else if (((_ranging_mode != MODE_SHORT_RANGE)
-		    && (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST))) || (_ranging_mode == MODE_TAKEOFF)) {
-		PX4_WARN("Short range mode set.");
+	} else if (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
 		_ranging_mode = MODE_SHORT_RANGE;
 		return _ranging_mode;
 
