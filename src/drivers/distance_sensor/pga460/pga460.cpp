@@ -274,7 +274,7 @@ void PGA460::task_main()
 void PGA460::take_measurement()
 {
 	// Issue a measurement command to detect one object using Preset 1 Burst/Listen
-	uint8_t buf_tx[4] = {SYNCBYTE, P2BL, 0x01, 0xFF};
+	uint8_t buf_tx[4] = {SYNCBYTE, P1BL, 0x01, 0xFF};
 	uint8_t checksum = calc_checksum(&buf_tx[1], 2);
 	buf_tx[3] = checksum;
 

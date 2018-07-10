@@ -51,7 +51,7 @@
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"
 #define MAX_DETECTABLE_DISTANCE        	6.0f
-#define MIN_DETECTABLE_DISTANCE         0.5f
+#define MIN_DETECTABLE_DISTANCE         0.05f
 #define MAX_DETECTABLE_TEMPERATURE      100.0f
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
 
@@ -128,7 +128,7 @@
 #define	INIT_GAIN	0x40	//reg addr	0x1B
 #define FREQUENCY       (uint8_t)(5*(_params.resonant_frequency - 30.0f))       //reg addr      0x1C
 #define	DEADTIME	0xF0	//reg addr	0x1D
-#define	PULSE_P1	0x1F	//reg addr	0x1E
+#define PULSE_P1        0x0C    //reg addr      0x1E
 #define	PULSE_P2	0x1F	//reg addr	0x1F
 #define	CURR_LIM_P1	0x3F	//reg addr	0x20
 #define	CURR_LIM_P2	0x7F	//reg addr	0x21
@@ -139,7 +139,7 @@
 #define	DECPL_TEMP	0xDF	//reg addr	0x26
 #define	DSP_SCALE	0x0	//reg addr	0x27
 #define	TEMP_TRIM	0x0	//reg addr	0x28
-#define	P1_GAIN_CTRL	0x8	//reg addr	0x29
+#define P1_GAIN_CTRL    0x0     //reg addr      0x29
 #define	P2_GAIN_CTRL	0x8	//reg addr	0x2A
 #define	EE_CRC	0x90	//reg addr	0x2B
 #define	EE_CNTRL	0x0	//reg addr	0x40
@@ -156,22 +156,22 @@
 #define	TEST_MUX	0x0	//reg addr	0x4B
 #define	DEV_STAT0	0x80	//reg addr	0x4C
 #define	DEV_STAT1	0x0	//reg addr	0x4D
-#define	P1_THR_0	0xBA	//reg addr	0x5F
-#define	P1_THR_1	0xCF	//reg addr	0x60
-#define	P1_THR_2	0xFF	//reg addr	0x61
-#define	P1_THR_3	0xF5	//reg addr	0x62
-#define	P1_THR_4	0x1A	//reg addr	0x63
-#define	P1_THR_5	0x5F	//reg addr	0x64
-#define	P1_THR_6	0xFB	//reg addr	0x65
-#define	P1_THR_7	0x58	//reg addr	0x66
-#define	P1_THR_8	0xD6	//reg addr	0x67
-#define	P1_THR_9	0xB9	//reg addr	0x68
-#define	P1_THR_10	0xFF	//reg addr	0x69
-#define	P1_THR_11	0xFF	//reg addr	0x6A
-#define	P1_THR_12	0xFF	//reg addr	0x6B
-#define	P1_THR_13	0xFF	//reg addr	0x6C
-#define	P1_THR_14	0xFF	//reg addr	0x6D
-#define	P1_THR_15	0x0	//reg addr	0x6E
+#define P1_THR_0        0x64    //reg addr      0x5F
+#define P1_THR_1        0x8C    //reg addr      0x60
+#define P1_THR_2        0xBD    //reg addr      0x61
+#define P1_THR_3        0xE0    //reg addr      0x62
+#define P1_THR_4        0x6     //reg addr      0x63
+#define P1_THR_5        0xCF    //reg addr      0x64
+#define P1_THR_6        0xF6    //reg addr      0x65
+#define P1_THR_7        0x8E    //reg addr      0x66
+#define P1_THR_8        0x86    //reg addr      0x67
+#define P1_THR_9        0xB6    //reg addr      0x68
+#define P1_THR_10       0x5A    //reg addr      0x69
+#define P1_THR_11       0xFF    //reg addr      0x6A
+#define P1_THR_12       0xFF    //reg addr      0x6B
+#define P1_THR_13       0xFF    //reg addr      0x6C
+#define P1_THR_14       0xFF    //reg addr      0x6D
+#define P1_THR_15       0x0     //reg addr      0x6E
 #define	P2_THR_0	0xBA	//reg addr	0x6F
 #define	P2_THR_1	0xCF	//reg addr	0x70
 #define	P2_THR_2	0xFF	//reg addr	0x71
