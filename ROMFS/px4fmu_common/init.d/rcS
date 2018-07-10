@@ -117,7 +117,7 @@ then
 	tone_alarm start
 
 	# play startup tone
-	tune_control play -t 1
+	tune_control play -m MNT150L64O3GABO4CDEFGABO5CDEFGABO6CDEFGL16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
 
 	#
 	# Load parameters
@@ -208,7 +208,7 @@ then
 	# Enforce the default airframe as a Teal One
 	#
 	echo "Enforcing Teal One airframe and parameter defaults."
-	param set SYS_AUTOSTART 4100
+	param set SYS_AUTOSTART 4250
 	set AUTOCNF yes
 
 	if ver hwcmp PX4FMU_V5

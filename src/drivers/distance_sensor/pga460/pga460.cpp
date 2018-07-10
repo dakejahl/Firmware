@@ -54,12 +54,12 @@ PGA460::PGA460(const char *port) :
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
+	_ranging_mode(MODE_SHORT_RANGE),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_fd(-1),
 	_min_distance(MIN_DETECTABLE_DISTANCE),
 	_max_distance(MAX_DETECTABLE_DISTANCE),
-	_previous_measurement(0.0f),
 	_distance_sensor_topic(nullptr)
 {
 	// store port name
@@ -116,21 +116,6 @@ int PGA460::start()
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
-	// notify about state change
-	struct subsystem_info_s info = {};
-	info.present = true;
-	info.enabled = true;
-	info.ok = true;
-	info.subsystem_type = subsystem_info_s::SUBSYSTEM_TYPE_RANGEFINDER;
-
-	static orb_advert_t pub = nullptr;
-
-	if (pub != nullptr) {
-		orb_publish(ORB_ID(subsystem_info), pub, &info);
-
-	} else {
-		pub = orb_advertise(ORB_ID(subsystem_info), &info);
-	}
 
 	return OK;
 }
@@ -239,8 +224,12 @@ void PGA460::task_main()
 		while (!_task_should_exit) {
 			_task_is_running = true;
 
-			take_measurement();
-			// Wait long enough for a pulse to travel 10meters (~30ms)
+			/* Check last report to determine if we need to switch range modes */
+			uint8_t mode = set_range_mode();
+
+			take_measurement(mode);
+
+			/* Wait long enough for a pulse to travel 10meters (~30ms) */
 			usleep(30000);
 
 			request_results();
@@ -258,10 +247,28 @@ void PGA460::task_main()
 	}
 }
 
-void PGA460::take_measurement()
+uint8_t PGA460::set_range_mode()
+{
+	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
+	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
+	if (_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+		_ranging_mode = MODE_LONG_RANGE;
+		return _ranging_mode;
+
+	} else if (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+		_ranging_mode = MODE_SHORT_RANGE;
+		return _ranging_mode;
+
+	} else {
+		/* If in between upper hyst and lower hyst, return the current mode. */
+		return _ranging_mode;
+	}
+}
+
+void PGA460::take_measurement(const uint8_t mode)
 {
 	// Issue a measurement command to detect one object using Preset 1 Burst/Listen
-	uint8_t buf_tx[4] = {SYNCBYTE, P1BL, 0x01, 0xFF};
+	uint8_t buf_tx[4] = {SYNCBYTE, mode, 0x01, 0xFF};
 	uint8_t checksum = calc_checksum(&buf_tx[1], 2);
 	buf_tx[3] = checksum;
 
@@ -321,18 +328,10 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 
 	// Formula for the speed of sound over temperature
 	float speed_of_sound = 331.0f + 0.6f * temperature;
+
 	// Calculate the distance in meters
 	float millseconds_to_meters = 0.000001f;
 	float object_distance = (float)time_of_flight * millseconds_to_meters * (speed_of_sound / 2.0f);
-
-	if (object_distance > MAX_DETECTABLE_DISTANCE) {
-		float temporary_var = object_distance;
-		object_distance = _previous_measurement;
-		_previous_measurement = temporary_var;
-
-	} else {
-		_previous_measurement = object_distance;
-	}
 
 	return object_distance;
 }
@@ -349,7 +348,43 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.id = 0;
 	report.covariance = 0;
 
-	orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	static bool data_is_valid = false;
+	static uint8_t good_data_counter = 0;
+
+	/* If we are within our MIN and MAX thresholds, continue */
+	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
+
+		/* Must have 3 in-range samples every 1 second */
+		if (report.timestamp - _previous_report.timestamp < 1e6) {
+			good_data_counter++;
+
+			if (good_data_counter > 2) {
+				good_data_counter = 3;
+				data_is_valid = true;
+
+			} else {
+				data_is_valid = false;
+			}
+
+		} else {
+			/* Reset to zero if we've gone 1 second without an in-range value */
+			good_data_counter = 0;
+		}
+
+		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
+		data_is_valid &= (report.current_distance < _previous_report.current_distance + 0.6f)
+				 && (report.current_distance > _previous_report.current_distance - 0.6f);
+
+		_previous_report = report;
+
+	} else {
+		data_is_valid = false;
+
+	}
+
+	if (data_is_valid) {
+		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+	}
 }
 
 float PGA460::get_temperature()
@@ -566,11 +601,9 @@ bool PGA460::check_eeprom()
 	int mismatch = memcmp(buf_rx + 1, user_settings, sizeof(buf_rx) - 2);
 
 	if (mismatch == 0) {
-		PX4_INFO("PGA460: EEPROM already has program settings");
 		return 1;
 
 	} else {
-		PX4_WARN("PGA460: EEPROM does not have program settings. Bytes mismatch: %d", mismatch);
 		print_diagnostics(buf_rx[0]);
 		return 0;
 	}
@@ -827,7 +860,7 @@ uint8_t PGA460::find_resonant_frequency()
 		write_register(0x1C, frequency_index);
 		usleep(10000);
 
-		take_measurement();
+		take_measurement(P1BL);
 
 		usleep(100000);
 		request_results();
@@ -969,14 +1002,14 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 bool start()
 {
 	if (pga460_task != nullptr) {
-		PX4_INFO("driver already started");
+		PX4_INFO("Driver already started.");
 		return 0;
 	}
 
 	pga460_task = new PGA460(PGA460_DEFAULT_PORT);
 
 	if (pga460_task == nullptr) {
-		PX4_ERR("failed to create instance of PGA460");
+		PX4_ERR("Failed to create instance of PGA460.");
 		return 1;
 	}
 
@@ -1054,7 +1087,7 @@ int pga460_main(int argc, char *argv[])
 			PX4_INFO("EEPROM has firmware default settings");
 
 		} else {
-			PX4_INFO("EEPROM does not have firmware default settings");
+			PX4_WARN("EEPROM does not have firmware default settings");
 		}
 
 		pga460_task->close_serial();
@@ -1075,7 +1108,7 @@ int pga460_main(int argc, char *argv[])
 			PX4_INFO("EEPROM successfully written to");
 
 		} else {
-			PX4_INFO("EEPROM was not successfully written to");
+			PX4_WARN("EEPROM was not successfully written to");
 		}
 
 		pga460_task->close_serial();
