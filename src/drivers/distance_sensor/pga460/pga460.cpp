@@ -258,7 +258,7 @@ uint8_t PGA460::set_range_mode()
 		return _ranging_mode;
 
 	} else if (((_ranging_mode != MODE_SHORT_RANGE)
-		    && (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST))) || (_ranging_mode = MODE_TAKEOFF)) {
+		    && (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST))) || (_ranging_mode == MODE_TAKEOFF)) {
 		PX4_WARN("Short range mode set.");
 		_ranging_mode = MODE_SHORT_RANGE;
 		return _ranging_mode;
