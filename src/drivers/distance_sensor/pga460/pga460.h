@@ -57,6 +57,10 @@
 #define MODE_SET_THRESH	1.5f
 #define MODE_SET_HYST 	0.3f
 
+#define MODE_TAKEOFF 0
+#define MODE_SHORT_RANGE P1BL
+#define MODE_LONG_RANGE P2BL
+
 #define SYNCBYTE                        0x55
 
 //      Define UART commands by name
