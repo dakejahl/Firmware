@@ -54,7 +54,7 @@ PGA460::PGA460(const char *port) :
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
-	_ranging_mode(),
+	_ranging_mode(P2BL),
 	_class_instance(-1),
 	_orb_class_instance(-1),
 	_fd(-1),
