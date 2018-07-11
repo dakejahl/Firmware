@@ -173,6 +173,7 @@ then
 	#sensors
 	param set SENS_EN_PGA460 1
 
+
 	# mission
 	param set MIS_TAKEOFF_ALT 2.5
 
@@ -192,7 +193,7 @@ then
 	param set RTL_DESCEND_ALT 5
 	param set RTL_LAND_DELAY 5
 	param set RTL_MIN_DIST 7.5
-	param set RTL_RETURN_ALT 30
+	param set RTL_RETURN_ALT 5
 
 	# sd logging
 	param set SDLOG_DIRS_MAX 10
