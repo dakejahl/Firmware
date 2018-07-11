@@ -50,13 +50,17 @@
 #include <uORB/topics/parameter_update.h>
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"
-#define MAX_DETECTABLE_DISTANCE         3.5f
-#define MIN_DETECTABLE_DISTANCE         0.0f
+#define MAX_DETECTABLE_DISTANCE        	6.0f
+#define MIN_DETECTABLE_DISTANCE         0.05f
 #define MAX_DETECTABLE_TEMPERATURE      100.0f
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
+#define MODE_SET_THRESH	1.5f
+#define MODE_SET_HYST 	0.3f
+
+#define MODE_SHORT_RANGE P1BL
+#define MODE_LONG_RANGE P2BL
 
 #define SYNCBYTE                        0x55
-
 
 //      Define UART commands by name
 
@@ -95,66 +99,65 @@
 #define EE_UNLOCK_ST1   0x68
 #define EE_UNLOCK_ST2   0x69
 
-//      REGISTER MAP
-
-#define USER_DATA1      0x0     //reg addr      0x0
-#define USER_DATA2      0x0     //reg addr      0x1
-#define USER_DATA3      0x0     //reg addr      0x2
-#define USER_DATA4      0x0     //reg addr      0x3
-#define USER_DATA5      0x0     //reg addr      0x4
-#define USER_DATA6      0x0     //reg addr      0x5
-#define USER_DATA7      0x0     //reg addr      0x6
-#define USER_DATA8      0x0     //reg addr      0x7
-#define USER_DATA9      0x0     //reg addr      0x8
-#define USER_DATA10     0x0     //reg addr      0x9
-#define USER_DATA11     0x0     //reg addr      0x0A
-#define USER_DATA12     0x0     //reg addr      0x0B
-#define USER_DATA13     0x0     //reg addr      0x0C
-#define USER_DATA14     0x0     //reg addr      0x0D
-#define USER_DATA15     0x0     //reg addr      0x0E
-#define USER_DATA16     0x0     //reg addr      0x0F
-#define USER_DATA17     0x0     //reg addr      0x10
-#define USER_DATA18     0x0     //reg addr      0x11
-#define USER_DATA19     0x0     //reg addr      0x12
-#define USER_DATA20     0x0     //reg addr      0x13
-#define TVGAIN0         0x9F    //reg addr      0x14
-#define TVGAIN1         0xEF    //reg addr      0x15
-#define TVGAIN2         0xFF    //reg addr      0x16
-#define TVGAIN3         0xA5    //reg addr      0x17
-#define TVGAIN4         0x6D    //reg addr      0x18
-#define TVGAIN5         0xBE    //reg addr      0x19
-#define TVGAIN6         0xFC    //reg addr      0x1A
-#define INIT_GAIN       0x40    //reg addr      0x1B
+/* EEPROM */
+#define	USER_DATA1	0x0	//reg addr	0x0
+#define	USER_DATA2	0x0	//reg addr	0x1
+#define	USER_DATA3	0x0	//reg addr	0x2
+#define	USER_DATA4	0x0	//reg addr	0x3
+#define	USER_DATA5	0x0	//reg addr	0x4
+#define	USER_DATA6	0x0	//reg addr	0x5
+#define	USER_DATA7	0x0	//reg addr	0x6
+#define	USER_DATA8	0x0	//reg addr	0x7
+#define	USER_DATA9	0x0	//reg addr	0x8
+#define	USER_DATA10	0x0	//reg addr	0x9
+#define	USER_DATA11	0x0	//reg addr	0x0A
+#define	USER_DATA12	0x0	//reg addr	0x0B
+#define	USER_DATA13	0x0	//reg addr	0x0C
+#define	USER_DATA14	0x0	//reg addr	0x0D
+#define	USER_DATA15	0x0	//reg addr	0x0E
+#define	USER_DATA16	0x0	//reg addr	0x0F
+#define	USER_DATA17	0x0	//reg addr	0x10
+#define	USER_DATA18	0x0	//reg addr	0x11
+#define	USER_DATA19	0x0	//reg addr	0x12
+#define	USER_DATA20	0x0	//reg addr	0x13
+#define	TVGAIN0	0x9D	//reg addr	0x14
+#define	TVGAIN1	0xBD	//reg addr	0x15
+#define	TVGAIN2	0xEF	//reg addr	0x16
+#define	TVGAIN3	0x31	//reg addr	0x17
+#define	TVGAIN4	0x48	//reg addr	0x18
+#define	TVGAIN5	0x67	//reg addr	0x19
+#define	TVGAIN6	0xAC	//reg addr	0x1A
+#define	INIT_GAIN	0x40	//reg addr	0x1B
 #define FREQUENCY       (uint8_t)(5*(_params.resonant_frequency - 30.0f))       //reg addr      0x1C
-#define DEADTIME        0xF0    //reg addr      0x1D
+#define	DEADTIME	0xF0	//reg addr	0x1D
 #define PULSE_P1        0x0C    //reg addr      0x1E
-#define PULSE_P2        0x0C    //reg addr      0x1F
-#define CURR_LIM_P1     0x3F    //reg addr      0x20
-#define CURR_LIM_P2     0x5E    //reg addr      0x21
-#define REC_LENGTH      0x5D    //reg addr      0x22
-#define FREQ_DIAG       0x1B    //reg addr      0x23
-#define SAT_FDIAG_TH    0x2C    //reg addr      0x24
-#define FVOLT_DEC       0x7C    //reg addr      0x25
-#define DECPL_TEMP      0xDF    //reg addr      0x26
-#define DSP_SCALE       0x0     //reg addr      0x27
-#define TEMP_TRIM       0x0     //reg addr      0x28
+#define	PULSE_P2	0x1F	//reg addr	0x1F
+#define	CURR_LIM_P1	0x3F	//reg addr	0x20
+#define	CURR_LIM_P2	0x7F	//reg addr	0x21
+#define	REC_LENGTH	0x88	//reg addr	0x22
+#define	FREQ_DIAG	0x1B	//reg addr	0x23
+#define	SAT_FDIAG_TH	0x2C	//reg addr	0x24
+#define	FVOLT_DEC	0x7C	//reg addr	0x25
+#define	DECPL_TEMP	0xDF	//reg addr	0x26
+#define	DSP_SCALE	0x0	//reg addr	0x27
+#define	TEMP_TRIM	0x0	//reg addr	0x28
 #define P1_GAIN_CTRL    0x0     //reg addr      0x29
-#define P2_GAIN_CTRL    0x0     //reg addr      0x2A
-#define EE_CRC          0x9     //reg addr      0x2B
-#define EE_CNTRL        0x0     //reg addr      0x40
-#define BPF_A2_MSB      0x85    //reg addr      0x41
-#define BPF_A2_LSB      0xEA    //reg addr      0x42
-#define BPF_A3_MSB      0xF9    //reg addr      0x43
-#define BPF_A3_LSB      0xA5    //reg addr      0x44
-#define BPF_B1_MSB      0x3     //reg addr      0x45
-#define BPF_B1_LSB      0x2D    //reg addr      0x46
-#define LPF_A2_MSB      0x7E    //reg addr      0x47
-#define LPF_A2_LSB      0x67    //reg addr      0x48
-#define LPF_B1_MSB      0x0     //reg addr      0x49
-#define LPF_B1_LSB      0xCD    //reg addr      0x4A
-#define TEST_MUX        0x0     //reg addr      0x4B
-#define DEV_STAT0       0x80    //reg addr      0x4C
-#define DEV_STAT1       0x0     //reg addr      0x4D
+#define	P2_GAIN_CTRL	0x8	//reg addr	0x2A
+#define	EE_CRC	0x90	//reg addr	0x2B
+#define	EE_CNTRL	0x0	//reg addr	0x40
+#define	BPF_A2_MSB	0x85	//reg addr	0x41
+#define	BPF_A2_LSB	0xEA	//reg addr	0x42
+#define	BPF_A3_MSB	0xF9	//reg addr	0x43
+#define	BPF_A3_LSB	0xA5	//reg addr	0x44
+#define	BPF_B1_MSB	0x3	//reg addr	0x45
+#define	BPF_B1_LSB	0x2D	//reg addr	0x46
+#define	LPF_A2_MSB	0x7E	//reg addr	0x47
+#define	LPF_A2_LSB	0x67	//reg addr	0x48
+#define	LPF_B1_MSB	0x0	//reg addr	0x49
+#define	LPF_B1_LSB	0xCD	//reg addr	0x4A
+#define	TEST_MUX	0x0	//reg addr	0x4B
+#define	DEV_STAT0	0x80	//reg addr	0x4C
+#define	DEV_STAT1	0x0	//reg addr	0x4D
 #define P1_THR_0        0x64    //reg addr      0x5F
 #define P1_THR_1        0x8C    //reg addr      0x60
 #define P1_THR_2        0xBD    //reg addr      0x61
@@ -171,23 +174,41 @@
 #define P1_THR_13       0xFF    //reg addr      0x6C
 #define P1_THR_14       0xFF    //reg addr      0x6D
 #define P1_THR_15       0x0     //reg addr      0x6E
-#define P2_THR_0        0x30    //reg addr      0x6F
-#define P2_THR_1        0xE8    //reg addr      0x70
-#define P2_THR_2        0x30    //reg addr      0x71
-#define P2_THR_3        0xDD    //reg addr      0x72
-#define P2_THR_4        0xA8    //reg addr      0x73
-#define P2_THR_5        0x5F    //reg addr      0x74
-#define P2_THR_6        0x1     //reg addr      0x75
-#define P2_THR_7        0x78    //reg addr      0x76
-#define P2_THR_8        0x3A    //reg addr      0x77
-#define P2_THR_9        0xF3    //reg addr      0x78
-#define P2_THR_10       0x45    //reg addr      0x79
-#define P2_THR_11       0x92    //reg addr      0x7A
-#define P2_THR_12       0x48    //reg addr      0x7B
-#define P2_THR_13       0xEE    //reg addr      0x7C
-#define P2_THR_14       0x4     //reg addr      0x7D
-#define P2_THR_15       0xAC    //reg addr      0x7E
-#define THR_CRC 0x6B    //reg addr      0x7F
+#define	P2_THR_0	0xBA	//reg addr	0x6F
+#define	P2_THR_1	0xCF	//reg addr	0x70
+#define	P2_THR_2	0xFF	//reg addr	0x71
+#define	P2_THR_3	0xF5	//reg addr	0x72
+#define	P2_THR_4	0x1A	//reg addr	0x73
+#define	P2_THR_5	0x5F	//reg addr	0x74
+#define	P2_THR_6	0xFB	//reg addr	0x75
+#define	P2_THR_7	0x58	//reg addr	0x76
+#define	P2_THR_8	0xC6	//reg addr	0x77
+#define	P2_THR_9	0x35	//reg addr	0x78
+#define	P2_THR_10	0xDF	//reg addr	0x79
+#define	P2_THR_11	0xFF	//reg addr	0x7A
+#define	P2_THR_12	0xFF	//reg addr	0x7B
+#define	P2_THR_13	0xFF	//reg addr	0x7C
+#define	P2_THR_14	0xFF	//reg addr	0x7D
+#define	P2_THR_15	0x0	//reg addr	0x7E
+#define	THR_CRC	0x2C	//reg addr	0x7F
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 bool    start();
@@ -336,13 +357,20 @@ private:
 
 	/**
 	 * @brief Writes program defined threshold defaults to the register map and checks/writes the EEPROM.
+	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
 	 */
 	int init_pga460();
 
 	/**
+	 * @brief Checks the measurement from last report and sets the range distance mode (long range , short range).
+	 * @return Returns the either P1Bl or P1B2. Preset 1 (P1BL) is short range mode and preset two (P2BL) is long range mode.
+	 */
+	uint8_t set_range_mode();
+
+	/**
 	 * @brief Commands the device to perform an ultrasonic measurement.
 	 */
-	void take_measurement();
+	void take_measurement(const uint8_t mode);
 
 	/**
 	 * @brief Measurement is read from UART RX buffer and published to the uORB distance sensor topic.
@@ -402,10 +430,13 @@ private:
 	px4_task_t _task_handle;
 
 	/** @param _task_is_running Indicator flag for when the driver is running. */
-	volatile bool _task_is_running;
+	bool _task_is_running;
 
 	/** @param _task_should_exit Indicator flag to stop the ultrasonic measurement process. */
-	volatile bool _task_should_exit;
+	bool _task_should_exit;
+
+	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
+	uint8_t _ranging_mode;
 
 	/** @param _transducer_freq Value of the calibrated (from factory) transducer frequency. */
 	uint8_t _transducer_freq;
@@ -428,13 +459,13 @@ private:
 	/** @param _max_distance Returns the set maximum distance. */
 	float _max_distance;
 
-	float _previous_measurement;
-
 	/** @param _port Stores the port name. */
 	char _port[20];
 
 	/** @orb_advert_t orb_advert_t uORB advertisement topic. */
 	orb_advert_t _distance_sensor_topic;
+
+	struct distance_sensor_s _previous_report = {};
 
 	/**
 	* @brief Handles for interesting parameters
