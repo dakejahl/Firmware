@@ -66,7 +66,6 @@
 #include <drivers/device/ringbuffer.h>
 
 #include <uORB/uORB.h>
-#include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/distance_sensor.h>
 
 #include "sf0x_parser.h"
@@ -106,7 +105,7 @@ private:
 	uint8_t _rotation;
 	float				_min_distance;
 	float				_max_distance;
-	int                 _conversion_interval;
+	int         		        _conversion_interval;
 	work_s				_work;
 	ringbuffer::RingBuffer		*_reports;
 	int				_measure_ticks;
@@ -420,7 +419,7 @@ SF0X::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 					bool want_start = (_measure_ticks == 0);
 
 					/* convert hz to tick interval via microseconds */
-					unsigned ticks = USEC2TICK(1000000 / arg);
+					int ticks = USEC2TICK(1000000 / arg);
 
 					/* check against maximum rate */
 					if (ticks < USEC2TICK(_conversion_interval)) {
@@ -565,7 +564,7 @@ SF0X::collect()
 	perf_begin(_sample_perf);
 
 	/* clear buffer if last read was too long ago */
-	uint64_t read_elapsed = hrt_elapsed_time(&_last_read);
+	int64_t read_elapsed = hrt_elapsed_time(&_last_read);
 
 	/* the buffer for read chars is buflen minus null termination */
 	char readbuf[sizeof(_linebuf)];
@@ -644,21 +643,6 @@ SF0X::start()
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&SF0X::cycle_trampoline, this, 1);
 
-	// /* notify about state change */
-	// struct subsystem_info_s info = {
-	// 	true,
-	// 	true,
-	// 	true,
-	// 	SUBSYSTEM_TYPE_RANGEFINDER
-	// };
-	// static orb_advert_t pub = -1;
-
-	// if (pub > 0) {
-	// 	orb_publish(ORB_ID(subsystem_info), pub, &info);
-
-	// } else {
-	// 	pub = orb_advertise(ORB_ID(subsystem_info), &info);
-	// }
 }
 
 void

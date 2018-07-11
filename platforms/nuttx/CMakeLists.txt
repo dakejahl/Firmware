@@ -115,9 +115,12 @@ if (config_romfs_root)
 endif()
 
 # create px4 file (combined firmware and metadata)
-set(fw_file ${PX4_BINARY_DIR}/${FW_NAME})
+# for historical reasons we name the final output binary without nuttx_
+set(fw_name_short)
+string(REPLACE "nuttx_" "" fw_name_short ${FW_NAME})
+
+set(fw_file ${PX4_BINARY_DIR}/${fw_name_short})
 string(REPLACE ".elf" ".px4" fw_file ${fw_file})
-string(REPLACE "nuttx_" "" fw_file ${fw_file})
 
 add_custom_command(OUTPUT ${PX4_BINARY_DIR_REL}/${BOARD}.bin
 	COMMAND ${OBJCOPY} -O binary ${PX4_BINARY_DIR_REL}/${FW_NAME} ${PX4_BINARY_DIR_REL}/${BOARD}.bin
@@ -145,6 +148,7 @@ if (TARGET parameters_xml AND TARGET airframes_xml)
 	# upload helper
 	if (${BOARD} STREQUAL "aerofc-v1")
 		
+		# TODO: should be set only in aero config
 		add_custom_target(upload
 			COMMAND ${PX4_SOURCE_DIR}/Tools/aero_upload.sh ${fw_file}
 			DEPENDS ${fw_file}
@@ -152,39 +156,71 @@ if (TARGET parameters_xml AND TARGET airframes_xml)
 			USES_TERMINAL
 		)
 	else()
-		set(serial_ports)
-		if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Linux")
-			list(APPEND serial_ports
-				/dev/serial/by-id/*_PX4_*
-				/dev/serial/by-id/usb-3D_Robotics*
-				/dev/serial/by-id/usb-The_Autopilot*
-				/dev/serial/by-id/usb-Bitcraze*
-				/dev/serial/by-id/pci-3D_Robotics*
-				/dev/serial/by-id/pci-Bitcraze*
-				/dev/serial/by-id/usb-Gumstix*
-				)
-		elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Darwin")
-			list(APPEND serial_ports
-				/dev/tty.usbmodemPX*,/dev/tty.usbmodem*
-				)
-		elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "CYGWIN")
-			list(APPEND serial_ports
-				/dev/ttyS*
-				)
-		elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-			foreach(port RANGE 32 0)
+
+		# create upload target helper if NuttX USB CDCACM is present
+		if (CONFIG_CDCACM)
+
+			# NuttX CDCACM vendor and product strings
+			set(vendorstr_underscore)
+			set(productstr_underscore)
+			string(REPLACE " " "_" vendorstr_underscore ${CONFIG_CDCACM_VENDORSTR})
+			string(REPLACE " " "_" productstr_underscore ${CONFIG_CDCACM_PRODUCTSTR})
+
+			set(serial_ports)
+			if(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Linux")
+
+				set(px4_usb_path "${vendorstr_underscore}_${productstr_underscore}")
+
 				list(APPEND serial_ports
-					"COM${port}")
-			endforeach()
+					# NuttX vendor + product string
+					/dev/serial/by-id/*-${px4_usb_path}*
+
+					# Bootloader
+					/dev/serial/by-id/*PX4_BL* # typical bootloader USB device string
+					/dev/serial/by-id/*BL_FMU*
+
+					# TODO: handle these per board
+					/dev/serial/by-id/usb-The_Autopilot*
+					/dev/serial/by-id/usb-Bitcraze*
+					/dev/serial/by-id/pci-Bitcraze*
+					/dev/serial/by-id/usb-Gumstix*
+
+					)
+
+			elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Darwin")
+				list(APPEND serial_ports
+					/dev/tty.usbmodemPX*,/dev/tty.usbmodem*
+					)
+			elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "CYGWIN")
+				list(APPEND serial_ports
+					/dev/ttyS*
+					)
+			elseif(${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
+				foreach(port RANGE 32 0)
+					list(APPEND serial_ports
+						"COM${port}")
+				endforeach()
+			endif()
+
+			px4_join(OUT serial_ports LIST "${serial_ports}" GLUE ",")
+
+			add_custom_target(upload
+				COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/px_uploader.py --port ${serial_ports} ${fw_file}
+				DEPENDS ${fw_file}
+				COMMENT "uploading px4"
+				VERBATIM
+				USES_TERMINAL
+				)
+
+			add_custom_target(force-upload
+				COMMAND ${PYTHON_EXECUTABLE} ${PX4_SOURCE_DIR}/Tools/px_uploader.py --force --port ${serial_ports} ${fw_file}
+				DEPENDS ${fw_file}
+				COMMENT "uploading px4 with --force"
+				VERBATIM
+				USES_TERMINAL
+				)
 		endif()
-		px4_join(OUT serial_ports LIST "${serial_ports}" GLUE ",")
-		add_custom_target(upload
-			COMMAND ${PYTHON_EXECUTABLE}
-				${PX4_SOURCE_DIR}/Tools/px_uploader.py --port ${serial_ports} ${fw_file}
-			DEPENDS ${fw_file}
-			COMMENT "uploading px4"
-			USES_TERMINAL
-			)
+
 	endif()
 endif()
 
@@ -269,9 +305,21 @@ add_custom_target(debug
 	DEPENDS ${FW_NAME} ${CMAKE_CURRENT_BINARY_DIR}/.gdbinit
 	USES_TERMINAL
 	)
-	
+
+# Poor man's profiler
+include(ExternalProject)
+ExternalProject_Add(FlameGraph
+	GIT_REPOSITORY "https://github.com/brendangregg/FlameGraph.git"
+	UPDATE_COMMAND ""
+	PATCH_COMMAND ""
+	CONFIGURE_COMMAND ""
+	BUILD_COMMAND ""
+	INSTALL_COMMAND ""
+	EXCLUDE_FROM_ALL 1
+	)
+
 add_custom_target(profile
-	COMMAND ${PX4_SOURCE_DIR}/platforms/nuttx/Debug/poor-mans-profiler.sh --elf=$<TARGET_FILE:${FW_NAME}> --nsamples=10000
-	DEPENDS ${FW_NAME} ${PX4_SOURCE_DIR}/platforms/nuttx/Debug/poor-mans-profiler.sh
+	COMMAND ${CMAKE_COMMAND} -E env PATH="${PX4_BINARY_DIR}/external/Source/FlameGraph:$ENV{PATH}" ${PX4_SOURCE_DIR}/platforms/nuttx/Debug/poor-mans-profiler.sh --elf=$<TARGET_FILE:${FW_NAME}> --nsamples=10000
+	DEPENDS ${FW_NAME} ${PX4_SOURCE_DIR}/platforms/nuttx/Debug/poor-mans-profiler.sh FlameGraph
 	USES_TERMINAL
 	)

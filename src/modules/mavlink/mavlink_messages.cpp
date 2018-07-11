@@ -39,11 +39,6 @@
  * @author Anton Babushkin <anton.babushkin@me.com>
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <math.h>
-#include <float.h>
-
 #include "mavlink_main.h"
 #include "mavlink_messages.h"
 #include "mavlink_command_sender.h"
@@ -57,7 +52,6 @@
 #include <mathlib/mathlib.h>
 #include <matrix/math.hpp>
 #include <px4_time.h>
-#include <systemlib/err.h>
 #include <systemlib/mavlink_log.h>
 
 #include <uORB/topics/actuator_armed.h>
@@ -108,6 +102,8 @@
 #include <uORB/topics/vehicle_air_data.h>
 #include <uORB/topics/vehicle_magnetometer.h>
 #include <uORB/uORB.h>
+
+using matrix::wrap_2pi;
 
 static uint16_t cm_uint16_from_m_float(float m);
 
@@ -404,9 +400,6 @@ private:
 protected:
 	explicit MavlinkStreamStatustext(Mavlink *mavlink) : MavlinkStream(mavlink)
 	{}
-
-	~MavlinkStreamStatustext() = default;
-
 
 	bool send(const hrt_abstime t)
 	{
@@ -1253,7 +1246,7 @@ protected:
 			matrix::Eulerf euler = matrix::Quatf(att.q);
 			msg.airspeed = airspeed.indicated_airspeed_m_s;
 			msg.groundspeed = sqrtf(pos.vx * pos.vx + pos.vy * pos.vy);
-			msg.heading = _wrap_2pi(euler.psi()) * M_RAD_TO_DEG_F;
+			msg.heading = math::degrees(euler.psi());
 
 			if (armed.armed) {
 				actuator_controls_s act0 = {};
@@ -1370,7 +1363,7 @@ protected:
 			msg.vel_acc = gps.s_variance_m_s * 1e3f;
 			msg.hdg_acc = gps.c_variance_rad * 1e5f / M_DEG_TO_RAD_F;
 			msg.vel = cm_uint16_from_m_float(gps.vel_m_s);
-			msg.cog = _wrap_2pi(gps.cog_rad) * M_RAD_TO_DEG_F * 1e2f;
+			msg.cog = math::degrees(wrap_2pi(gps.cog_rad)) * 1e2f;
 			msg.satellites_visible = gps.satellites_used;
 
 			mavlink_msg_gps_raw_int_send_struct(_mavlink->get_channel(), &msg);
@@ -1737,8 +1730,8 @@ protected:
 
 				struct vehicle_command_s cmd = {
 					.timestamp = 0,
-					.param5 = NAN,
-					.param6 = NAN,
+					.param5 = (double)NAN,
+					.param6 = (double)NAN,
 					.param1 = 0.0f, // all cameras
 					.param2 = 0.0f, // duration 0 because only taking one picture
 					.param3 = 1.0f, // only take one
@@ -1967,7 +1960,7 @@ protected:
 			msg.vy = lpos.vy * 100.0f;
 			msg.vz = lpos.vz * 100.0f;
 
-			msg.hdg = _wrap_2pi(lpos.yaw) * M_RAD_TO_DEG_F * 100.0f;
+			msg.hdg = math::degrees(lpos.yaw) * 100.0f;
 
 			mavlink_msg_global_position_int_send_struct(_mavlink->get_channel(), &msg);
 
@@ -3024,7 +3017,8 @@ protected:
 				memcpy(&msg.q[0], &att_sp.q_d[0], sizeof(msg.q));
 
 			} else {
-				mavlink_euler_to_quaternion(att_sp.roll_body, att_sp.pitch_body, att_sp.yaw_body, msg.q);
+				matrix::Quatf q = matrix::Eulerf(att_sp.roll_body, att_sp.pitch_body, att_sp.yaw_body);
+				memcpy(&msg.q[0], q.data(), sizeof(msg.q));
 			}
 
 			msg.body_roll_rate = att_rates_sp.roll;

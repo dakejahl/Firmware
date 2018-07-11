@@ -54,6 +54,8 @@
 #include <uORB/topics/vehicle_command.h>
 #include <uORB/topics/vtol_vehicle_status.h>
 
+using matrix::wrap_pi;
+
 MissionBlock::MissionBlock(Navigator *navigator) :
 	NavigatorMode(navigator)
 {
@@ -326,7 +328,8 @@ MissionBlock::is_mission_item_reached()
 			float cog = _navigator->get_vstatus()->is_rotary_wing ? _navigator->get_global_position()->yaw : atan2f(
 					    _navigator->get_global_position()->vel_e,
 					    _navigator->get_global_position()->vel_n);
-			float yaw_err = _wrap_pi(_mission_item.yaw - cog);
+
+			float yaw_err = wrap_pi(_mission_item.yaw - cog);
 
 			/* accept yaw if reached or if timeout is set in which case we ignore not forced headings */
 			if (fabsf(yaw_err) < math::radians(_navigator->get_yaw_threshold())
@@ -449,8 +452,8 @@ MissionBlock::issue_command(const mission_item_s &item)
 		vcmd.param2 = item.params[1];
 		vcmd.param3 = item.params[2];
 		vcmd.param4 = item.params[3];
-		vcmd.param5 = item.params[4];
-		vcmd.param6 = item.params[5];
+		vcmd.param5 = (double)item.params[4];
+		vcmd.param6 = (double)item.params[5];
 
 		if (item.nav_cmd == NAV_CMD_DO_SET_ROI_LOCATION && item.altitude_is_relative) {
 			vcmd.param7 = item.params[6] + _navigator->get_home_position()->alt;
@@ -641,8 +644,8 @@ MissionBlock::set_land_item(struct mission_item_s *item, bool at_current_locatio
 
 	/* use current position */
 	if (at_current_location) {
-		item->lat = NAN; //descend at current position
-		item->lon = NAN; //descend at current position
+		item->lat = (double)NAN; //descend at current position
+		item->lon = (double)NAN; //descend at current position
 		item->yaw = _navigator->get_local_position()->yaw;
 
 	} else {

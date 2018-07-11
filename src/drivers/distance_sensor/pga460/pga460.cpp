@@ -116,7 +116,6 @@ int PGA460::start()
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
-
 	return OK;
 }
 
