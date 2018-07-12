@@ -417,9 +417,6 @@ private:
 	/** @param _task_should_exit Indicator flag to stop the ultrasonic measurement process. */
 	bool _task_should_exit;
 
-	/** @param _previous_report_valid Flag that indicates the last reports value was indeed valid. */
-	bool _previous_report_valid;
-
 	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
 	uint8_t _ranging_mode;
 
@@ -451,6 +448,8 @@ private:
 	orb_advert_t _distance_sensor_topic;
 
 	struct distance_sensor_s _previous_report = {};
+
+	struct distance_sensor_s _previous_valid_report = {};
 
 	/**
 	* @brief Handles for interesting parameters
