@@ -54,6 +54,7 @@ PGA460::PGA460(const char *port) :
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
+	_previous_report_valid(false),
 	_ranging_mode(MODE_SHORT_RANGE),
 	_class_instance(-1),
 	_orb_class_instance(-1),
@@ -251,11 +252,11 @@ uint8_t PGA460::set_range_mode()
 {
 	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
 	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
-	if (_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+	if ((_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) && _previous_report_valid) {
 		_ranging_mode = MODE_LONG_RANGE;
 		return _ranging_mode;
 
-	} else if (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+	} else if ((_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) && _previous_report_valid) {
 		_ranging_mode = MODE_SHORT_RANGE;
 		return _ranging_mode;
 
@@ -348,7 +349,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.id = 0;
 	report.covariance = 0;
 
-	static bool data_is_valid = false;
+	bool data_is_valid = false;
 	static uint8_t good_data_counter = 0;
 
 	/* If we are within our MIN and MAX thresholds, continue */
@@ -362,8 +363,6 @@ void PGA460::uORB_publish_results(const float &object_distance)
 				good_data_counter = 3;
 				data_is_valid = true;
 
-			} else {
-				data_is_valid = false;
 			}
 
 		} else {
@@ -377,13 +376,14 @@ void PGA460::uORB_publish_results(const float &object_distance)
 
 		_previous_report = report;
 
-	} else {
-		data_is_valid = false;
-
 	}
 
 	if (data_is_valid) {
+		_previous_report_valid = true;
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
+
+	} else {
+		_previous_report_valid = false;
 	}
 }
 
