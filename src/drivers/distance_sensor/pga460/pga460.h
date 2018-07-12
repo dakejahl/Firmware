@@ -182,8 +182,8 @@
 #define	P2_THR_5	0x5F	//reg addr	0x74
 #define	P2_THR_6	0xFA	//reg addr	0x75
 #define	P2_THR_7	0xD6	//reg addr	0x76
-#define	P2_THR_8	0xB5	//reg addr	0x77
-#define	P2_THR_9	0xB1	//reg addr	0x78
+#define	P2_THR_8	0xB6	//reg addr	0x77
+#define	P2_THR_9	0x35	//reg addr	0x78
 #define	P2_THR_10	0xDF	//reg addr	0x79
 #define	P2_THR_11	0xFF	//reg addr	0x7A
 #define	P2_THR_12	0xFF	//reg addr	0x7B
