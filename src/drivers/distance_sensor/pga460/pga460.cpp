@@ -374,7 +374,6 @@ void PGA460::uORB_publish_results(const float &object_distance)
 			/* Reset our quality of data estimate */
 			_previous_valid_report = _previous_report;
 			good_data_counter = 0;
-			data_is_valid = true;
 		}
 
 		_previous_report = report;
