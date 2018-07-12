@@ -353,26 +353,28 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	/* If we are within our MIN and MAX thresholds, continue */
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
+		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
+		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + 0.6f)
+					      && (report.current_distance > _previous_valid_report.current_distance - 0.6f);
+
 		/* Must have 3 valid samples every 1 second */
-		if (report.timestamp - _previous_valid_report.timestamp < 1e6) {
+		if ((report.timestamp - _previous_valid_report.timestamp < 1e6) && sample_deviation_valid) {
 			good_data_counter++;
 
 			if (good_data_counter > 2) {
 				good_data_counter = 3;
 				data_is_valid = true;
 
+			} else {
+				/* Have not gotten 3 consistently valid samples in 1 second */
+				data_is_valid = false;
 			}
 
 		} else {
 			/* Reset our quality of data estimate */
 			_previous_valid_report = _previous_report;
 			good_data_counter = 0;
-			data_is_valid = true;
 		}
-
-		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
-		data_is_valid &= (report.current_distance < _previous_valid_report.current_distance + 0.6f)
-				 && (report.current_distance > _previous_valid_report.current_distance - 0.6f);
 
 		_previous_report = report;
 
