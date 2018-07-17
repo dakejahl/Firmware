@@ -250,11 +250,11 @@ uint8_t PGA460::set_range_mode()
 {
 	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
 	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
-	if (_previous_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+	if (_previous_valid_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
 		_ranging_mode = MODE_LONG_RANGE;
 		return _ranging_mode;
 
-	} else if (_previous_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+	} else if (_previous_valid_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
 		_ranging_mode = MODE_SHORT_RANGE;
 		return _ranging_mode;
 
@@ -347,14 +347,18 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.id = 0;
 	report.covariance = 0;
 
-	static bool data_is_valid = false;
+	bool data_is_valid = false;
 	static uint8_t good_data_counter = 0;
 
 	/* If we are within our MIN and MAX thresholds, continue */
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
-		/* Must have 3 in-range samples every 1 second */
-		if (report.timestamp - _previous_report.timestamp < 1e6) {
+		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
+		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + 0.6f)
+					      && (report.current_distance > _previous_valid_report.current_distance - 0.6f);
+
+		/* Must have 3 valid samples every 1 second */
+		if ((report.timestamp - _previous_valid_report.timestamp < 1e6) && sample_deviation_valid) {
 			good_data_counter++;
 
 			if (good_data_counter > 2) {
@@ -362,26 +366,22 @@ void PGA460::uORB_publish_results(const float &object_distance)
 				data_is_valid = true;
 
 			} else {
+				/* Have not gotten 3 consistently valid samples in 1 second */
 				data_is_valid = false;
 			}
 
 		} else {
-			/* Reset to zero if we've gone 1 second without an in-range value */
+			/* Reset our quality of data estimate */
+			_previous_valid_report = _previous_report;
 			good_data_counter = 0;
 		}
 
-		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
-		data_is_valid &= (report.current_distance < _previous_report.current_distance + 0.6f)
-				 && (report.current_distance > _previous_report.current_distance - 0.6f);
-
 		_previous_report = report;
-
-	} else {
-		data_is_valid = false;
 
 	}
 
 	if (data_is_valid) {
+		_previous_valid_report = report;
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 	}
 }

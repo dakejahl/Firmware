@@ -38,7 +38,31 @@
 # USART6        /dev/ttyS2      GPS
 #
 
+###############################################################################
+#               Begin Setup for board specific configurations.                #
+###############################################################################
 
+if ver hwcmp AEROFC_V1
+then
+	# don't start mavlink ttyACM0 on aerofc_v1
+else
+	# Start MAVLink
+	mavlink start -r 800000 -d /dev/ttyACM0 -m config -x
+fi
+
+if ver hwcmp NXPHLITE_V3
+then
+	set MAVLINK_COMPANION_DEVICE /dev/ttyS4
+fi
+
+if ver hwcmp OMNIBUS_F4SD
+then
+	set MAVLINK_COMPANION_DEVICE /dev/ttyS1
+fi
+
+###############################################################################
+#                 End Setup for board specific configurations.                #
+###############################################################################
 
 if [ $MAVLINK_F == default ]
 then
@@ -65,7 +89,7 @@ then
 	then
 		set MAVLINK_F "-r 1200 -d /dev/ttyS1"
 		# Start MAVLink on Wifi (ESP8266 port)
-		mavlink start -r 20000 -b 921600 -d /dev/ttyS0
+		#mavlink start -r 20000 -b 921600 -d /dev/ttyS0
 	fi
 
 	# Use ttyS3 (TELEM4) for MAVLink on FMUv5 in addition to ttyS1 (TELEM1) and ttyS2 (TELEM2)
@@ -99,7 +123,7 @@ else
 	if ver hwcmp PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2
 	then
 		# This is TELEM4 on Pixhawk 3 Pro
-		frsky_telemetry start -d /dev/ttyS6 -t 15
+		#frsky_telemetry start -d /dev/ttyS6 -t 15
 	fi
 fi
 
