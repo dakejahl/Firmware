@@ -1,7 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013 PX4 Development Team. All rights reserved.
- *   Author: Anton Babushkin <anton.babushkin@me.com>
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,42 +32,36 @@
  ****************************************************************************/
 
 /**
- * @file logbuffer.h
+ * @file motor_params.c
  *
- * Ring FIFO buffer for binary log data.
+ * Parameters for motors.
  *
- * @author Anton Babushkin <anton.babushkin@me.com>
  */
 
-#ifndef SDLOG2_RINGBUFFER_H_
-#define SDLOG2_RINGBUFFER_H_
 
-#include <stdbool.h>
-#include <perf/perf_counter.h>
+/**
+ * Minimum motor rise time (slew rate limit).
+ *
+ * Minimum time allowed for the motor input signal to pass through
+ * a range of 1000 PWM units. A value x means that the motor signal
+ * can only go from 1000 to 2000 PWM in maximum x seconds.
+ *
+ * Zero means that slew rate limiting is disabled.
+ *
+ * @min 0.0
+ * @unit s/(1000*PWM)
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(MOT_SLEW_MAX, 0.0f);
 
-struct logbuffer_s {
-	// pointers and size are in bytes
-	int write_ptr;
-	int read_ptr;
-	int size;
-	char *data;
-	perf_counter_t perf_dropped;
-};
-
-int logbuffer_init(struct logbuffer_s *lb, int size);
-
-int logbuffer_count(struct logbuffer_s *lb);
-
-int logbuffer_is_empty(struct logbuffer_s *lb);
-
-bool logbuffer_write(struct logbuffer_s *lb, void *ptr, int size);
-
-int logbuffer_get_ptr(struct logbuffer_s *lb, void **ptr, bool *is_part);
-
-void logbuffer_mark_read(struct logbuffer_s *lb, int n);
-
-void logbuffer_free(struct logbuffer_s *lb);
-
-void logbuffer_reset(struct logbuffer_s *lb);
-
-#endif
+/**
+ * Thrust to PWM model parameter
+ *
+ * Parameter used to model the relationship between static thrust and motor
+ * input PWM. Model is: thrust = (1-factor)*PWM + factor * PWM^2
+ *
+ * @min 0.0
+ * @max 1.0
+ * @group PWM Outputs
+ */
+PARAM_DEFINE_FLOAT(THR_MDL_FAC, 0.0f);
