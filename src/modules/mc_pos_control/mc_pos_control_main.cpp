@@ -389,6 +389,8 @@ private:
 
 	float get_cruising_speed_xy();
 
+	float get_descent_velocity();
+
 	bool in_auto_takeoff();
 
 	float get_vel_close(const matrix::Vector2f &unit_prev_to_current, const matrix::Vector2f &unit_current_to_next);
@@ -1027,6 +1029,26 @@ MulticopterPositionControl::get_cruising_speed_xy()
 		_pos_sp_triplet.current.cruising_speed : _vel_cruise_xy.get());
 }
 
+float
+MulticopterPositionControl::get_descent_velocity()
+{
+	float descent_velocity = 0;
+
+	/* Set descents speeds depending on altitude */
+	if (abs(_local_pos.z) > _slow_land_alt1.get()) {
+		descent_velocity = _vel_max_down.get();
+
+	} else if (abs(_local_pos.z) > _slow_land_alt2.get()) {
+		float velocity_scaling = (abs(_local_pos.z) - _slow_land_alt2.get()) / (_slow_land_alt1.get() - _slow_land_alt2.get());
+		descent_velocity = _land_speed.get() + velocity_scaling * (_vel_max_down.get() - _land_speed.get());
+
+	} else {
+		descent_velocity = _land_speed.get();
+	}
+
+	return descent_velocity;
+}
+
 void
 MulticopterPositionControl::set_manual_acceleration_z(float &max_acceleration, const float stick_z)
 {
@@ -1508,11 +1530,40 @@ MulticopterPositionControl::control_non_manual()
 		_vel_sp(1) = _pos_sp_triplet.current.vy;
 	}
 
-	/* use constant descend rate when landing, ignore altitude setpoint */
+	/* If vehicle is in LAND, arrest horizontal velocity and then begin descent. */
 	if (_pos_sp_triplet.current.valid
 	    && _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_LAND) {
-		_vel_sp(2) = _land_speed.get();
-		_run_alt_control = false;
+
+		float vel_xy_mag = sqrtf(_vel(0) * _vel(0) + _vel(1) * _vel(1));
+		bool engage_pos_hold = vel_xy_mag < _hold_max_xy.get();
+
+		/* Brakes until velocity is arrested. */
+		if (!engage_pos_hold && !_in_landing) {
+			_vel_sp(0) = 0;
+			_vel_sp(1) = 0;
+			_vel_sp(2) = 0;
+
+			_run_pos_control = false;
+			_run_alt_control = false;
+
+			control_position();
+
+		} else {
+			/* Sets the landing flag, and begins descending in place */
+			_reset_pos_sp  = true;
+			reset_pos_sp();
+
+			_run_pos_control = true;
+			_run_alt_control = false;
+			_in_landing = true;
+
+			_vel_sp(2) = get_descent_velocity();
+
+			control_position();
+		}
+
+	} else {
+		_in_landing = false;
 	}
 
 	if (_pos_sp_triplet.current.valid

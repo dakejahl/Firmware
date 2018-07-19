@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,64 +32,38 @@
  ****************************************************************************/
 
 /**
- * Logging rate.
+ * @file manifest.c
  *
- * A value of -1 indicates the commandline argument
- * should be obeyed. A value of 0 sets the minimum rate,
- * any other value is interpreted as rate in Hertz. This
- * parameter is only read out before logging starts (which
- * commonly is before arming).
+ * This module supplies the interface to the manifest of hardware that is
+ * optional and dependent on the HW REV and HW VER IDs
  *
- * @unit Hz
- * @min -1
- * @max  250
- * @group SD Logging
+ * The manifest allows the system to know whether a hardware option
+ * say for example the PX4IO is an no-pop option vs it is broken.
+ *
  */
-PARAM_DEFINE_INT32(SDLOG_RATE, -1);
 
-/**
- * Extended logging mode
- *
- * A value of -1 indicates the command line argument
- * should be obeyed. A value of 0 disables extended
- * logging mode, a value of 1 enables it. This
- * parameter is only read out before logging starts
- * (which commonly is before arming).
- *
- * @min -1
- * @max  1
- * @value -1 Command Line
- * @value 0 Disable
- * @value 1 Enable
- * @group SD Logging
- */
-PARAM_DEFINE_INT32(SDLOG_EXT, -1);
+/****************************************************************************
+ * Included Files
+ ****************************************************************************/
 
-/**
- * Use timestamps only if GPS 3D fix is available
- *
- * Constrain the log folder creation
- * to only use the time stamp if a 3D GPS lock is
- * present.
- *
- * @boolean
- * @group SD Logging
- */
-PARAM_DEFINE_INT32(SDLOG_GPSTIME, 1);
+#include <px4_config.h>
+#include <stdbool.h>
 
-/**
- * Give logging app higher thread priority to avoid data loss.
- * This is used for gathering replay logs for the ekf2 module.
+/****************************************************************************
+ * Pre-Processor Definitions
+ ****************************************************************************/
+
+
+/************************************************************************************
+ * Name: board_rc_input
  *
- * A value of 0 indicates that the default priority is used.
- * Increasing the parameter in steps of one increases the priority.
+ * Description:
+ *   All boards my optionally provide this API to invert the Serial RC input.
+ *   This is needed on SoCs that support the notion RXINV or TXINV as opposed to
+ *   and external XOR controlled by a GPIO
  *
- * @min 0
- * @max  3
- * @value 0 Low priority
- * @value 1 Default priority
- * @value 2 Medium priority
- * @value 3 Max priority
- * @group SD Logging
- */
-PARAM_DEFINE_INT32(SDLOG_PRIO_BOOST, 2);
+ ************************************************************************************/
+__EXPORT bool board_supports_single_wire(uint32_t uxart_base)
+{
+	return uxart_base == RC_UXART_BASE;
+}

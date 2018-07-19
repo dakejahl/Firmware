@@ -275,17 +275,6 @@ PARAM_DEFINE_INT32(COM_RC_IN_MODE, 0);
 PARAM_DEFINE_INT32(COM_RC_ARM_HYST, 1000);
 
 /**
- * Time to wait until autodisarm on crash
- *
- * The default value of 2000 is the amount of time to wait until disarmed when a crash is detected.
- *
- * @group Commander
- * @min 100
- * @max 3000
- */
-PARAM_DEFINE_INT32(COM_CDISARM_HYST, 2000);
-
-/**
  * Time-out for auto disarm after landing
  *
  * A non-zero, positive value specifies the time-out period in seconds after which the vehicle will be
@@ -614,7 +603,7 @@ PARAM_DEFINE_FLOAT(COM_ARM_EKF_GB, 8.7e-4f);
  * @decimal 2
  * @increment 0.05
  */
-PARAM_DEFINE_FLOAT(COM_ARM_IMU_ACC, 0.8f);
+PARAM_DEFINE_FLOAT(COM_ARM_IMU_ACC, 0.7f);
 
 /**
  * Maximum rate gyro inconsistency between IMU units that will allow arming
