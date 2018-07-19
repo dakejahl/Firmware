@@ -1504,6 +1504,9 @@ MulticopterPositionControl::control_non_manual()
 
 			control_position();
 		}
+
+	} else {
+		_in_landing = false;
 	}
 
 	if (_pos_sp_triplet.current.valid
