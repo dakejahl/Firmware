@@ -136,6 +136,22 @@ else
 	tune_control play -m MNT150L16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
 
 	#
+	# Waypoint storage.
+	# REBOOTWORK this needs to start in parallel.
+	#
+	dataman start $DATAMAN_OPT
+
+	#
+	# Start the socket communication send_event handler.
+	#
+	send_event start
+
+	#
+	# Start the resource load monitor.
+	#
+	load_mon start
+
+	#
 	# Set the parameter file if mtd starts successfully.
 	#
 	if mtd start
@@ -247,14 +263,6 @@ else
 	#                 End Setup for board specific configurations.                #
 	###############################################################################
 
-	#
-	# Set USE_IO flag.
-	#
-	if param compare SYS_USE_IO 1
-	then
-		set USE_IO yes
-	fi
-
 	if param compare SYS_FMU_TASK 1
 	then
 		set FMU_ARGS "-t"
@@ -267,19 +275,6 @@ else
 	then
 	else
 		sh /etc/init.d/rc.autostart
-	fi
-
-	#
-	# If mount (gimbal) control is enabled and output mode is AUX, set the aux
-	# mixer to mount (override the airframe-specific MIXER_AUX setting).
-	#
-	if param compare MNT_MODE_IN -1
-	then
-	else
-		if param compare MNT_MODE_OUT 0
-		then
-			set MIXER_AUX mount
-		fi
 	fi
 
 	#
@@ -367,18 +362,18 @@ else
 		fi
 	fi
 
+	#
+	# Set USE_IO flag.
+	#
+	if param compare SYS_USE_IO 1
+	then
+		set USE_IO yes
+	fi
+
 	if [ $USE_IO == yes -a $IO_PRESENT == no ]
 	then
 		echo "PX4IO not found" >> $LOG_FILE
 		tune_control play -m ${TUNE_ERR}
-	fi
-
-	#
-	# Waypoint storage.
-	# REBOOTWORK this needs to start in parallel.
-	#
-	if dataman start $DATAMAN_OPT
-	then
 	fi
 
 	#
@@ -401,9 +396,6 @@ else
 		commander start
 	fi
 
-	send_event start
-	load_mon start
-
 	#
 	# Check if UAVCAN is enabled, default to it for ESCs.
 	#
@@ -416,6 +408,7 @@ else
 			then
 				# Reduce logger buffer to free up some RAM for UAVCAN servers.
 				set LOGGER_BUF 6
+
 				# Start UAVCAN firmware update server and dynamic node ID allocation server.
 				uavcan start fw
 
@@ -449,8 +442,8 @@ else
 			set FMU_MODE none
 			set AUX_MODE none
 		fi
-		camera_trigger start
 
+		camera_trigger start
 		param set CAM_FBACK_MODE 1
 		camera_feedback start
 	fi
@@ -480,27 +473,6 @@ else
 			if param compare UAVCAN_ENABLE 0
 			then
 				param set UAVCAN_ENABLE 3
-			fi
-		fi
-
-		if [ $OUTPUT_MODE == io -o $OUTPUT_MODE == uavcan_esc ]
-		then
-			if px4io start
-			then
-				sh /etc/init.d/rc.io
-			else
-				echo "PX4IO start failed" >> $LOG_FILE
-				tune_control play -m  ${TUNE_ERR}
-			fi
-		fi
-
-		if [ $OUTPUT_MODE == fmu ]
-		then
-			if fmu mode_$FMU_MODE $FMU_ARGS
-			then
-			else
-				echo "FMU start failed" >> $LOG_FILE
-				tune_control play -m ${TUNE_ERR}
 			fi
 		fi
 
@@ -536,6 +508,21 @@ else
 			set FMU_MODE rcin
 		fi
 
+		if [ $OUTPUT_MODE == fmu ]
+		then
+			if fmu mode_$FMU_MODE $FMU_ARGS
+			then
+			else
+				echo "FMU start failed" >> $LOG_FILE
+				tune_control play -m ${TUNE_ERR}
+			fi
+		fi
+
+		if [ $OUTPUT_MODE == io -o $OUTPUT_MODE == uavcan_esc ]
+		then
+			sh /etc/init.d/rc.io
+		fi
+
 		#
 		# Start IO or FMU for RC PPM input if needed.
 		#
@@ -543,13 +530,7 @@ else
 		then
 			if [ $OUTPUT_MODE != io ]
 			then
-				if px4io start
-				then
-					sh /etc/init.d/rc.io
-				else
-					echo "PX4IO start failed" >> $LOG_FILE
-					tune_control play -m ${TUNE_ERR}
-				fi
+				sh /etc/init.d/rc.io
 			fi
 		else
 			if [ $OUTPUT_MODE != fmu ]
@@ -569,13 +550,6 @@ else
 	#
 	sh /etc/init.d/rc.mavlink
 
-
-	if ver hwcmp PX4FMU_V2 PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2 PX4FMU_V5 OMNIBUS_F4SD
-	then
-		# Check for flow sensor - as it is a background task, launch it last
-		#px4flow start &
-	fi
-
 	#
 	# Configure vehicle type specific parameters.
 	# Note: rc.vehicle_setup is the entry point for rc.interface,
@@ -588,20 +562,18 @@ else
 	#
 	navigator start
 
-	# Start any custom addons.
-	if [ -f $FEXTRAS ]
-	then
-		echo "Addons script: ${FEXTRAS}"
-		sh $FEXTRAS
-	fi
-
 	#
 	# Start a thermal calibration if required.
 	#
 	sh /etc/init.d/rc.thermal_cal
 
 	#
-	# vmount to control mounts such as gimbals, disabled by default.
+	# Start the logger.
+	#
+	sh /etc/init.d/rc.logging
+
+	#
+	# Start vmount to control mounts such as gimbals, disabled by default.
 	#
 	if param compare MNT_MODE_IN -1
 	then
@@ -612,9 +584,21 @@ else
 	fi
 
 	#
-	# Start the logger.
+	# Launch the flow sensor as a background task.
 	#
-	sh /etc/init.d/rc.logging
+	if ver hwcmp PX4FMU_V2 PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2 PX4FMU_V5 OMNIBUS_F4SD
+	then
+		px4flow start &
+	fi
+
+	#
+	# Start any custom addons.
+	#
+	if [ -f $FEXTRAS ]
+	then
+		echo "Addons script: ${FEXTRAS}"
+		sh $FEXTRAS
+	fi
 
 # End of autostart.
 fi
