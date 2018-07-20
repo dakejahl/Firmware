@@ -616,21 +616,17 @@ void Logger::add_default_topics()
 	add_topic("estimator_status", 200);
 	add_topic("home_position");
 	add_topic("input_rc", 200);
-	add_topic("iridiumsbd_status");
 	add_topic("landing_target_pose");
 	add_topic("manual_control_setpoint", 200);
 	add_topic("mission");
 	add_topic("mission_result");
 	add_topic("optical_flow", 50);
-	add_topic("ping");
 	add_topic("position_setpoint_triplet", 200);
 	add_topic("rate_ctrl_status", 30);
-	add_topic("safety");
 	add_topic("sensor_combined", 100);
 	add_topic("sensor_preflight", 200);
 	add_topic("system_power", 500);
 	add_topic("tecs_status", 200);
-	add_topic("telemetry_status");
 	add_topic("vehicle_attitude", 30);
 	add_topic("vehicle_attitude_setpoint", 100);
 	add_topic("vehicle_command");
@@ -642,11 +638,12 @@ void Logger::add_default_topics()
 	add_topic("vehicle_rates_setpoint", 30);
 	add_topic("vehicle_status", 200);
 	add_topic("vehicle_status_flags");
+	add_topic("vehicle_trajectory_waypoint");
+	add_topic("vehicle_trajectory_waypoint_desired");
 	add_topic("vehicle_vision_attitude");
 	add_topic("vehicle_vision_position");
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind_estimate", 200);
-	add_topic("timesync_status");
 
 #ifdef CONFIG_ARCH_BOARD_SITL
 	add_topic("actuator_armed");
@@ -655,7 +652,6 @@ void Logger::add_default_topics()
 	add_topic("commander_state");
 	add_topic("fw_pos_ctrl_status");
 	add_topic("fw_virtual_attitude_setpoint");
-	add_topic("led_control");
 	add_topic("mc_virtual_attitude_setpoint");
 	add_topic("multirotor_motor_limits");
 	add_topic("offboard_control_mode");
@@ -888,7 +884,8 @@ void Logger::run()
 	}
 
 	//all topics added. Get required message buffer size
-	int max_msg_size = 0, ret;
+	int max_msg_size = 0;
+	int ret = 0;
 
 	for (const auto &subscription : _subscriptions) {
 		//use o_size, because that's what orb_copy will use
@@ -899,7 +896,7 @@ void Logger::run()
 
 	max_msg_size += sizeof(ulog_message_data_header_s);
 
-	if (sizeof(ulog_message_logging_s) > max_msg_size) {
+	if (sizeof(ulog_message_logging_s) > (size_t)max_msg_size) {
 		max_msg_size = sizeof(ulog_message_logging_s);
 	}
 
@@ -1161,7 +1158,7 @@ void Logger::run()
 
 			/* subscription update */
 			if (next_subscribe_topic_index != -1) {
-				if (++next_subscribe_topic_index >= _subscriptions.size()) {
+				if (++next_subscribe_topic_index >= (int)_subscriptions.size()) {
 					next_subscribe_topic_index = -1;
 					next_subscribe_check = loop_time + TRY_SUBSCRIBE_INTERVAL;
 				}
@@ -1199,7 +1196,7 @@ void Logger::run()
 						try_to_subscribe_topic(_subscriptions[next_subscribe_topic_index], instance);
 					}
 				}
-				if (++next_subscribe_topic_index >= _subscriptions.size()) {
+				if (++next_subscribe_topic_index >= (int)_subscriptions.size()) {
 					next_subscribe_topic_index = -1;
 					next_subscribe_check = loop_time + TRY_SUBSCRIBE_INTERVAL;
 				}
@@ -1310,7 +1307,7 @@ int Logger::create_log_dir(tm *tt)
 	if (tt) {
 		int n = snprintf(_log_dir, sizeof(_log_dir), "%s/", LOG_ROOT);
 
-		if (n >= sizeof(_log_dir)) {
+		if (n >= (int)sizeof(_log_dir)) {
 			PX4_ERR("log path too long");
 			return -1;
 		}
@@ -1331,7 +1328,7 @@ int Logger::create_log_dir(tm *tt)
 			/* format log dir: e.g. /fs/microsd/sess001 */
 			int n = snprintf(_log_dir, sizeof(_log_dir), "%s/sess%03u", LOG_ROOT, dir_number);
 
-			if (n >= sizeof(_log_dir)) {
+			if (n >= (int)sizeof(_log_dir)) {
 				PX4_ERR("log path too long (%i)", n);
 				return -1;
 			}
@@ -1866,6 +1863,12 @@ void Logger::write_version()
 	write_info("sys_toolchain", px4_toolchain_name());
 	write_info("sys_toolchain_ver", px4_toolchain_version());
 
+	const char* ecl_version = px4_ecl_lib_version_string();
+
+	if (ecl_version && ecl_version[0]) {
+		write_info("sys_lib_ecl_ver", ecl_version);
+	}
+
 	char revision = 'U';
 	const char *chip_name = nullptr;
 
@@ -2143,7 +2146,7 @@ int Logger::check_free_space()
 				     day_min);
 		}
 
-		if (n >= sizeof(directory_to_delete)) {
+		if (n >= (int)sizeof(directory_to_delete)) {
 			PX4_ERR("log path too long (%i)", n);
 			break;
 		}

@@ -65,7 +65,6 @@ BATT_SMBUS::BATT_SMBUS(device::Device *interface, const char *path) :
 	_device_id.devid_s.bus_type = _interface->get_device_bus_type();
 	_device_id.devid_s.bus = _interface->get_device_bus();
 	_device_id.devid_s.address = _interface->get_device_address();
-	_device_id.devid_s.devtype = DRV_BATT_DEVTYPE_BQ40Z50;
 }
 
 BATT_SMBUS::~BATT_SMBUS()
@@ -186,7 +185,7 @@ void BATT_SMBUS::cycle()
 
 		// Read current.
 		if (read_word(BATT_SMBUS_CURRENT, &tmp) == PX4_OK) {
-			new_report.current_a = ((float)(*(int16_t *)&tmp)) / 1000.0f;
+			new_report.current_a = (-1.0f * ((float)(*(int16_t *)&tmp)) / 1000.0f);
 			new_report.current_filtered_a = new_report.current_a;
 
 		} else {
@@ -195,7 +194,7 @@ void BATT_SMBUS::cycle()
 
 		// Read average current.
 		if (read_word(BATT_SMBUS_AVERAGE_CURRENT, &tmp) == PX4_OK) {
-			new_report.average_current_a = ((float)(*(int16_t *)&tmp)) / 1000.0f;
+			new_report.average_current_a = (-1.0f * ((float)(*(int16_t *)&tmp)) / 1000.0f);
 
 		} else {
 			success = false;
@@ -257,8 +256,13 @@ void BATT_SMBUS::cycle()
 					new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
 
 				} else {
-					PX4_WARN("Battery Warning Emergency: %4.2f", (double)new_report.remaining);
+					uint64_t timer = hrt_absolute_time() - now;
 					new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+
+					/* Only warn every 5 seconds */
+					if (timer > 5000000) {
+						PX4_WARN("Battery Warning Emergency: %4.2f", (double)new_report.remaining);
+					}
 				}
 			}
 

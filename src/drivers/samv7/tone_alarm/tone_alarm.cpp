@@ -116,7 +116,7 @@
 #include <sam_tc.h>
 
 #include <systemlib/err.h>
-#include <systemlib/circuit_breaker.h>
+#include <circuit_breaker/circuit_breaker.h>
 
 /* Check that tone alarm and HRT timers are different */
 #if defined(TONE_ALARM_CHANNEL)  && defined(HRT_TIMER_CHANNEL)
@@ -212,7 +212,7 @@ class ToneAlarm : public device::CDev
 {
 public:
 	ToneAlarm();
-	~ToneAlarm();
+	~ToneAlarm() = default;
 
 	virtual int		init();
 
@@ -353,10 +353,6 @@ ToneAlarm::ToneAlarm() :
 	_tune_names[TONE_BARO_WARNING_TUNE] = "baro_warning";			// baro warning
 	_tune_names[TONE_SINGLE_BEEP_TUNE] = "beep";                    // single beep
 	_tune_names[TONE_HOME_SET] = "home_set";
-}
-
-ToneAlarm::~ToneAlarm()
-{
 }
 
 int

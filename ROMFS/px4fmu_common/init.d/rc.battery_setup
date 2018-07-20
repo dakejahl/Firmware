@@ -30,7 +30,7 @@ echo "Wrote smart battery param 4"
 batt_smbus -X write_flash 18597 1 255
 echo "Wrote smart battery param 5"
 # "Power","Ship","Auto Ship Time"
-batt_smbus -X write_flash 18607 2 224 16
+batt_smbus -X write_flash 18607 2 255 255
 echo "Wrote smart battery param 6"
 
 

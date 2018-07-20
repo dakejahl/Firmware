@@ -67,6 +67,7 @@ px4_add_romfs_files(
 	4070_aerofc
 	4080_zmr250
 	4090_nanomind
+	4250_teal
 	4900_crazyflie
 	5001_quad_+
 	6001_hexa_x
@@ -107,12 +108,15 @@ px4_add_romfs_files(
 	rc.interface
 	rc.io
 	rc.logging
+	rc.mavlink
 	rc.mc_apps
 	rc.mc_defaults
-	rcS
 	rc.sensors
+	rc.thermal_cal
 	rc.ugv_apps
 	rc.ugv_defaults
+	rc.vehicle_setup
 	rc.vtol_apps
 	rc.vtol_defaults
+	rcS
 )

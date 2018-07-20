@@ -134,7 +134,7 @@ PARAM_DEFINE_INT32(SYS_MC_EST_GROUP, 2);
  * @value 1921600 ESP8266 (921600 baud, 8N1)
  *
  * @min 0
- * @max 1921600
+ * @max 6460800
  * @reboot_required true
  * @group System
  */
@@ -151,18 +151,6 @@ PARAM_DEFINE_INT32(SYS_COMPANION, 157600);
  * @group System
  */
 PARAM_DEFINE_INT32(SYS_PARAM_VER, 1);
-
-/**
- * SD logger
- *
- * @value 0 sdlog2 (legacy)
- * @value 1 logger (default)
- * @min 0
- * @max 1
- * @reboot_required true
- * @group System
- */
-PARAM_DEFINE_INT32(SYS_LOGGER, 1);
 
 /**
  * Enable stack checking

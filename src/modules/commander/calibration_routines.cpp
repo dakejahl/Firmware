@@ -238,7 +238,7 @@ int sphere_fit_least_squares(const float x[], const float y[], const float z[],
 }
 
 int ellipsoid_fit_least_squares(const float x[], const float y[], const float z[],
-				unsigned int size, unsigned int max_iterations, float delta, float *offset_x, float *offset_y, float *offset_z,
+				unsigned int size, int max_iterations, float delta, float *offset_x, float *offset_y, float *offset_z,
 				float *sphere_radius, float *diag_x, float *diag_y, float *diag_z, float *offdiag_x, float *offdiag_y, float *offdiag_z)
 {
 	float _fitness = 1.0e30f, _sphere_lambda = 1.0f, _ellipsoid_lambda = 1.0f;
@@ -799,7 +799,16 @@ calibrate_return calibrate_from_orientation(orb_advert_t *mavlink_log_pub,
 
 int calibrate_cancel_subscribe()
 {
-	return orb_subscribe(ORB_ID(vehicle_command));
+	int vehicle_command_sub = orb_subscribe(ORB_ID(vehicle_command));
+	if (vehicle_command_sub >= 0) {
+		// make sure we won't read any old messages
+		struct vehicle_command_s cmd;
+		bool update;
+		while (orb_check(vehicle_command_sub, &update) == 0 && update) {
+			orb_copy(ORB_ID(vehicle_command), vehicle_command_sub, &cmd);
+		}
+	}
+	return vehicle_command_sub;
 }
 
 void calibrate_cancel_unsubscribe(int cmd_sub)

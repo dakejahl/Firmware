@@ -49,7 +49,6 @@
 #include <px4_tasks.h>
 
 #include <drivers/drv_hrt.h>
-#include <systemlib/systemlib.h>
 #include <systemlib/err.h>
 
 #include "heater_main.h"

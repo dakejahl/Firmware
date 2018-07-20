@@ -60,6 +60,8 @@
 #include <uORB/topics/mission.h>
 #include <uORB/topics/mission_result.h>
 
+using matrix::wrap_pi;
+
 Mission::Mission(Navigator *navigator) :
 	MissionBlock(navigator),
 	ModuleParams(navigator)
@@ -153,7 +155,11 @@ void
 Mission::on_activation()
 {
 	if (_mission_waypoints_changed) {
-		_current_offboard_mission_index = index_closest_mission_item();
+		// do not set the closest mission item in the normal mission mode
+		if (_mission_execution_mode != mission_result_s::MISSION_EXECUTION_MODE_NORMAL) {
+			_current_offboard_mission_index = index_closest_mission_item();
+		}
+
 		_mission_waypoints_changed = false;
 	}
 
@@ -197,7 +203,11 @@ Mission::on_active()
 	/* reset mission items if needed */
 	if (offboard_updated || _mission_waypoints_changed || _execution_mode_changed) {
 		if (_mission_waypoints_changed) {
-			_current_offboard_mission_index = index_closest_mission_item();
+			// do not set the closest mission item in the normal mission mode
+			if (_mission_execution_mode != mission_result_s::MISSION_EXECUTION_MODE_NORMAL) {
+				_current_offboard_mission_index = index_closest_mission_item();
+			}
+
 			_mission_waypoints_changed = false;
 		}
 
@@ -1245,7 +1255,7 @@ Mission::heading_sp_update()
 
 				/* always keep the back of the rotary wing pointing towards home */
 				if (_param_yawmode.get() == MISSION_YAWMODE_BACK_TO_HOME) {
-					_mission_item.yaw = _wrap_pi(yaw + M_PI_F);
+					_mission_item.yaw = wrap_pi(yaw + M_PI_F);
 					pos_sp_triplet->current.yaw = _mission_item.yaw;
 
 				} else if (_param_yawmode.get() == MISSION_YAWMODE_FRONT_TO_WAYPOINT
@@ -1287,8 +1297,15 @@ Mission::altitude_sp_foh_update()
 		return;
 	}
 
+	// Calculate acceptance radius, i.e. the radius within which we do not perform a first order hold anymore
+	float acc_rad = _navigator->get_acceptance_radius(_mission_item.acceptance_radius);
+
+	if (pos_sp_triplet->current.type == position_setpoint_s::SETPOINT_TYPE_LOITER) {
+		acc_rad = _navigator->get_acceptance_radius(fabsf(_mission_item.loiter_radius) * 1.2f);
+	}
+
 	/* Do not try to find a solution if the last waypoint is inside the acceptance radius of the current one */
-	if (_distance_current_previous - _navigator->get_acceptance_radius(_mission_item.acceptance_radius) < FLT_EPSILON) {
+	if (_distance_current_previous - acc_rad < FLT_EPSILON) {
 		return;
 	}
 
@@ -1317,7 +1334,7 @@ Mission::altitude_sp_foh_update()
 
 	/* if the minimal distance is smaller then the acceptance radius, we should be at waypoint alt
 	 * navigator will soon switch to the next waypoint item (if there is one) as soon as we reach this altitude */
-	if (_min_current_sp_distance_xy < _navigator->get_acceptance_radius(_mission_item.acceptance_radius)) {
+	if (_min_current_sp_distance_xy < acc_rad) {
 		pos_sp_triplet->current.alt = get_absolute_altitude_for_item(_mission_item);
 
 	} else {
@@ -1327,8 +1344,7 @@ Mission::altitude_sp_foh_update()
 		 * radius around the current waypoint
 		 **/
 		float delta_alt = (get_absolute_altitude_for_item(_mission_item) - pos_sp_triplet->previous.alt);
-		float grad = -delta_alt / (_distance_current_previous - _navigator->get_acceptance_radius(
-						   _mission_item.acceptance_radius));
+		float grad = -delta_alt / (_distance_current_previous - acc_rad);
 		float a = pos_sp_triplet->previous.alt - grad * _distance_current_previous;
 		pos_sp_triplet->current.alt = a + grad * _min_current_sp_distance_xy;
 	}

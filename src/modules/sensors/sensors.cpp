@@ -68,8 +68,7 @@
 #include <drivers/drv_airspeed.h>
 #include <drivers/drv_px4flow.h>
 
-#include <systemlib/airspeed.h>
-#include <systemlib/systemlib.h>
+#include <airspeed/airspeed.h>
 #include <parameters/param.h>
 #include <systemlib/err.h>
 #include <perf/perf_counter.h>
@@ -343,18 +342,14 @@ Sensors::diff_pres_poll(const vehicle_air_data_s &raw)
 		}
 
 		/* don't risk to feed negative airspeed into the system */
-		airspeed.indicated_airspeed_m_s = math::max(0.0f,
-						  calc_indicated_airspeed_corrected((enum AIRSPEED_COMPENSATION_MODEL)_parameters.air_cmodel,
-								  smodel, _parameters.air_tube_length, _parameters.air_tube_diameter_mm,
-								  diff_pres.differential_pressure_filtered_pa, raw.baro_pressure_pa,
-								  air_temperature_celsius));
+		airspeed.indicated_airspeed_m_s = calc_indicated_airspeed_corrected((enum AIRSPEED_COMPENSATION_MODEL)
+						  _parameters.air_cmodel,
+						  smodel, _parameters.air_tube_length, _parameters.air_tube_diameter_mm,
+						  diff_pres.differential_pressure_filtered_pa, raw.baro_pressure_pa,
+						  air_temperature_celsius);
 
-		airspeed.true_airspeed_m_s = math::max(0.0f,
-						       calc_true_airspeed_from_indicated(airspeed.indicated_airspeed_m_s, raw.baro_pressure_pa, air_temperature_celsius));
-
-		airspeed.true_airspeed_unfiltered_m_s = math::max(0.0f,
-							calc_true_airspeed(diff_pres.differential_pressure_raw_pa + raw.baro_pressure_pa, raw.baro_pressure_pa,
-									air_temperature_celsius));
+		airspeed.true_airspeed_m_s = calc_true_airspeed_from_indicated(airspeed.indicated_airspeed_m_s, raw.baro_pressure_pa,
+					     air_temperature_celsius);
 
 		airspeed.air_temperature_celsius = air_temperature_celsius;
 
@@ -583,7 +578,7 @@ void
 Sensors::run()
 {
 	if (!_hil_enabled) {
-#if !defined(__PX4_QURT) && !defined(__PX4_POSIX_BEBOP)
+#if !defined(__PX4_QURT) && BOARD_NUMBER_BRICKS > 0
 		adc_init();
 #endif
 	}

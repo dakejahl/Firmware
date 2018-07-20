@@ -68,7 +68,6 @@
 #include <drivers/device/ringbuffer.h>
 
 #include <uORB/uORB.h>
-#include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/distance_sensor.h>
 
 #include <board_config.h>
@@ -412,7 +411,7 @@ TFMINI::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 					bool want_start = (_measure_ticks == 0);
 
 					/* convert hz to tick interval via microseconds */
-					unsigned ticks = USEC2TICK(1000000 / arg);
+					int ticks = USEC2TICK(1000000 / arg);
 
 					/* check against maximum rate */
 					if (ticks < USEC2TICK(_conversion_interval)) {
@@ -529,7 +528,7 @@ TFMINI::collect()
 	perf_begin(_sample_perf);
 
 	/* clear buffer if last read was too long ago */
-	uint64_t read_elapsed = hrt_elapsed_time(&_last_read);
+	int64_t read_elapsed = hrt_elapsed_time(&_last_read);
 
 	/* the buffer for read chars is buflen minus null termination */
 	char readbuf[sizeof(_linebuf)];
@@ -581,6 +580,7 @@ TFMINI::collect()
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
 	report.covariance = 0.0f;
+	report.signal_quality = -1;
 	/* TODO: set proper ID */
 	report.id = 0;
 
@@ -607,24 +607,6 @@ TFMINI::start()
 
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&TFMINI::cycle_trampoline, this, 1);
-
-	/* notify about state change */
-	struct subsystem_info_s info = {};
-	info.present = true;
-	info.enabled = true;
-	info.ok = true;
-	info.subsystem_type = subsystem_info_s::SUBSYSTEM_TYPE_RANGEFINDER;
-
-	static orb_advert_t pub = nullptr;
-
-	if (pub != nullptr) {
-		orb_publish(ORB_ID(subsystem_info), pub, &info);
-
-
-	} else {
-		pub = orb_advertise(ORB_ID(subsystem_info), &info);
-
-	}
 }
 
 void

@@ -278,7 +278,7 @@ PARAM_DEFINE_FLOAT(FW_LND_HVIRT, 10.0f);
  * @increment 0.5
  * @group FW L1 Control
  */
-PARAM_DEFINE_FLOAT(FW_LND_FLALT, 8.0f);
+PARAM_DEFINE_FLOAT(FW_LND_FLALT, 3.0f);
 
 /**
  * Landing throttle limit altitude (relative landing altitude)
@@ -465,7 +465,7 @@ PARAM_DEFINE_FLOAT(FW_T_SINK_MIN, 2.0f);
  * the aircraft.
  *
  * @unit m/s
- * @min 2.0
+ * @min 1.0
  * @max 15.0
  * @decimal 1
  * @increment 0.5
@@ -525,7 +525,8 @@ PARAM_DEFINE_FLOAT(FW_T_THR_DAMP, 0.5f);
  * This is the integrator gain on the control loop.
  * Increasing this gain increases the speed at which speed
  * and height offsets are trimmed out, but reduces damping and
- * increases overshoot.
+ * increases overshoot. Set this value to zero to completely
+ * disable all integrator action.
  *
  * @min 0.0
  * @max 2.0

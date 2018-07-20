@@ -71,17 +71,23 @@
 #include <stdlib.h>
 #include <poll.h>
 
+#include <sys/stat.h>
+#ifdef __PX4_DARWIN
+#include <sys/param.h>
+#include <sys/mount.h>
+#else
+#include <sys/statfs.h>
+#endif
+
+#include <airspeed/airspeed.h>
+#include <ecl/geo/geo.h>
 #include <mathlib/mathlib.h>
-
 #include <conversion/rotation.h>
-
 #include <parameters/param.h>
-#include <systemlib/systemlib.h>
 #include <systemlib/mavlink_log.h>
 #include <systemlib/err.h>
-#include <systemlib/airspeed.h>
+
 #include <commander/px4_custom_mode.h>
-#include <lib/ecl/geo/geo.h>
 
 #include <uORB/topics/vehicle_command_ack.h>
 
@@ -90,9 +96,11 @@
 #include "mavlink_main.h"
 #include "mavlink_command_sender.h"
 
+using matrix::wrap_2pi;
+
 MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_mavlink(parent),
-	_mission_manager(nullptr),
+	_mission_manager(parent),
 	_parameters_manager(parent),
 	_mavlink_ftp(parent),
 	_mavlink_log_handler(parent),
@@ -129,6 +137,7 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_rc_pub(nullptr),
 	_manual_pub(nullptr),
 	_obstacle_distance_pub(nullptr),
+	_trajectory_waypoint_pub(nullptr),
 	_land_detector_pub(nullptr),
 	_follow_target_pub(nullptr),
 	_landing_target_pose_pub(nullptr),
@@ -155,20 +164,12 @@ MavlinkReceiver::MavlinkReceiver(Mavlink *parent) :
 	_p_bat_crit_thr(param_find("BAT_CRIT_THR")),
 	_p_bat_low_thr(param_find("BAT_LOW_THR"))
 {
-	if (_mavlink->get_mode() != Mavlink::MAVLINK_MODE_IRIDIUM) {
-		_mission_manager = new MavlinkMissionManager(parent);
-	}
 }
 
 MavlinkReceiver::~MavlinkReceiver()
 {
 	orb_unsubscribe(_control_mode_sub);
 	orb_unsubscribe(_actuator_armed_sub);
-
-	if (_mission_manager != nullptr) {
-		delete _mission_manager;
-		_mission_manager = nullptr;
-	}
 }
 
 void MavlinkReceiver::acknowledge(uint8_t sysid, uint8_t compid, uint16_t command, uint8_t result)
@@ -328,6 +329,10 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 		handle_message_obstacle_distance(msg);
 		break;
 
+	case MAVLINK_MSG_ID_TRAJECTORY_REPRESENTATION_WAYPOINTS:
+		handle_message_trajectory_representation_waypoints(msg);
+		break;
+
 	case MAVLINK_MSG_ID_NAMED_VALUE_FLOAT:
 		handle_message_named_value_float(msg);
 		break;
@@ -439,6 +444,46 @@ MavlinkReceiver::send_flight_information()
 }
 
 void
+MavlinkReceiver::send_storage_information(int storage_id)
+{
+	mavlink_storage_information_t storage_info{};
+	const char *microsd_dir = PX4_ROOTFSDIR"/fs/microsd";
+
+	if (storage_id == 0 || storage_id == 1) { // request is for all or the first storage
+		storage_info.storage_id = 1;
+
+		struct statfs statfs_buf;
+		uint64_t total_bytes = 0;
+		uint64_t avail_bytes = 0;
+
+		if (statfs(microsd_dir, &statfs_buf) == 0) {
+			total_bytes = (uint64_t)statfs_buf.f_blocks * statfs_buf.f_bsize;
+			avail_bytes = (uint64_t)statfs_buf.f_bavail * statfs_buf.f_bsize;
+		}
+
+		if (total_bytes == 0) { // on NuttX we get 0 total bytes if no SD card is inserted
+			storage_info.storage_count = 0;
+			storage_info.status = 0; // not available
+
+		} else {
+			storage_info.storage_count = 1;
+			storage_info.status = 2; // available & formatted
+			storage_info.total_capacity = total_bytes / 1024. / 1024.;
+			storage_info.available_capacity = avail_bytes / 1024. / 1024.;
+			storage_info.used_capacity = (total_bytes - avail_bytes) / 1024. / 1024.;
+		}
+
+	} else {
+		// only one storage supported
+		storage_info.storage_id = storage_id;
+		storage_info.storage_count = 1;
+	}
+
+	storage_info.time_boot_ms = hrt_absolute_time() / 1000;
+	mavlink_msg_storage_information_send_struct(_mavlink->get_channel(), &storage_info);
+}
+
+void
 MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)
 {
 	/* command */
@@ -447,8 +492,8 @@ MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)
 
 	struct vehicle_command_s vcmd = {
 		.timestamp = hrt_absolute_time(),
-		.param5 = cmd_mavlink.param5,
-		.param6 = cmd_mavlink.param6,
+		.param5 = (double)cmd_mavlink.param5,
+		.param6 = (double)cmd_mavlink.param6,
 		/* Copy the content of mavlink_command_long_t cmd_mavlink into command_t cmd */
 		.param1 = cmd_mavlink.param1,
 		.param2 = cmd_mavlink.param2,
@@ -532,6 +577,11 @@ void MavlinkReceiver::handle_message_command_both(mavlink_message_t *msg, const 
 
 	} else if (cmd_mavlink.command == MAV_CMD_REQUEST_FLIGHT_INFORMATION) {
 		send_flight_information();
+
+	} else if (cmd_mavlink.command == MAV_CMD_REQUEST_STORAGE_INFORMATION) {
+		if ((int)(cmd_mavlink.param2 + 0.5f) == 1) {
+			send_storage_information(cmd_mavlink.param1 + 0.5f);
+		}
 
 	} else {
 
@@ -1287,10 +1337,15 @@ MavlinkReceiver::handle_message_set_attitude_target(mavlink_message_t *msg)
 					att_sp.timestamp = hrt_absolute_time();
 
 					if (!ignore_attitude_msg) { // only copy att sp if message contained new data
-						mavlink_quaternion_to_euler(set_attitude_target.q, &att_sp.roll_body, &att_sp.pitch_body, &att_sp.yaw_body);
-						att_sp.yaw_sp_move_rate = 0.0;
-						memcpy(att_sp.q_d, set_attitude_target.q, sizeof(att_sp.q_d));
+						matrix::Quatf q(set_attitude_target.q);
+						q.copyTo(att_sp.q_d);
 						att_sp.q_d_valid = true;
+
+						matrix::Eulerf euler{q};
+						att_sp.roll_body = euler.phi();
+						att_sp.pitch_body = euler.theta();
+						att_sp.yaw_body = euler.psi();
+						att_sp.yaw_sp_move_rate = 0.0f;
 					}
 
 					if (!_offboard_control_mode.ignore_thrust) { // dont't overwrite thrust if it's invalid
@@ -1580,6 +1635,53 @@ MavlinkReceiver::handle_message_obstacle_distance(mavlink_message_t *msg)
 	}
 }
 
+void
+MavlinkReceiver::handle_message_trajectory_representation_waypoints(mavlink_message_t *msg)
+{
+	mavlink_trajectory_representation_waypoints_t trajectory;
+	mavlink_msg_trajectory_representation_waypoints_decode(msg, &trajectory);
+
+
+	struct vehicle_trajectory_waypoint_s trajectory_waypoint = {};
+
+	trajectory_waypoint.timestamp = hrt_absolute_time();
+	const int number_valid_points = trajectory.valid_points;
+
+	for (int i = 0; i < vehicle_trajectory_waypoint_s::NUMBER_POINTS; ++i) {
+		trajectory_waypoint.waypoints[i].position[0] = trajectory.pos_x[i];
+		trajectory_waypoint.waypoints[i].position[1] = trajectory.pos_y[i];
+		trajectory_waypoint.waypoints[i].position[2] = trajectory.pos_z[i];
+
+		trajectory_waypoint.waypoints[i].velocity[0] = trajectory.vel_x[i];
+		trajectory_waypoint.waypoints[i].velocity[1] = trajectory.vel_y[i];
+		trajectory_waypoint.waypoints[i].velocity[2] = trajectory.vel_z[i];
+
+		trajectory_waypoint.waypoints[i].acceleration[0] = trajectory.acc_x[i];
+		trajectory_waypoint.waypoints[i].acceleration[1] = trajectory.acc_y[i];
+		trajectory_waypoint.waypoints[i].acceleration[2] = trajectory.acc_z[i];
+
+		trajectory_waypoint.waypoints[i].yaw = trajectory.pos_yaw[i];
+		trajectory_waypoint.waypoints[i].yaw_speed = trajectory.vel_yaw[i];
+
+	}
+
+	for (int i = 0; i < number_valid_points; ++i) {
+		trajectory_waypoint.waypoints[i].point_valid = true;
+	}
+
+	for (int i = number_valid_points; i < vehicle_trajectory_waypoint_s::NUMBER_POINTS; ++i) {
+		trajectory_waypoint.waypoints[i].point_valid = false;
+	}
+
+	if (_trajectory_waypoint_pub == nullptr) {
+		_trajectory_waypoint_pub = orb_advertise(ORB_ID(vehicle_trajectory_waypoint), &trajectory_waypoint);
+
+	} else {
+		orb_publish(ORB_ID(vehicle_trajectory_waypoint), _trajectory_waypoint_pub, &trajectory_waypoint);
+	}
+
+}
+
 switch_pos_t
 MavlinkReceiver::decode_switch_pos(uint16_t buttons, unsigned sw)
 {
@@ -1786,7 +1888,7 @@ MavlinkReceiver::handle_message_heartbeat(mavlink_message_t *msg)
 int
 MavlinkReceiver::set_message_interval(int msgId, float interval, int data_rate)
 {
-	if (msgId == 0) {
+	if (msgId == MAVLINK_MSG_ID_HEARTBEAT) {
 		return PX4_ERROR;
 	}
 
@@ -1795,18 +1897,16 @@ MavlinkReceiver::set_message_interval(int msgId, float interval, int data_rate)
 	}
 
 	// configure_stream wants a rate (msgs/second), so convert here.
-	float rate = 0;
+	float rate = 0.f;
 
-	if (interval < 0) {
-		// stop the stream.
-		rate = 0;
+	if (interval < -0.00001f) {
+		rate = 0.f; // stop the stream
 
-	} else if (interval > 0) {
+	} else if (interval > 0.00001f) {
 		rate = 1000000.0f / interval;
 
 	} else {
-		// note: mavlink spec says rate == 0 is requesting a default rate but our streams
-		// don't publish a default rate so for now let's pick a default rate of zero.
+		rate = -2.f; // set default rate
 	}
 
 	bool found_id = false;
@@ -2008,10 +2108,12 @@ MavlinkReceiver::handle_message_hil_gps(mavlink_message_t *msg)
 	hil_gps.vel_e_m_s = gps.ve * 1e-2f; // from cm to m
 	hil_gps.vel_d_m_s = gps.vd * 1e-2f; // from cm to m
 	hil_gps.vel_ned_valid = true;
-	hil_gps.cog_rad = _wrap_pi(gps.cog * M_DEG_TO_RAD_F * 1e-2f);
+	hil_gps.cog_rad = ((gps.cog == 65535) ? NAN : wrap_2pi(math::radians(gps.cog * 1e-2f)));
 
 	hil_gps.fix_type = gps.fix_type;
 	hil_gps.satellites_used = gps.satellites_visible;  //TODO: rename mavlink_hil_gps_t sats visible to used?
+
+	hil_gps.heading = NAN;
 
 	if (_gps_pub == nullptr) {
 		_gps_pub = orb_advertise(ORB_ID(vehicle_gps_position), &hil_gps);
@@ -2259,8 +2361,10 @@ MavlinkReceiver::handle_message_hil_state_quaternion(mavlink_message_t *msg)
 		_hil_local_pos.yaw = euler.psi();
 		_hil_local_pos.xy_global = true;
 		_hil_local_pos.z_global = true;
-		_hil_local_pos.vxy_max = 0.0f;
-		_hil_local_pos.limit_hagl = false;
+		_hil_local_pos.vxy_max = INFINITY;
+		_hil_local_pos.vz_max = INFINITY;
+		_hil_local_pos.hagl_min = INFINITY;
+		_hil_local_pos.hagl_max = INFINITY;
 
 		if (_local_pos_pub == nullptr) {
 			_local_pos_pub = orb_advertise(ORB_ID(vehicle_local_position), &_hil_local_pos);
@@ -2486,7 +2590,7 @@ MavlinkReceiver::receive_thread(void *arg)
 				// could be TCP or other protocol
 			}
 
-			struct sockaddr_in *srcaddr_last = _mavlink->get_client_source_address();
+			struct sockaddr_in &srcaddr_last = _mavlink->get_client_source_address();
 
 			int localhost = (127 << 24) + 1;
 
@@ -2498,9 +2602,9 @@ MavlinkReceiver::receive_thread(void *arg)
 				hrt_abstime stime = _mavlink->get_start_time();
 
 				if ((stime != 0 && (hrt_elapsed_time(&stime) > 3 * 1000 * 1000))
-				    || (srcaddr_last->sin_addr.s_addr == htonl(localhost))) {
-					srcaddr_last->sin_addr.s_addr = srcaddr.sin_addr.s_addr;
-					srcaddr_last->sin_port = srcaddr.sin_port;
+				    || (srcaddr_last.sin_addr.s_addr == htonl(localhost))) {
+					srcaddr_last.sin_addr.s_addr = srcaddr.sin_addr.s_addr;
+					srcaddr_last.sin_port = srcaddr.sin_port;
 					_mavlink->set_client_source_initialized();
 					PX4_INFO("partner IP: %s", inet_ntoa(srcaddr.sin_addr));
 				}
@@ -2524,9 +2628,8 @@ MavlinkReceiver::receive_thread(void *arg)
 						handle_message(&msg);
 
 						/* handle packet with mission manager */
-						if (_mission_manager != nullptr) {
-							_mission_manager->handle_message(&msg);
-						}
+						_mission_manager.handle_message(&msg);
+
 
 						/* handle packet with parameter component */
 						_parameters_manager.handle_message(&msg);
@@ -2557,10 +2660,8 @@ MavlinkReceiver::receive_thread(void *arg)
 		hrt_abstime t = hrt_absolute_time();
 
 		if (t - last_send_update > timeout * 1000) {
-			if (_mission_manager != nullptr) {
-				_mission_manager->check_active_mission();
-				_mission_manager->send(t);
-			}
+			_mission_manager.check_active_mission();
+			_mission_manager.send(t);
 
 			_parameters_manager.send(t);
 
