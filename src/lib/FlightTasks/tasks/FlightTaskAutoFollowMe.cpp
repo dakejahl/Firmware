@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,37 +32,18 @@
  ****************************************************************************/
 
 /**
- * @file FlightTaskManualPosition.hpp
- *
- * Flight task for manual position controlled mode.
- *
+ * @file FlightTaskAutoFollowMe.cpp
  */
 
-#pragma once
+#include "FlightTaskAutoFollowMe.hpp"
+#include <mathlib/mathlib.h>
 
-#include "FlightTaskManualAltitude.hpp"
+using namespace matrix;
 
-class FlightTaskManualPosition : public FlightTaskManualAltitude
+bool FlightTaskAutoFollowMe::update()
 {
-public:
-	FlightTaskManualPosition() = default;
-
-	virtual ~FlightTaskManualPosition() = default;
-	bool activate() override;
-	bool updateInitialize() override;
-
-protected:
-	void _updateXYlock(); /**< applies position lock based on stick and velocity */
-	void _updateSetpoints() override;
-	void _scaleSticks() override;
-
-	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManualAltitude,
-					(ParamFloat<px4::params::MPC_VEL_MANUAL>) MPC_VEL_MANUAL,
-					(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) MPC_ACC_HOR_MAX,
-					(ParamFloat<px4::params::MPC_HOLD_MAX_XY>) MPC_HOLD_MAX_XY,
-					(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) MPC_ACC_HOR_ESTM
-				       )
-private:
-	float _velocity_scale; //scales the stick input to velocity
-	uint8_t _reset_counter = 0; /**< counter for estimator resets in xy-direction */
-};
+	_position_setpoint = _target;
+	matrix::Vector2f vel_sp = _getTargetVelocityXY();
+	_velocity_setpoint = matrix::Vector3f(vel_sp(0), vel_sp(1), 0.0f);
+	return true;
+}

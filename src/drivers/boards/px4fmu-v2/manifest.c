@@ -35,7 +35,8 @@
  * @file manifest.c
  *
  * This module supplies the interface to the manifest of hardware that is
- * optional and dependent on the HW REV and HW VER IDs
+ * optional and dependent on the simple Hardware versioning
+ * BOARD_HAS_SIMPLE_HW_VERSIONING
  *
  * The manifest allows the system to know whether a hardware option
  * say for example the PX4IO is an no-pop option vs it is broken.
@@ -66,46 +67,42 @@ typedef px4_hw_mft_list_entry_t *px4_hw_mft_list_entry;
 
 static const px4_hw_mft_item_t device_unsupported = {0, 0, 0};
 
-static const px4_hw_mft_item_t hw_mft_list_v0500[] = {
+static const px4_hw_mft_item_t hw_mft_list_FMUv2[] = {
 	{
 		.present     = 1,
 		.mandatory   = 1,
 		.connection  = px4_hw_con_onboard,
 	},
+};
+
+static const px4_hw_mft_item_t hw_mft_list_FMUv2Mini[] = {
 	{
 		.present     = 1,
 		.mandatory   = 1,
-		.connection  = 1,
+		.connection  = px4_hw_con_onboard,
 	},
 };
-
-static const px4_hw_mft_item_t hw_mft_list_v0540[] = {
+static const px4_hw_mft_item_t hw_mft_list_FMUv2X[] = {
 	{
-		.present     = 0,
-		.mandatory   = 0,
-		.connection  = px4_hw_con_unknown,
+		.present     = 1,
+		.mandatory   = 1,
+		.connection  = px4_hw_con_onboard,
+	},
+};
+static const px4_hw_mft_item_t hw_mft_list_FMUv3[] = {
+	{
+		.present     = 1,
+		.mandatory   = 1,
+		.connection  = px4_hw_con_onboard,
 	},
 };
 
 static px4_hw_mft_list_entry_t mft_lists[] = {
-	{0x0000, hw_mft_list_v0500, arraySize(hw_mft_list_v0500)},
-	{0x0400, hw_mft_list_v0540, arraySize(hw_mft_list_v0540)},
+	{HW_VER_FMUV2,        hw_mft_list_FMUv2,     arraySize(hw_mft_list_FMUv2)},
+	{HW_VER_FMUV2MINI,    hw_mft_list_FMUv2Mini, arraySize(hw_mft_list_FMUv2Mini)},
+	{HW_VER_FMUV2X,       hw_mft_list_FMUv2X,    arraySize(hw_mft_list_FMUv2X)},
+	{HW_VER_FMUV3,        hw_mft_list_FMUv3,     arraySize(hw_mft_list_FMUv3)},
 };
-
-
-/************************************************************************************
- * Name: board_rc_input
- *
- * Description:
- *   All boards my optionally provide this API to invert the Serial RC input.
- *   This is needed on SoCs that support the notion RXINV or TXINV as opposed to
- *   and external XOR controlled by a GPIO
- *
- ************************************************************************************/
-__EXPORT bool board_supports_single_wire(uint32_t uxart_base)
-{
-	return uxart_base == RC_UXART_BASE;
-}
 
 /************************************************************************************
  * Name: board_query_manifest
@@ -127,8 +124,7 @@ __EXPORT px4_hw_mft_item board_query_manifest(px4_hw_mft_item_id_t id)
 	static px4_hw_mft_list_entry boards_manifest = px4_hw_mft_list_uninitialized;
 
 	if (boards_manifest == px4_hw_mft_list_uninitialized) {
-		uint32_t ver_rev = board_get_hw_version() << 8;
-		ver_rev |= board_get_hw_revision();
+		uint32_t ver_rev = board_get_hw_version();
 
 		for (unsigned i = 0; i < arraySize(mft_lists); i++) {
 			if (mft_lists[i].hw_ver_rev == ver_rev) {
