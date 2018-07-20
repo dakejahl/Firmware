@@ -50,7 +50,7 @@
 #include <uORB/topics/parameter_update.h>
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"
-#define MAX_DETECTABLE_DISTANCE        	6.0f
+#define MAX_DETECTABLE_DISTANCE        	3.0f
 #define MIN_DETECTABLE_DISTANCE         0.05f
 #define MAX_DETECTABLE_TEMPERATURE      100.0f
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
