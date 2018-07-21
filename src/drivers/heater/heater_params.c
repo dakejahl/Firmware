@@ -36,22 +36,32 @@
  * Heater parameters.
  *
  * @author Khoi Tran <khoi@tealdrones.com>
+ * @author Mark Sauder <mcsauder@gmail.com>
+ * @author Alex Klimaj <alexklimaj@gmail.com>
  */
 
 /**
- * Target IMU temperature to regulate around
+ * Target IMU temperature.
  *
  * @group Sensors
  * @unit C
  * @min 0
- * @max 70
+ * @max 80
  * @decimal 3
  */
 PARAM_DEFINE_FLOAT(SENS_IMU_TEMP, 55.0f);
 
 /**
- * Target IMU device ID to regulate around
+ * Target IMU device ID to regulate temperature.
  *
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_TEMP_ID, 1442826);
+
+/**
+ * IMU Heater driver (heater)
+ *
+ * @boolean
+ * @group Sensors
+ */
+PARAM_DEFINE_INT32(SENS_EN_HEATER, 0);

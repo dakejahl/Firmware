@@ -35,7 +35,8 @@
  * @file heater.h
  *
  * @author Khoi Tran <khoi@tealdrones.com>
- * @maintainer Mark Sauder <mark.sauder@tealdrones.com>
+ * @author Mark Sauder <mcsauder@gmail.com>
+ * @author Alex Klimaj <alexklimaj@gmail.com>
  */
 
 #pragma once

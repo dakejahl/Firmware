@@ -35,7 +35,9 @@
  * @file heater_main.h
  * Heater main
  *
- * @author Mark Sauder <mark.sauder@tealdrones.com>
+ * @author Khoi Tran <khoi@tealdrones.com>
+ * @author Mark Sauder <mcsauder@gmail.com>
+ * @author Alex Klimaj <alexklimaj@gmail.com>
  */
 
 #include <getopt.h>
