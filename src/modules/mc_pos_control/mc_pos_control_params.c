@@ -504,16 +504,21 @@ PARAM_DEFINE_FLOAT(MPC_JERK_MIN, 1.0f);
 /**
  * Altitude control mode.
  *
- * Set to 1 to control height above ground instead of height above origin.
- * Note: If optical flow is being used as the only source of navigation then the height above ground
- * will be selected automatically and maximum height will be limited to the value set by MPC_MAX_FLOW_HGT.
- * Note: The height controller will revert to using height above origin if the distance to ground estimate
- * becomes invalid as indicated by the local_position.distance_bottom_valid message being false.
+ * Set to 0 to control height relative to the earth frame origin. This origin may move up and down in
+ * flight due to sensor drift.
+ * Set to 1 to control height relative to estimated distance to ground. The vehicle will move up and down
+ * with terrain height variation. Requires a distance to ground sensor. The height controller will
+ * revert to using height above origin if the distance to ground estimate becomes invalid as indicated
+ * by the local_position.distance_bottom_valid message being false.
+ * Set to 2 to control height relative to ground (requires a distance sensor) when stationary and relative
+ * to earth frame origin when moving horizontally.
+ * The speed threshold is controlled by the MPC_HOLD_MAX_XY parameter.
  *
  * @min 0
- * @max 1
+ * @max 2
  * @value 0 Altitude following
  * @value 1 Terrain following
+ * @value 2 Terrain hold
  * @group Multicopter Position Control
  */
 PARAM_DEFINE_INT32(MPC_ALT_MODE, 0);

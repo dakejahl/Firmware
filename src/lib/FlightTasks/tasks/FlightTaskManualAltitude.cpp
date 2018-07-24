@@ -91,13 +91,57 @@ void FlightTaskManualAltitude::_updateAltitudeLock()
 	// Depending on stick inputs and velocity, position is locked.
 	// If not locked, altitude setpoint is set to NAN.
 
-	// check if user wants to break
+	// Check if user wants to break
 	const bool apply_brake = fabsf(_velocity_setpoint(2)) <= FLT_EPSILON;
 
-	// check if vehicle has stopped
+	// Check if vehicle has stopped
 	const bool stopped = (MPC_HOLD_MAX_Z.get() < FLT_EPSILON || fabsf(_velocity(2)) < MPC_HOLD_MAX_Z.get());
 
-	if (MPC_ALT_MODE.get() && PX4_ISFINITE(_dist_to_bottom)) {
+	// Manage transition between use of distance to ground and distance to local origin
+	// when terrain hold behaviour has been selected.
+	if (MPC_ALT_MODE.get() == 2) {
+		// Use horizontal speed as a transition criteria
+		float spd_xy = Vector2f(&_velocity(0)).length();
+
+		// Use presence of horizontal stick inputs as a transition criteria
+		float stick_xy = Vector2f(&_sticks_expo(0)).length();
+		bool stick_input = stick_xy > 0.001f;
+
+		if (_terrain_hold) {
+			bool too_fast = spd_xy > MPC_HOLD_MAX_XY.get();
+
+			if (stick_input || too_fast || !PX4_ISFINITE(_dist_to_bottom)) {
+				// Stop using distance to ground
+				_terrain_hold = false;
+				_terrain_follow = false;
+
+				// Adjust the setpoint to maintain the same height error to reduce control transients
+				if (PX4_ISFINITE(_dist_to_ground_lock) && PX4_ISFINITE(_dist_to_bottom)) {
+					_position_setpoint(2) = _position(2) + (_dist_to_ground_lock - _dist_to_bottom);
+
+				} else {
+					_position_setpoint(2) = _position(2);
+				}
+			}
+
+		} else {
+			bool not_moving = spd_xy < 0.5f * MPC_HOLD_MAX_XY.get();
+
+			if (!stick_input && not_moving && PX4_ISFINITE(_dist_to_bottom)) {
+				// Start using distance to ground
+				_terrain_hold = true;
+				_terrain_follow = true;
+
+				// Adjust the setpoint to maintain the same height error to reduce control transients
+				if (PX4_ISFINITE(_position_setpoint(2))) {
+					_dist_to_ground_lock = _dist_to_bottom + (_position_setpoint(2) - _position(2));
+				}
+			}
+		}
+
+	}
+
+	if ((MPC_ALT_MODE.get() == 1 || _terrain_follow) && PX4_ISFINITE(_dist_to_bottom)) {
 		// terrain following
 		_terrainFollowing(apply_brake, stopped);
 		// respect maximum altitude
@@ -179,15 +223,11 @@ void FlightTaskManualAltitude::_respectMaxAltitude()
 {
 	if (PX4_ISFINITE(_dist_to_bottom)) {
 
-		// check if there is a valid minimum distance to ground
-		const float min_distance_to_ground = (PX4_ISFINITE(_constraints.min_distance_to_ground)) ?
-						     _constraints.min_distance_to_ground : 0.0f;
-
-		// if there is a valid maximum distance to ground, gradually decrease speed limit upwards from
-		// minimum distance to maximum distance
+		// if there is a valid maximum distance to ground, linearly increase speed limit with distance
+		// below the maximum, preserving control loop vertical position error gain.
 		if (PX4_ISFINITE(_constraints.max_distance_to_ground)) {
-			_constraints.speed_up = math::gradual(_dist_to_bottom, min_distance_to_ground, _constraints.max_distance_to_ground,
-							      _max_speed_up, 0.0f);
+			_constraints.speed_up = math::constrain(MPC_Z_P.get() * (_constraints.max_distance_to_ground - _dist_to_bottom),
+								-_min_speed_down, _max_speed_up);
 
 		} else {
 			_constraints.speed_up = _max_speed_up;

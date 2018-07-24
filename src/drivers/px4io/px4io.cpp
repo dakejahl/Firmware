@@ -733,27 +733,18 @@ PX4IO::init()
 		}
 
 		/* send command to arm system via command API */
-		struct vehicle_command_s cmd = {
-			.timestamp = hrt_absolute_time(),
-			.param5 = 0.0f,
-			.param6 = 0.0f,
-			/* request arming */
-			.param1 = 1.0f,
-			.param2 = 0.0f,
-			.param3 = 0.0f,
-			.param4 = 0.0f,
-			.param7 = 0.0f,
-			.command = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
-			.target_system = (uint8_t)sys_id,
-			.target_component = (uint8_t)comp_id,
-			.source_system = (uint8_t)sys_id,
-			.source_component = (uint8_t)comp_id,
-			/* ask to confirm command */
-			.confirmation = 1
-		};
+		vehicle_command_s vcmd = {};
+		vcmd.timestamp = hrt_absolute_time();
+		vcmd.param1 = 1.0f; /* request arming */
+		vcmd.command = vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM;
+		vcmd.target_system = (uint8_t)sys_id;
+		vcmd.target_component = (uint8_t)comp_id;
+		vcmd.source_system = (uint8_t)sys_id;
+		vcmd.source_component = (uint8_t)comp_id;
+		vcmd.confirmation = true; /* ask to confirm command */
 
 		/* send command once */
-		orb_advert_t pub = orb_advertise_queue(ORB_ID(vehicle_command), &cmd, vehicle_command_s::ORB_QUEUE_LENGTH);
+		orb_advert_t pub = orb_advertise_queue(ORB_ID(vehicle_command), &vcmd, vehicle_command_s::ORB_QUEUE_LENGTH);
 
 		/* spin here until IO's state has propagated into the system */
 		do {
@@ -774,7 +765,7 @@ PX4IO::init()
 
 			/* re-send if necessary */
 			if (!safety.armed) {
-				orb_publish(ORB_ID(vehicle_command), pub, &cmd);
+				orb_publish(ORB_ID(vehicle_command), pub, &vcmd);
 				DEVICE_LOG("re-sending arm cmd");
 			}
 
@@ -1768,7 +1759,7 @@ PX4IO::io_get_raw_rc_input(rc_input_values &input_rc)
 	input_rc.rc_ppm_frame_length = regs[PX4IO_P_RAW_RC_DATA];
 
 	if (!_analog_rc_rssi_stable) {
-		input_rc.rssi = 255;// we do not actually get digital RSSI regs[PX4IO_P_RAW_RC_NRSSI];
+		input_rc.rssi = regs[PX4IO_P_RAW_RC_NRSSI];
 
 	} else {
 		float rssi_analog = ((_analog_rc_rssi_volt - 0.2f) / 3.0f) * 100.0f;
