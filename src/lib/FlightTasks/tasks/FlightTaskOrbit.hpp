@@ -41,25 +41,52 @@
 
 #pragma once
 
-#include "FlightTaskManual.hpp"
+#include "FlightTaskManualAltitudeSmooth.hpp"
 
-class FlightTaskOrbit : public FlightTaskManual
+class FlightTaskOrbit : public FlightTaskManualAltitudeSmooth
 {
 public:
 	FlightTaskOrbit();
-
 	virtual ~FlightTaskOrbit() = default;
 
 	bool applyCommandParameters(const vehicle_command_s &command) override;
-
 	bool activate() override;
-
 	bool update() override;
+
+	/**
+	 * Check the feasibility of orbit parameters with respect to
+	 * centripetal acceleration a = v^2 / r
+	 * @param r desired radius
+	 * @param v desired velocity
+	 * @param a maximal allowed acceleration
+	 * @return true on success, false if value not accepted
+	 */
+	bool checkAcceleration(float r, float v, float a);
+
+protected:
+
+	/**
+	 * Change the radius of the circle.
+	 * @param r desired new radius
+	 * @return true on success, false if value not accepted
+	 */
+	bool setRadius(const float r);
+
+	/**
+	 * Change the velocity of the vehicle on the circle.
+	 * @param v desired new velocity
+	 * @return true on success, false if value not accepted
+	 */
+	bool setVelocity(const float v);
 
 private:
 	float _r = 0.f; /**< radius with which to orbit the target */
-	float _v = 0.f; /**< linear velocity for orbiting in m/s */
-	float _z = 0.f; /**< local z coordinate in meters */
-	matrix::Vector2f _center;
+	float _v = 0.f; /**< clockwise tangential velocity for orbiting in m/s */
+	matrix::Vector2f _center; /**< local frame coordinates of the center point */
 
+	// TODO: create/use parameters for limits
+	const float _radius_min = 1.f;
+	const float _radius_max = 100.f;
+	const float _velocity_max = 10.f;
+	const float _acceleration_max = 2.f;
 };

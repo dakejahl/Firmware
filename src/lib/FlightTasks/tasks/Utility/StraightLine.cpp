@@ -54,12 +54,11 @@ StraightLine::StraightLine(ModuleParams *parent, const float &deltatime, const m
 void StraightLine::generateSetpoints(matrix::Vector3f &position_setpoint, matrix::Vector3f &velocity_setpoint)
 {
 	// Check if target position has been reached
-	if (_is_target_reached || (_desired_speed_at_target < VEL_ZERO_THRESHOLD &&
-				   (_pos - _target).length() < NAV_ACC_RAD.get())) {
+	if (_desired_speed_at_target < VEL_ZERO_THRESHOLD &&
+	    (_pos - _target).length() < NAV_ACC_RAD.get()) {
 		// Vehicle has reached target. Lock position
 		position_setpoint = _target;
 		velocity_setpoint = Vector3f(0.0f, 0.0f, 0.0f);
-		_is_target_reached = true;
 
 		return;
 	}
@@ -74,7 +73,8 @@ void StraightLine::generateSetpoints(matrix::Vector3f &position_setpoint, matrix
 	float speed_sp_prev = math::max(velocity_setpoint * u_orig_to_target, 0.0f);
 
 	// Calculate accelerating/decelerating distance depending on speed, speed at target and acceleration/deceleration
-	float acc_dec_distance = fabs(powf(_desired_speed, 2) - powf(_desired_speed_at_target, 2)) / 2.0f;
+	float acc_dec_distance = fabs((_desired_speed * _desired_speed) - (_desired_speed_at_target *
+				      _desired_speed_at_target)) / 2.0f;
 	acc_dec_distance /= _desired_speed > _desired_speed_at_target ? _desired_deceleration : _desired_acceleration;
 
 	float dist_to_target = (_target - _pos).length(); // distance to target
@@ -96,16 +96,20 @@ void StraightLine::generateSetpoints(matrix::Vector3f &position_setpoint, matrix
 	// set the position and velocity setpoints
 	position_setpoint = closest_pt_on_line;
 	velocity_setpoint = u_orig_to_target * speed_sp;
-
 }
 
 float StraightLine::getMaxAcc()
 {
+	// check if origin and target are different points
+	if ((_target - _origin).length() < FLT_EPSILON) {
+		return MPC_ACC_HOR_MAX.get();
+	}
+
 	// unit vector in the direction of the straight line
 	Vector3f u_orig_to_target = (_target - _origin).unit_or_zero();
 
 	// calculate the maximal horizontal acceleration
-	float divider = (sqrt(powf(u_orig_to_target(0), 2) + powf(u_orig_to_target(1), 2)));
+	float divider = Vector2f(u_orig_to_target.data()).length();
 	float max_acc_hor = MPC_ACC_HOR_MAX.get();
 
 	if (divider > FLT_EPSILON) {
@@ -131,11 +135,16 @@ float StraightLine::getMaxAcc()
 
 float StraightLine::getMaxVel()
 {
+	// check if origin and target are different points
+	if ((_target - _origin).length() < FLT_EPSILON) {
+		return MPC_XY_VEL_MAX.get();
+	}
+
 	// unit vector in the direction of the straight line
 	Vector3f u_orig_to_target = (_target - _origin).unit_or_zero();
 
 	// calculate the maximal horizontal velocity
-	float divider = (sqrt(powf(u_orig_to_target(0), 2) + powf(u_orig_to_target(1), 2)));
+	float divider = Vector2f(u_orig_to_target.data()).length();
 	float max_vel_hor = MPC_XY_VEL_MAX.get();
 
 	if (divider > FLT_EPSILON) {
@@ -167,42 +176,51 @@ void StraightLine::setAllDefaults()
 	_desired_deceleration = DECELERATION_MAX;
 }
 
-void StraightLine::setTarget(const matrix::Vector3f &target)
+void StraightLine::setLineFromTo(const matrix::Vector3f &origin, const matrix::Vector3f &target)
 {
-	if (PX4_ISFINITE(target(0)) && PX4_ISFINITE(target(1)) && PX4_ISFINITE(target(2))) {
+	if (PX4_ISFINITE(target(0)) && PX4_ISFINITE(target(1)) && PX4_ISFINITE(target(2)) &&
+	    PX4_ISFINITE(origin(0)) && PX4_ISFINITE(origin(1)) && PX4_ISFINITE(origin(2))) {
 		_target = target;
-		_is_target_reached = false;
+		_origin = origin;
 
 		// set all parameters to their default value (depends on the direction)
 		setAllDefaults();
 	}
 }
 
-void StraightLine::setOrigin(const matrix::Vector3f &origin)
-{
-	if (PX4_ISFINITE(origin(0)) && PX4_ISFINITE(origin(1)) && PX4_ISFINITE(origin(2))) {
-		_origin = origin;
-	}
-}
-
 void StraightLine::setSpeed(const float &speed)
 {
-	if (speed > 0 && speed < getMaxVel()) {
+	float vel_max = getMaxVel();
+
+	if (speed > 0 && speed < vel_max) {
 		_desired_speed = speed;
+
+	} else if (speed > vel_max) {
+		_desired_speed = vel_max;
 	}
 }
 
 void StraightLine::setSpeedAtTarget(const float &speed_at_target)
 {
-	if (speed_at_target > 0 && speed_at_target < getMaxVel()) {
+	float vel_max = getMaxVel();
+
+	if (speed_at_target > 0 && speed_at_target < vel_max) {
 		_desired_speed_at_target = speed_at_target;
+
+	} else if (speed_at_target > vel_max) {
+		_desired_speed_at_target = vel_max;
 	}
 }
 
 void StraightLine::setAcceleration(const float &acc)
 {
-	if (acc > 0 && acc < getMaxAcc()) {
+	float acc_max = getMaxVel();
+
+	if (acc > 0 && acc < acc_max) {
 		_desired_acceleration = acc;
+
+	} else if (acc > acc_max) {
+		_desired_acceleration = acc_max;
 	}
 }
 
@@ -210,5 +228,8 @@ void StraightLine::setDeceleration(const float &dec)
 {
 	if (dec > 0 && dec < DECELERATION_MAX) {
 		_desired_deceleration = dec;
+
+	} else if (dec > DECELERATION_MAX) {
+		_desired_deceleration = DECELERATION_MAX;
 	}
 }

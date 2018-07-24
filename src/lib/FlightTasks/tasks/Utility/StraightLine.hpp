@@ -51,8 +51,7 @@ public:
 	~StraightLine() = default;
 
 	// setter functions
-	void setTarget(const matrix::Vector3f &target);
-	void setOrigin(const matrix::Vector3f &origin);
+	void setLineFromTo(const matrix::Vector3f &origin, const matrix::Vector3f &target);
 	void setSpeed(const float &speed);
 	void setSpeedAtTarget(const float &speed_at_target);
 	void setAcceleration(const float &acc);
@@ -91,8 +90,6 @@ private:
 	float _desired_deceleration{0.0f};       /**< deceleration along the straight line */
 	float _desired_speed{0.0f};              /**< desired maximum velocity */
 	float _desired_speed_at_target{0.0f};    /**< desired velocity at target point */
-
-	bool _is_target_reached{false};
 
 	matrix::Vector3f _target{};              /**< End point of the straight line */
 	matrix::Vector3f _origin{};              /**< Start point of the straight line */

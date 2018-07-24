@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,6 +37,7 @@
 
 #include "FlightTaskOrbit.hpp"
 #include <mathlib/mathlib.h>
+#include <lib/ecl/geo/geo.h>
 
 using namespace matrix;
 
@@ -47,24 +48,80 @@ FlightTaskOrbit::FlightTaskOrbit()
 
 bool FlightTaskOrbit::applyCommandParameters(const vehicle_command_s &command)
 {
-	const float &r = command.param3; /**< commanded radius */
-	const float &v = command.param4; /**< commanded velocity */
+	bool ret = true;
+	bool clockwise = _v > 0;
 
-	if (math::isInRange(r, 5.f, 50.f) && fabs(v) < 10.f) {
+	// commanded radius
+	if (PX4_ISFINITE(command.param1)) {
+		clockwise = command.param1 > 0;
+		const float r = fabsf(command.param1);
+		ret = ret && setRadius(r);
+	}
+
+	// commanded velocity, take sign of radius as rotation direction
+	if (PX4_ISFINITE(command.param2)) {
+		const float v = command.param2 * (clockwise ? 1.f : -1.f);
+		ret = ret && setVelocity(v);
+	}
+
+	// TODO: apply x,y / z independently in geo library
+	// commanded center coordinates
+	// if(PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6)) {
+	// 	map_projection_global_project(command.param5, command.param6, &_center(0), &_center(1));
+	// }
+
+	// commanded altitude
+	// if(PX4_ISFINITE(command.param7)) {
+	// 	_position_setpoint(2) = gl_ref.alt - command.param7;
+	// }
+
+	if (PX4_ISFINITE(command.param5) && PX4_ISFINITE(command.param6) && PX4_ISFINITE(command.param7)) {
+		if (globallocalconverter_tolocal(command.param5, command.param6, command.param7, &_center(0), &_center(1),
+						 &_position_setpoint(2))) {
+			// global to local conversion failed
+			ret = false;
+		}
+	}
+
+	return ret;
+}
+
+bool FlightTaskOrbit::setRadius(const float r)
+{
+	if (math::isInRange(r, _radius_min, _radius_max)) {
+		// small radius is more important than high velocity for safety
+		if (!checkAcceleration(r, _v, _acceleration_max)) {
+			_v = math::sign(_v) * sqrtf(_acceleration_max * r);
+		}
+
 		_r = r;
-		_v = v;
-		return FlightTaskManual::applyCommandParameters(command);
+		return true;
 	}
 
 	return false;
 }
 
+bool FlightTaskOrbit::setVelocity(const float v)
+{
+	if (fabs(v) < _velocity_max &&
+	    checkAcceleration(_r, v, _acceleration_max)) {
+		_v = v;
+		return true;
+	}
+
+	return false;
+}
+
+bool FlightTaskOrbit::checkAcceleration(float r, float v, float a)
+{
+	return v * v < a * r;
+}
+
 bool FlightTaskOrbit::activate()
 {
-	bool ret = FlightTaskManual::activate();
-	_r = 1.f;
-	_v =  0.5f;
-	_z = _position(2);
+	bool ret = FlightTaskManualAltitudeSmooth::activate();
+	_r = _radius_min;
+	_v =  1.f;
 	_center = Vector2f(_position.data());
 	_center(0) -= _r;
 
@@ -81,26 +138,32 @@ bool FlightTaskOrbit::activate()
 
 bool FlightTaskOrbit::update()
 {
-	_r += _sticks_expo(0) * _deltatime;
-	_r = math::constrain(_r, 1.f, 20.f);
-	_v -= _sticks_expo(1) * _deltatime;
-	_v = math::constrain(_v, -7.f, 7.f);
-	_z += _sticks_expo(2) * _deltatime;
+	// update altitude
+	FlightTaskManualAltitudeSmooth::update();
 
-	_position_setpoint = Vector3f(NAN, NAN, _z);
+	// stick input adjusts parameters within a fixed time frame
+	const float r = _r - _sticks_expo(0) * _deltatime * (_radius_max / 8.f);
+	const float v = _v - _sticks_expo(1) * _deltatime * (_velocity_max / 4.f);
 
-	/* xy velocity to go around in a circle */
+	setRadius(r);
+	setVelocity(v);
+
+	// xy velocity to go around in a circle
 	Vector2f center_to_position = Vector2f(_position.data()) - _center;
-	Vector2f velocity_xy = Vector2f(center_to_position(1), -center_to_position(0));
+	Vector2f velocity_xy = Vector2f(-center_to_position(1), center_to_position(0));
 	velocity_xy = velocity_xy.unit_or_zero();
 	velocity_xy *= _v;
 
-	/* xy velocity adjustment to stay on the radius distance */
+	// xy velocity adjustment to stay on the radius distance
 	velocity_xy += (_r - center_to_position.norm()) * center_to_position.unit_or_zero();
 
-	_velocity_setpoint = Vector3f(velocity_xy(0), velocity_xy(1), 0.f);
+	_velocity_setpoint(0) = velocity_xy(0);
+	_velocity_setpoint(1) = velocity_xy(1);
 
-	/* make vehicle front always point towards the center */
-	_yawspeed_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+	// make vehicle front always point towards the center
+	_yaw_setpoint = atan2f(center_to_position(1), center_to_position(0)) + M_PI_F;
+	// yawspeed feed-forward because we know the necessary angular rate
+	_yawspeed_setpoint = _v / _r;
+
 	return true;
 }

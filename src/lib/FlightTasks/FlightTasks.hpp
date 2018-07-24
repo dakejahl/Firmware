@@ -105,7 +105,7 @@ public:
 
 	/**
 	 * Switch to the next task in the available list (for testing)
-	 * @return true on success, false on error
+	 * @return 1 on success, <0 on error
 	 */
 	int switchTask() { return switchTask(static_cast<int>(_current_task.index) + 1); }
 
@@ -188,8 +188,8 @@ private:
 	 * Check for vehicle commands (received via MAVLink), evaluate and acknowledge them
 	 */
 	void _updateCommand();
+	int _sub_vehicle_command = -1; /**< topic handle on which commands are received */
+	orb_advert_t _pub_vehicle_command_ack = nullptr; /**< topic handle to which commands get acknowledged */
 
 	int _initTask(FlightTaskIndex task_index);
-//	int _sub_vehicle_command = -1; /**< topic handle on which commands are received */
-//	orb_advert_t _pub_vehicle_command_ack = nullptr; /**< topic handle to which commands get acknowledged */
 };
