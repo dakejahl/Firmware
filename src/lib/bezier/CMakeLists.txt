@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,74 +31,6 @@
 #
 ############################################################################
 
-set(srcs
-	test_adc.c
-	test_autodeclination.cpp
-	test_bezierQuad.cpp
-	test_bson.c
-	test_conv.cpp
-	test_dataman.c
-	test_file.c
-	test_file2.c
-	test_float.cpp
-	test_gpio.c
-	test_hott_telemetry.c
-	test_hrt.cpp
-	test_hysteresis.cpp
-	test_int.cpp
-	test_jig_voltages.c
-	test_led.c
-	test_mathlib.cpp
-	test_matrix.cpp
-	test_microbench_hrt.cpp
-	test_microbench_math.cpp
-	test_microbench_matrix.cpp
-	test_microbench_uorb.cpp
-	test_mixer.cpp
-	test_mount.c
-	test_param.c
-	test_parameters.cpp
-	test_perf.c
-	test_ppm_loopback.c
-	test_rc.c
-	test_search_min.cpp
-	test_sensors.c
-	test_servo.c
-	test_sleep.c
-	test_uart_baudchange.c
-	test_uart_console.c
-	test_uart_loopback.c
-	test_uart_send.c
-	test_versioning.cpp
-	test_smooth_z.cpp
-	test_controlmath.cpp
-	tests_main.c
-	)
-
-if(${OS} STREQUAL "nuttx")
-	list(APPEND srcs
-		test_time.c
-		test_uart_break.c
-		)
-endif()
-
-px4_add_module(
-	MODULE systemcmds__tests
-	MAIN tests
-	STACK_MAIN 10000
-	STACK_MAX 10000
-	COMPILE_FLAGS
-		-Wno-sign-compare # TODO: fix all sign-compare
-		-Wno-unused-result
-		-Wno-float-equal
-		-Wno-missing-declarations
-		-Wno-double-promotion
-		-Wno-unknown-warning-option
-		-Wno-unused-but-set-variable
-	SRCS
-		${srcs}
-	DEPENDS
-		git_ecl
-		ecl_geo_lookup # TODO: move this
-		pwm_limit
-	)
+px4_add_library(bezier
+		BezierQuad.cpp
+)
