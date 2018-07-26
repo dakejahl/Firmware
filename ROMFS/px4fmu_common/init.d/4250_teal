@@ -21,7 +21,7 @@
 # @maintainer Alex Klimaj <alex.klimaj@tealdrones.com>
 #
 
-echo "Executing 4100_teal script."
+echo "Executing 4250_teal script."
 
 set VEHICLE_TYPE mc
 set MIXER quad_x
@@ -125,7 +125,6 @@ then
 	param set MC_PR_INT_LIM 0.3
 
 	param set MC_YAW_P 2.0
-	param set MC_YAW_FF 0.6
 	param set MC_YAWRATE_P 0.08
 	param set MC_YAWRATE_I 0.8
 	param set MC_YAWRATE_D 0.0
@@ -201,7 +200,6 @@ then
 
 	# system
 	param set SYS_COMPANION 1921600
-	param set SYS_LOGGER 1
 
 	param save
 fi
