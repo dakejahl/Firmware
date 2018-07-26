@@ -138,7 +138,7 @@ then
 	param set MPC_ACC_HOR_MAX 10.0
 	param set MPC_ACC_UP_MAX 2.5
 	param set MPC_DEC_HOR_SLOW 5.0
-	param set MPC_HOLD_DZ 0.0
+	param set MPC_HOLD_DZ 0.10
 	param set MPC_HOLD_MAX_XY 0.8
 	param set MPC_HOLD_MAX_Z 0.6
 	param set MPC_JERK_MAX 7.5
