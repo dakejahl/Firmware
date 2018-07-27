@@ -523,9 +523,20 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 		if (inst != self) {
 			const mavlink_msg_entry_t *meta = mavlink_get_msg_entry(msg->msgid);
 
-			// Extract target system and target component if set
-			int target_system_id = (meta->target_system_ofs != 0) ? ((uint8_t *)msg)[meta->target_system_ofs] : 0;
-			int target_component_id = (meta->target_component_ofs != 0) ? ((uint8_t *)msg)[meta->target_component_ofs] : 233;
+			int target_system_id = 0;
+			int target_component_id = 233;
+
+			// might be nullptr if message is unknown
+			if (meta) {
+				// Extract target system and target component if set
+				if (meta->target_system_ofs != 0) {
+					target_system_id = ((uint8_t *)msg)[meta->target_system_ofs];
+				}
+
+				if (meta->target_component_ofs != 0) {
+					target_component_id = ((uint8_t *)msg)[meta->target_component_ofs];
+				}
+			}
 
 			// Broadcast or addressing this system and not trying to talk
 			// to the autopilot component -> pass on to other components
@@ -1310,6 +1321,14 @@ void Mavlink::send_autopilot_capabilites()
 		board_get_uuid32(uid);
 		msg.uid = (((uint64_t)uid[PX4_CPU_UUID_WORD32_UNIQUE_M]) << 32) | uid[PX4_CPU_UUID_WORD32_UNIQUE_H];
 
+#ifdef CONFIG_ARCH_BOARD_SITL
+		// To avoid that multiple SITL instances have the same UUID, we add the mavlink
+		// system ID. We subtract 1, so that the first UUID remains unchanged given the
+		// default system ID is 1.
+		//
+		// Note that the UUID show in `ver` will still be the same for all instances.
+		msg.uid += mavlink_system.sysid - 1;
+#endif
 		mavlink_msg_autopilot_version_send_struct(get_channel(), &msg);
 	}
 }
