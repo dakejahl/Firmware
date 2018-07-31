@@ -43,46 +43,49 @@
 
 #include <perf/perf_counter.h>
 #include <uORB/uORB.h>
-#include <uORB/topics/sensor_combined.h>
-#include <uORB/topics/rc_channels.h>
-#include <uORB/topics/vehicle_control_mode.h>
-#include <uORB/topics/vehicle_attitude.h>
-#include <uORB/topics/vehicle_gps_position.h>
-#include <uORB/topics/vehicle_global_position.h>
-#include <uORB/topics/vehicle_local_position.h>
-#include <uORB/topics/vehicle_land_detected.h>
-#include <uORB/topics/home_position.h>
-#include <uORB/topics/vehicle_status.h>
-#include <uORB/topics/offboard_control_mode.h>
-#include <uORB/topics/vehicle_command.h>
-#include <uORB/topics/vehicle_local_position_setpoint.h>
-#include <uORB/topics/position_setpoint_triplet.h>
-#include <uORB/topics/att_pos_mocap.h>
-#include <uORB/topics/vehicle_attitude_setpoint.h>
-#include <uORB/topics/vehicle_rates_setpoint.h>
-#include <uORB/topics/optical_flow.h>
-#include <uORB/topics/actuator_outputs.h>
-#include <uORB/topics/actuator_controls.h>
+
+#include <uORB/topics/airspeed.h>
 #include <uORB/topics/actuator_armed.h>
-#include <uORB/topics/manual_control_setpoint.h>
-#include <uORB/topics/telemetry_status.h>
+#include <uORB/topics/actuator_controls.h>
+#include <uORB/topics/actuator_outputs.h>
+#include <uORB/topics/att_pos_mocap.h>
+#include <uORB/topics/battery_status.h>
+#include <uORB/topics/collision_report.h>
 #include <uORB/topics/debug_key_value.h>
 #include <uORB/topics/debug_value.h>
 #include <uORB/topics/debug_vect.h>
-#include <uORB/topics/airspeed.h>
-#include <uORB/topics/battery_status.h>
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/follow_target.h>
-#include <uORB/topics/landing_target_pose.h>
-#include <uORB/topics/transponder_report.h>
 #include <uORB/topics/gps_inject_data.h>
-#include <uORB/topics/collision_report.h>
+#include <uORB/topics/home_position.h>
+#include <uORB/topics/landing_target_pose.h>
+#include <uORB/topics/manual_control_setpoint.h>
 #include <uORB/topics/obstacle_distance.h>
+#include <uORB/topics/offboard_control_mode.h>
+#include <uORB/topics/optical_flow.h>
+#include <uORB/topics/ping.h>
+#include <uORB/topics/position_setpoint_triplet.h>
+#include <uORB/topics/rc_channels.h>
+#include <uORB/topics/sensor_combined.h>
+#include <uORB/topics/vehicle_trajectory_waypoint.h>
+#include <uORB/topics/transponder_report.h>
+#include <uORB/topics/telemetry_status.h>
+#include <uORB/topics/vehicle_control_mode.h>
+#include <uORB/topics/vehicle_attitude.h>
+#include <uORB/topics/vehicle_attitude_setpoint.h>
+#include <uORB/topics/vehicle_command.h>
+#include <uORB/topics/vehicle_gps_position.h>
+#include <uORB/topics/vehicle_global_position.h>
+#include <uORB/topics/vehicle_land_detected.h>
+#include <uORB/topics/vehicle_local_position.h>
+#include <uORB/topics/vehicle_local_position_setpoint.h>
+#include <uORB/topics/vehicle_rates_setpoint.h>
+#include <uORB/topics/vehicle_status.h>
 
-#include "mavlink_mission.h"
-#include "mavlink_parameters.h"
 #include "mavlink_ftp.h"
 #include "mavlink_log_handler.h"
+#include "mavlink_mission.h"
+#include "mavlink_parameters.h"
 #include "mavlink_timesync.h"
 
 class Mavlink;
@@ -155,6 +158,7 @@ private:
 	void handle_message_logging_ack(mavlink_message_t *msg);
 	void handle_message_play_tune(mavlink_message_t *msg);
 	void handle_message_obstacle_distance(mavlink_message_t *msg);
+	void handle_message_trajectory_representation_waypoints(mavlink_message_t *msg);
 	void handle_message_named_value_float(mavlink_message_t *msg);
 	void handle_message_debug(mavlink_message_t *msg);
 	void handle_message_debug_vect(mavlink_message_t *msg);
@@ -188,9 +192,11 @@ private:
 
 	void send_flight_information();
 
+	void send_storage_information(int storage_id);
+
 	Mavlink	*_mavlink;
 
-	MavlinkMissionManager		*_mission_manager;
+	MavlinkMissionManager		_mission_manager;
 	MavlinkParametersManager	_parameters_manager;
 	MavlinkFTP			_mavlink_ftp;
 	MavlinkLogHandler		_mavlink_log_handler;
@@ -224,9 +230,11 @@ private:
 	orb_advert_t _vision_position_pub;
 	orb_advert_t _vision_attitude_pub;
 	orb_advert_t _telemetry_status_pub;
+	orb_advert_t _ping_pub;
 	orb_advert_t _rc_pub;
 	orb_advert_t _manual_pub;
 	orb_advert_t _obstacle_distance_pub;
+	orb_advert_t _trajectory_waypoint_pub;
 	orb_advert_t _land_detector_pub;
 	orb_advert_t _follow_target_pub;
 	orb_advert_t _landing_target_pose_pub;

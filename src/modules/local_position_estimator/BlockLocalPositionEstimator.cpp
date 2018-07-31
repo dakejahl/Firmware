@@ -190,7 +190,7 @@ void BlockLocalPositionEstimator::update()
 
 	if (!armedState && (_sub_lidar == nullptr || _sub_sonar == nullptr)) {
 		// detect distance sensors
-		for (int i = 0; i < N_DIST_SUBS; i++) {
+		for (size_t i = 0; i < N_DIST_SUBS; i++) {
 			uORB::Subscription<distance_sensor_s> *s = _dist_subs[i];
 
 			if (s == _sub_lidar || s == _sub_sonar) { continue; }
@@ -336,8 +336,8 @@ void BlockLocalPositionEstimator::update()
 	// if we have no lat, lon initialize projection to LPE_LAT, LPE_LON parameters
 	if (!_map_ref.init_done && (_estimatorInitialized & EST_XY) && _fake_origin.get()) {
 		map_projection_init(&_map_ref,
-				    _init_origin_lat.get(),
-				    _init_origin_lon.get());
+				    (double)_init_origin_lat.get(),
+				    (double)_init_origin_lon.get());
 
 		// set timestamp when origin was set to current time
 		_time_origin = _timeStamp;
@@ -604,8 +604,11 @@ void BlockLocalPositionEstimator::publishLocalPos()
 		//TODO provide calculated values for these
 		_pub_lpos.get().evh = 0.0f;
 		_pub_lpos.get().evv = 0.0f;
-		_pub_lpos.get().vxy_max = 0.0f;
-		_pub_lpos.get().limit_hagl = false;
+		_pub_lpos.get().vxy_max = INFINITY;
+		_pub_lpos.get().vz_max = INFINITY;
+		_pub_lpos.get().hagl_min = INFINITY;
+		_pub_lpos.get().hagl_max = INFINITY;
+
 	}
 }
 

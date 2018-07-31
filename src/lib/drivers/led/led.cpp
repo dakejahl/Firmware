@@ -60,7 +60,7 @@ class LED : device::CDev
 {
 public:
 	LED();
-	virtual ~LED();
+	virtual ~LED() = default;
 
 	virtual int		init();
 	virtual int		ioctl(device::file_t *filp, int cmd, unsigned long arg);
@@ -70,10 +70,6 @@ LED::LED() : CDev("led", LED0_DEVICE_PATH)
 {
 	// force immediate init/device registration
 	init();
-}
-
-LED::~LED()
-{
 }
 
 int

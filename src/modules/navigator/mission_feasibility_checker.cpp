@@ -411,8 +411,8 @@ MissionFeasibilityChecker::checkFixedWingLanding(const mission_s &mission, bool 
 							const float slope_alt_req = Landingslope::getLandingSlopeAbsoluteAltitude(wp_distance, missionitem.altitude,
 										    horizontal_slope_displacement, slope_angle_rad);
 
-							if (missionitem_previous.altitude > slope_alt_req) {
-								/* Landing waypoint is above altitude of slope at the given waypoint distance */
+							if (missionitem_previous.altitude > slope_alt_req + 1.0f) {
+								/* Landing waypoint is above altitude of slope at the given waypoint distance (with small tolerance for floating point discrepancies) */
 								mavlink_log_critical(_navigator->get_mavlink_log_pub(), "Mission rejected: adjust landing approach.");
 
 								const float wp_distance_req = Landingslope::getLandingSlopeWPDistance(missionitem_previous.altitude,
@@ -497,14 +497,6 @@ MissionFeasibilityChecker::checkDistanceToFirstWaypoint(const mission_s &mission
 
 		if (dist_to_1wp < max_distance) {
 
-			if (dist_to_1wp > ((max_distance * 2) / 3)) {
-				/* allow at 2/3 distance, but warn */
-				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-						     "First waypoint far away: %d meters.", (int)dist_to_1wp);
-
-				_navigator->get_mission_result()->warning = true;
-			}
-
 			return true;
 
 		} else {
@@ -530,8 +522,8 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 		return true;
 	}
 
-	double last_lat = NAN;
-	double last_lon = NAN;
+	double last_lat = (double)NAN;
+	double last_lon = (double)NAN;
 
 	/* Go through all waypoints */
 	for (size_t i = 0; i < mission.count; i++) {
@@ -557,17 +549,7 @@ MissionFeasibilityChecker::checkDistancesBetweenWaypoints(const mission_s &missi
 					mission_item.lat, mission_item.lon,
 					last_lat, last_lon);
 
-			if (dist_between_waypoints < max_distance) {
-
-				if (dist_between_waypoints > ((max_distance * 2) / 3)) {
-					/* allow at 2/3 distance, but warn */
-					mavlink_log_critical(_navigator->get_mavlink_log_pub(),
-							     "Distance between waypoints very far: %d meters.", (int)dist_between_waypoints);
-
-					_navigator->get_mission_result()->warning = true;
-				}
-
-			} else {
+			if (dist_between_waypoints > max_distance) {
 				/* item is too far from home */
 				mavlink_log_critical(_navigator->get_mavlink_log_pub(),
 						     "Distance between waypoints too far: %d meters, %d max.",

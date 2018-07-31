@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015, 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,12 +56,11 @@
 #include <px4_getopt.h>
 #include <px4_log.h>
 #include <px4_module.h>
-#include <systemlib/board_serial.h>
-#include <systemlib/circuit_breaker.h>
+#include <circuit_breaker/circuit_breaker.h>
 #include <lib/mixer/mixer.h>
 #include <parameters/param.h>
 #include <perf/perf_counter.h>
-#include <systemlib/pwm_limit/pwm_limit.h>
+#include <pwm_limit/pwm_limit.h>
 #include <uORB/topics/actuator_armed.h>
 #include <uORB/topics/actuator_controls.h>
 #include <uORB/topics/actuator_outputs.h>
@@ -210,6 +209,11 @@ private:
 		"ST24"
 	};
 
+	enum class MotorOrdering : int32_t {
+		PX4 = 0,
+		Betaflight = 1
+	};
+
 	hrt_abstime _rc_scan_begin = 0;
 	bool _rc_scan_locked = false;
 	bool _report_lock = true;
@@ -273,9 +277,10 @@ private:
 	orb_advert_t		_to_safety;
 	orb_advert_t      _to_mixer_status; 	///< mixer status flags
 
-	float _mot_t_max;	// maximum rise time for motor (slew rate limiting)
-	float _thr_mdl_fac;	// thrust to pwm modelling factor
-	bool _airmode; 		// multicopter air-mode
+	float _mot_t_max;	///< maximum rise time for motor (slew rate limiting)
+	float _thr_mdl_fac;	///< thrust to pwm modelling factor
+	bool _airmode; 		///< multicopter air-mode
+	MotorOrdering _motor_ordering;
 
 	perf_counter_t	_perf_control_latency;
 
@@ -330,10 +335,15 @@ private:
 			unsigned frame_drops, int rssi);
 
 	void set_rc_scan_state(RC_SCAN _rc_scan_state);
-	void rc_io_invert();
-	void rc_io_invert(bool invert);
+	void rc_io_invert(bool invert, uint32_t uxart_base);
 	void safety_check_button(void);
 	void flash_safety_button(void);
+
+	/**
+	 * Reorder PWM outputs according to _motor_ordering
+	 * @param values PWM values to reorder
+	 */
+	inline void reorder_outputs(uint16_t values[MAX_ACTUATORS]);
 };
 
 #if defined(BOARD_HAS_FMU_GPIO)
@@ -387,6 +397,7 @@ PX4FMU::PX4FMU(bool run_as_task) :
 	_mot_t_max(0.0f),
 	_thr_mdl_fac(0.0f),
 	_airmode(false),
+	_motor_ordering(MotorOrdering::PX4),
 	_perf_control_latency(perf_alloc(PC_ELAPSED, "fmu control latency"))
 {
 	for (unsigned i = 0; i < _max_actuators; i++) {
@@ -421,16 +432,6 @@ PX4FMU::PX4FMU(bool run_as_task) :
 	}
 
 	raw_rc_count = 0;
-
-#ifdef GPIO_SBUS_INV
-	// this board has a GPIO to control SBUS inversion
-	px4_arch_configgpio(GPIO_SBUS_INV);
-#endif
-
-#ifdef GPIO_FRSKY_INV
-	// this board has a GPIO to control SBUS inversion
-	px4_arch_configgpio(GPIO_FRSKY_INV);
-#endif
 
 	// If there is no safety button, disable it on boot.
 #ifndef GPIO_BTN_SAFETY
@@ -508,8 +509,6 @@ PX4FMU::init()
 	/* initialize PWM limit lib */
 	pwm_limit_init(&_pwm_limit);
 
-	update_pwm_rev_mask();
-
 #ifdef RC_SERIAL_PORT
 
 #  ifdef RF_RADIO_POWER_CONTROL
@@ -519,8 +518,10 @@ PX4FMU::init()
 	_vehicle_cmd_sub = orb_subscribe(ORB_ID(vehicle_command));
 	// dsm_init sets some file static variables and returns a file descriptor
 	_rcs_fd = dsm_init(RC_SERIAL_PORT);
-	// assume SBUS input
-	sbus_config(_rcs_fd, false);
+	// assume SBUS input and immediately switch it to
+	// so that if Single wire mode on TX there will be only
+	// a short contention
+	sbus_config(_rcs_fd, board_supports_single_wire(RC_UXART_BASE));
 #  ifdef GPIO_PPM_IN
 	// disable CPPM input by mapping it away from the timer capture input
 	px4_arch_unconfiggpio(GPIO_PPM_IN);
@@ -529,12 +530,6 @@ PX4FMU::init()
 
 	// Getting initial parameter values
 	update_params();
-
-	for (unsigned i = 0; i < _max_actuators; i++) {
-		char pname[16];
-		sprintf(pname, "PWM_AUX_TRIM%d", i + 1);
-		param_find(pname);
-	}
 
 	return 0;
 }
@@ -919,15 +914,28 @@ PX4FMU::update_pwm_rev_mask()
 {
 	_reverse_pwm_mask = 0;
 
+	const char *pname_format;
+
+	if (_class_instance == CLASS_DEVICE_PRIMARY) {
+		pname_format = "PWM_MAIN_REV%d";
+
+	} else if (_class_instance == CLASS_DEVICE_SECONDARY) {
+		pname_format = "PWM_AUX_REV%d";
+
+	} else {
+		PX4_ERR("PWM REV only for MAIN and AUX");
+		return;
+	}
+
 	for (unsigned i = 0; i < _max_actuators; i++) {
 		char pname[16];
-		int32_t ival;
 
 		/* fill the channel reverse mask from parameters */
-		sprintf(pname, "PWM_AUX_REV%d", i + 1);
+		sprintf(pname, pname_format, i + 1);
 		param_t param_h = param_find(pname);
 
 		if (param_h != PARAM_INVALID) {
+			int32_t ival = 0;
 			param_get(param_h, &ival);
 			_reverse_pwm_mask |= ((int16_t)(ival != 0)) << i;
 		}
@@ -943,15 +951,28 @@ PX4FMU::update_pwm_trims()
 
 		int16_t values[_max_actuators] = {};
 
+		const char *pname_format;
+
+		if (_class_instance == CLASS_DEVICE_PRIMARY) {
+			pname_format = "PWM_MAIN_TRIM%d";
+
+		} else if (_class_instance == CLASS_DEVICE_SECONDARY) {
+			pname_format = "PWM_AUX_TRIM%d";
+
+		} else {
+			PX4_ERR("PWM TRIM only for MAIN and AUX");
+			return;
+		}
+
 		for (unsigned i = 0; i < _max_actuators; i++) {
 			char pname[16];
-			float pval;
 
 			/* fill the struct from parameters */
-			sprintf(pname, "PWM_AUX_TRIM%d", i + 1);
+			sprintf(pname, pname_format, i + 1);
 			param_t param_h = param_find(pname);
 
 			if (param_h != PARAM_INVALID) {
+				float pval = 0.0f;
 				param_get(param_h, &pval);
 				values[i] = (int16_t)(10000 * pval);
 				PX4_DEBUG("%s: %d", pname, values[i]);
@@ -1014,7 +1035,7 @@ PX4FMU::task_spawn(int argc, char *argv[])
 		_task_id = px4_task_spawn_cmd("fmu",
 					      SCHED_DEFAULT,
 					      SCHED_PRIORITY_ACTUATOR_OUTPUTS,
-					      1310,
+					      1340,
 					      (px4_main_t)&run_trampoline,
 					      nullptr);
 
@@ -1147,9 +1168,9 @@ void PX4FMU::set_rc_scan_state(RC_SCAN newState)
 	_rc_scan_state = newState;
 }
 
-void PX4FMU::rc_io_invert(bool invert)
+void PX4FMU::rc_io_invert(bool invert, uint32_t uxart_base)
 {
-	INVERT_RC_INPUT(invert);
+	INVERT_RC_INPUT(invert, uxart_base);
 }
 #endif
 
@@ -1326,6 +1347,9 @@ PX4FMU::cycle()
 						pwm_limited[i] = _disarmed_pwm[i];
 					}
 				}
+
+				/* apply _motor_ordering */
+				reorder_outputs(pwm_limited);
 
 				/* output to the servos */
 				if (_pwm_initialized) {
@@ -1544,8 +1568,8 @@ PX4FMU::cycle()
 			if (_rc_scan_begin == 0) {
 				_rc_scan_begin = _cycle_timestamp;
 				// Configure serial port for SBUS
-				sbus_config(_rcs_fd, false);
-				rc_io_invert(true);
+				sbus_config(_rcs_fd, board_supports_single_wire(RC_UXART_BASE));
+				rc_io_invert(true, RC_UXART_BASE);
 
 			} else if (_rc_scan_locked
 				   || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
@@ -1576,7 +1600,7 @@ PX4FMU::cycle()
 				_rc_scan_begin = _cycle_timestamp;
 				//			// Configure serial port for DSM
 				dsm_config(_rcs_fd);
-				rc_io_invert(false);
+				rc_io_invert(false, RC_UXART_BASE);
 
 			} else if (_rc_scan_locked
 				   || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
@@ -1607,7 +1631,7 @@ PX4FMU::cycle()
 				_rc_scan_begin = _cycle_timestamp;
 				// Configure serial port for DSM
 				dsm_config(_rcs_fd);
-				rc_io_invert(false);
+				rc_io_invert(false, RC_UXART_BASE);
 
 			} else if (_rc_scan_locked
 				   || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
@@ -1655,7 +1679,7 @@ PX4FMU::cycle()
 				_rc_scan_begin = _cycle_timestamp;
 				// Configure serial port for DSM
 				dsm_config(_rcs_fd);
-				rc_io_invert(false);
+				rc_io_invert(false, RC_UXART_BASE);
 
 			} else if (_rc_scan_locked
 				   || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
@@ -1697,7 +1721,7 @@ PX4FMU::cycle()
 				_rc_scan_begin = _cycle_timestamp;
 				// Configure timer input pin for CPPM
 				px4_arch_configgpio(GPIO_PPM_IN);
-				rc_io_invert(false);
+				rc_io_invert(false, RC_UXART_BASE);
 
 			} else if (_rc_scan_locked || _cycle_timestamp - _rc_scan_begin < rc_scan_max) {
 
@@ -1743,14 +1767,8 @@ PX4FMU::cycle()
 #endif  // RC_SERIAL_PORT
 
 		if (rc_updated) {
-			/* lazily advertise on first publication */
-			if (_to_input_rc == nullptr) {
-				int instance = _class_instance;
-				_to_input_rc = orb_advertise_multi(ORB_ID(input_rc), &_rc_in, &instance, ORB_PRIO_DEFAULT);
-
-			} else {
-				orb_publish(ORB_ID(input_rc), _to_input_rc, &_rc_in);
-			}
+			int instance = _class_instance;
+			orb_publish_auto(ORB_ID(input_rc), &_to_input_rc, &_rc_in, &instance, ORB_PRIO_DEFAULT);
 
 		} else if (!rc_updated && ((hrt_absolute_time() - _rc_in.timestamp_last_signal) > 1000 * 1000)) {
 			_rc_scan_locked = false;
@@ -1807,6 +1825,13 @@ void PX4FMU::update_params()
 		param_get(param_handle, &val);
 		_airmode = val > 0;
 		PX4_DEBUG("%s: %d", "MC_AIRMODE", _airmode);
+	}
+
+	// motor ordering
+	param_handle = param_find("MOT_ORDERING");
+
+	if (param_handle != PARAM_INVALID) {
+		param_get(param_handle, (int32_t *)&_motor_ordering);
 	}
 }
 
@@ -2605,7 +2630,7 @@ ssize_t
 PX4FMU::write(file *filp, const char *buffer, size_t len)
 {
 	unsigned count = len / 2;
-	uint16_t values[len];
+	uint16_t values[MAX_ACTUATORS];
 
 #if BOARD_HAS_PWM == 0
 	return 0;
@@ -2616,16 +2641,54 @@ PX4FMU::write(file *filp, const char *buffer, size_t len)
 		count = BOARD_HAS_PWM;
 	}
 
+	if (count > MAX_ACTUATORS) {
+		count = MAX_ACTUATORS;
+	}
+
 	// allow for misaligned values
 	memcpy(values, buffer, count * 2);
 
-	for (uint8_t i = 0; i < count; i++) {
+	for (unsigned i = count; i < _num_outputs; ++i) {
+		values[i] = PWM_IGNORE_THIS_CHANNEL;
+	}
+
+	reorder_outputs(values);
+
+	for (unsigned i = 0; i < _num_outputs; i++) {
 		if (values[i] != PWM_IGNORE_THIS_CHANNEL) {
 			up_pwm_servo_set(i, values[i]);
 		}
 	}
 
 	return count * 2;
+}
+
+void
+PX4FMU::reorder_outputs(uint16_t values[MAX_ACTUATORS])
+{
+	if (MAX_ACTUATORS < 4) {
+		return;
+	}
+
+	if (_motor_ordering == MotorOrdering::Betaflight) {
+		/*
+		 * Betaflight default motor ordering:
+		 * 4     2
+		 *    ^
+		 * 3     1
+		 */
+		const uint16_t pwm_tmp[4] = {values[0], values[1], values[2], values[3] };
+		values[0] = pwm_tmp[3];
+		values[1] = pwm_tmp[0];
+		values[2] = pwm_tmp[1];
+		values[3] = pwm_tmp[2];
+	}
+
+	/* else: PX4, no need to reorder
+	 * 3     1
+	 *    ^
+	 * 2     4
+	 */
 }
 
 void

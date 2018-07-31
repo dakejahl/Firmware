@@ -49,6 +49,10 @@ set(srcs
 	test_led.c
 	test_mathlib.cpp
 	test_matrix.cpp
+	test_microbench_hrt.cpp
+	test_microbench_math.cpp
+	test_microbench_matrix.cpp
+	test_microbench_uorb.cpp
 	test_mixer.cpp
 	test_mount.c
 	test_param.c
@@ -87,10 +91,12 @@ px4_add_module(
 		-Wno-missing-declarations
 		-Wno-double-promotion
 		-Wno-unknown-warning-option
+		-Wno-unused-but-set-variable
 	SRCS
 		${srcs}
 	DEPENDS
 		modules__mc_pos_control__mc_pos_control_tests
 		git_ecl
 		ecl_geo_lookup # TODO: move this
+		pwm_limit
 	)

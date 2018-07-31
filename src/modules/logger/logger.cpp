@@ -34,6 +34,7 @@
 #include <px4_config.h>
 #include "logger.h"
 #include "messages.h"
+#include "watchdog.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -88,10 +89,24 @@
 
 using namespace px4::logger;
 
+
+struct timer_callback_data_s {
+	px4_sem_t semaphore;
+
+	watchdog_data_t watchdog_data;
+	volatile bool watchdog_triggered = false;
+};
+
 /* This is used to schedule work for the logger (periodic scan for updated topics) */
 static void timer_callback(void *arg)
 {
-	px4_sem_t *semaphore = (px4_sem_t *)arg;
+	/* Note: we are in IRQ context here (on NuttX) */
+
+	timer_callback_data_s *data = (timer_callback_data_s *)arg;
+
+	if (watchdog_update(data->watchdog_data)) {
+		data->watchdog_triggered = true;
+	}
 
 	/* check the value of the semaphore: if the logger cannot keep up with running it's main loop as fast
 	 * as the timer_callback here increases the semaphore count, the counter would increase unbounded,
@@ -101,11 +116,12 @@ static void timer_callback(void *arg)
 	 * multiple iterations at once, the next time it's scheduled). */
 	int semaphore_value;
 
-	if (px4_sem_getvalue(semaphore, &semaphore_value) == 0 && semaphore_value > 1) {
+	if (px4_sem_getvalue(&data->semaphore, &semaphore_value) == 0 && semaphore_value > 1) {
 		return;
 	}
 
-	px4_sem_post(semaphore);
+	px4_sem_post(&data->semaphore);
+
 }
 
 
@@ -607,12 +623,10 @@ void Logger::add_default_topics()
 	add_topic("optical_flow", 50);
 	add_topic("position_setpoint_triplet", 200);
 	add_topic("rate_ctrl_status", 30);
-	add_topic("safety");
 	add_topic("sensor_combined", 100);
 	add_topic("sensor_preflight", 200);
 	add_topic("system_power", 500);
 	add_topic("tecs_status", 200);
-	add_topic("telemetry_status");
 	add_topic("vehicle_attitude", 30);
 	add_topic("vehicle_attitude_setpoint", 100);
 	add_topic("vehicle_command");
@@ -624,11 +638,12 @@ void Logger::add_default_topics()
 	add_topic("vehicle_rates_setpoint", 30);
 	add_topic("vehicle_status", 200);
 	add_topic("vehicle_status_flags");
+	add_topic("vehicle_trajectory_waypoint");
+	add_topic("vehicle_trajectory_waypoint_desired");
 	add_topic("vehicle_vision_attitude");
 	add_topic("vehicle_vision_position");
 	add_topic("vtol_vehicle_status", 200);
 	add_topic("wind_estimate", 200);
-	add_topic("timesync_status");
 
 #ifdef CONFIG_ARCH_BOARD_SITL
 	add_topic("actuator_armed");
@@ -637,7 +652,6 @@ void Logger::add_default_topics()
 	add_topic("commander_state");
 	add_topic("fw_pos_ctrl_status");
 	add_topic("fw_virtual_attitude_setpoint");
-	add_topic("led_control");
 	add_topic("mc_virtual_attitude_setpoint");
 	add_topic("multirotor_motor_limits");
 	add_topic("offboard_control_mode");
@@ -870,7 +884,8 @@ void Logger::run()
 	}
 
 	//all topics added. Get required message buffer size
-	int max_msg_size = 0, ret;
+	int max_msg_size = 0;
+	int ret = 0;
 
 	for (const auto &subscription : _subscriptions) {
 		//use o_size, because that's what orb_copy will use
@@ -881,7 +896,7 @@ void Logger::run()
 
 	max_msg_size += sizeof(ulog_message_data_header_s);
 
-	if (sizeof(ulog_message_logging_s) > max_msg_size) {
+	if (sizeof(ulog_message_logging_s) > (size_t)max_msg_size) {
 		max_msg_size = sizeof(ulog_message_logging_s);
 	}
 
@@ -923,12 +938,11 @@ void Logger::run()
 	}
 
 	/* init the update timer */
-	struct hrt_call timer_call;
-	memset(&timer_call, 0, sizeof(hrt_call));
-	px4_sem_t timer_semaphore;
-	px4_sem_init(&timer_semaphore, 0, 0);
+	struct hrt_call timer_call{};
+	timer_callback_data_s timer_callback_data;
+	px4_sem_init(&timer_callback_data.semaphore, 0, 0);
 	/* timer_semaphore use case is a signal */
-	px4_sem_setprotocol(&timer_semaphore, SEM_PRIO_NONE);
+	px4_sem_setprotocol(&timer_callback_data.semaphore, SEM_PRIO_NONE);
 
 	int polling_topic_sub = -1;
 
@@ -940,7 +954,18 @@ void Logger::run()
 		}
 
 	} else {
-		hrt_call_every(&timer_call, _log_interval, _log_interval, timer_callback, &timer_semaphore);
+
+		if (_writer.backend() & LogWriter::BackendFile) {
+
+			const pid_t pid_self = getpid();
+			const pthread_t writer_thread = _writer.thread_id_file();
+
+			// sched_note_start is already called from pthread_create and task_create,
+			// which means we can expect to find the tasks in system_load.tasks, as required in watchdog_initialize
+			watchdog_initialize(pid_self, writer_thread, timer_callback_data.watchdog_data);
+		}
+
+		hrt_call_every(&timer_call, _log_interval, _log_interval, timer_callback, &timer_callback_data);
 	}
 
 	// check for new subscription data
@@ -977,7 +1002,7 @@ void Logger::run()
 
 				} else {
 					// delayed stop: we measure the process loads and then stop
-					initialize_load_output();
+					initialize_load_output(PrintLoadReason::Postflight);
 					_should_stop_file_log = true;
 				}
 			}
@@ -1016,6 +1041,11 @@ void Logger::run()
 		}
 
 
+		if (timer_callback_data.watchdog_triggered) {
+			timer_callback_data.watchdog_triggered = false;
+			initialize_load_output(PrintLoadReason::Watchdog);
+		}
+
 
 		const hrt_abstime loop_time = hrt_absolute_time();
 
@@ -1027,12 +1057,12 @@ void Logger::run()
 
 				if (_should_stop_file_log) {
 					_should_stop_file_log = false;
-					write_load_output(false);
+					write_load_output();
 					stop_log_file();
 					continue; // skip to next loop iteration
 
 				} else {
-					write_load_output(true);
+					write_load_output();
 				}
 			}
 
@@ -1128,7 +1158,7 @@ void Logger::run()
 
 			/* subscription update */
 			if (next_subscribe_topic_index != -1) {
-				if (++next_subscribe_topic_index >= _subscriptions.size()) {
+				if (++next_subscribe_topic_index >= (int)_subscriptions.size()) {
 					next_subscribe_topic_index = -1;
 					next_subscribe_check = loop_time + TRY_SUBSCRIBE_INTERVAL;
 				}
@@ -1166,7 +1196,7 @@ void Logger::run()
 						try_to_subscribe_topic(_subscriptions[next_subscribe_topic_index], instance);
 					}
 				}
-				if (++next_subscribe_topic_index >= _subscriptions.size()) {
+				if (++next_subscribe_topic_index >= (int)_subscriptions.size()) {
 					next_subscribe_topic_index = -1;
 					next_subscribe_check = loop_time + TRY_SUBSCRIBE_INTERVAL;
 				}
@@ -1201,14 +1231,14 @@ void Logger::run()
 			 * And on linux this is quite accurate as well, but under NuttX it is not accurate,
 			 * because usleep() has only a granularity of CONFIG_MSEC_PER_TICK (=1ms).
 			 */
-			while (px4_sem_wait(&timer_semaphore) != 0);
+			while (px4_sem_wait(&timer_callback_data.semaphore) != 0);
 		}
 	}
 
 	stop_log_file();
 
 	hrt_cancel(&timer_call);
-	px4_sem_destroy(&timer_semaphore);
+	px4_sem_destroy(&timer_callback_data.semaphore);
 
 	// stop the writer thread
 	_writer.thread_stop();
@@ -1277,7 +1307,7 @@ int Logger::create_log_dir(tm *tt)
 	if (tt) {
 		int n = snprintf(_log_dir, sizeof(_log_dir), "%s/", LOG_ROOT);
 
-		if (n >= sizeof(_log_dir)) {
+		if (n >= (int)sizeof(_log_dir)) {
 			PX4_ERR("log path too long");
 			return -1;
 		}
@@ -1298,7 +1328,7 @@ int Logger::create_log_dir(tm *tt)
 			/* format log dir: e.g. /fs/microsd/sess001 */
 			int n = snprintf(_log_dir, sizeof(_log_dir), "%s/sess%03u", LOG_ROOT, dir_number);
 
-			if (n >= sizeof(_log_dir)) {
+			if (n >= (int)sizeof(_log_dir)) {
 				PX4_ERR("log path too long (%i)", n);
 				return -1;
 			}
@@ -1483,7 +1513,7 @@ void Logger::start_log_file()
 
 	_start_time_file = hrt_absolute_time();
 
-	initialize_load_output();
+	initialize_load_output(PrintLoadReason::Preflight);
 }
 
 void Logger::stop_log_file()
@@ -1519,7 +1549,7 @@ void Logger::start_log_mavlink()
 	_writer.unselect_write_backend();
 	_writer.notify();
 
-	initialize_load_output();
+	initialize_load_output(PrintLoadReason::Preflight);
 }
 
 void Logger::stop_log_mavlink()
@@ -1577,18 +1607,26 @@ void Logger::print_load_callback(void *user)
 		return;
 	}
 
-	if (callback_data->preflight) {
-		perf_name = "perf_top_preflight";
-
-	} else {
-		perf_name = "perf_top_postflight";
+	switch (callback_data->logger->_print_load_reason) {
+		case PrintLoadReason::Preflight:
+			perf_name = "perf_top_preflight";
+			break;
+		case PrintLoadReason::Postflight:
+			perf_name = "perf_top_postflight";
+			break;
+		case PrintLoadReason::Watchdog:
+			perf_name = "perf_top_watchdog";
+			break;
+		default:
+			perf_name = "perf_top";
+			break;
 	}
 
 	callback_data->logger->write_info_multiple(perf_name, callback_data->buffer, callback_data->counter != 0);
 	++callback_data->counter;
 }
 
-void Logger::initialize_load_output()
+void Logger::initialize_load_output(PrintLoadReason reason)
 {
 	perf_callback_data_t callback_data;
 	callback_data.logger = this;
@@ -1600,16 +1638,19 @@ void Logger::initialize_load_output()
 	// this will not yet print anything
 	print_load_buffer(curr_time, buffer, sizeof(buffer), print_load_callback, &callback_data, &_load);
 	_next_load_print = curr_time + 1000000;
+	_print_load_reason = reason;
 }
 
-void Logger::write_load_output(bool preflight)
+void Logger::write_load_output()
 {
+	if (_print_load_reason == PrintLoadReason::Watchdog) {
+		PX4_ERR("Writing watchdog data"); // this is just that we see it easily in the log
+	}
 	perf_callback_data_t callback_data = {};
 	char buffer[140];
 	callback_data.logger = this;
 	callback_data.counter = 0;
 	callback_data.buffer = buffer;
-	callback_data.preflight = preflight;
 	hrt_abstime curr_time = hrt_absolute_time();
 	_writer.set_need_reliable_transfer(true);
 	// TODO: maybe we should restrict the output to a selected backend (eg. when file logging is running
@@ -1821,6 +1862,12 @@ void Logger::write_version()
 	write_info("sys_os_ver_release", px4_os_version());
 	write_info("sys_toolchain", px4_toolchain_name());
 	write_info("sys_toolchain_ver", px4_toolchain_version());
+
+	const char* ecl_version = px4_ecl_lib_version_string();
+
+	if (ecl_version && ecl_version[0]) {
+		write_info("sys_lib_ecl_ver", ecl_version);
+	}
 
 	char revision = 'U';
 	const char *chip_name = nullptr;
@@ -2073,7 +2120,7 @@ int Logger::check_free_space()
 
 
 		uint64_t min_free_bytes = 300ULL * 1024ULL * 1024ULL;
-		uint64_t total_bytes = statfs_buf.f_blocks * statfs_buf.f_bsize / 10;
+		uint64_t total_bytes = (uint64_t)statfs_buf.f_blocks * statfs_buf.f_bsize;
 
 		if (total_bytes / 10 < min_free_bytes) { // reduce the minimum if it's larger than 10% of the disk size
 			min_free_bytes = total_bytes / 10;
@@ -2099,13 +2146,13 @@ int Logger::check_free_space()
 				     day_min);
 		}
 
-		if (n >= sizeof(directory_to_delete)) {
+		if (n >= (int)sizeof(directory_to_delete)) {
 			PX4_ERR("log path too long (%i)", n);
 			break;
 		}
 
 		PX4_INFO("removing log directory %s to get more space (left=%u MiB)", directory_to_delete,
-			 (unsigned int)(statfs_buf.f_bavail / 1024U * statfs_buf.f_bsize / 1024U));
+			 (unsigned int)(statfs_buf.f_bavail * statfs_buf.f_bsize / 1024U / 1024U));
 
 		if (remove_directory(directory_to_delete)) {
 			PX4_ERR("Failed to delete directory");
@@ -2119,7 +2166,7 @@ int Logger::check_free_space()
 	if (statfs_buf.f_bavail < (px4_statfs_buf_f_bavail_t)(50 * 1024 * 1024 / statfs_buf.f_bsize)) {
 		mavlink_log_critical(&_mavlink_log_pub,
 				     "[logger] Not logging; SD almost full: %u MiB",
-				     (unsigned int)(statfs_buf.f_bavail / 1024U * statfs_buf.f_bsize / 1024U));
+				     (unsigned int)(statfs_buf.f_bavail * statfs_buf.f_bsize / 1024U / 1024U));
 		return 1;
 	}
 

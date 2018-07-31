@@ -66,7 +66,6 @@
 #include <drivers/device/ringbuffer.h>
 
 #include <uORB/uORB.h>
-#include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/distance_sensor.h>
 
 #include "sf0x_parser.h"
@@ -106,7 +105,7 @@ private:
 	uint8_t _rotation;
 	float				_min_distance;
 	float				_max_distance;
-	int                 _conversion_interval;
+	int         		        _conversion_interval;
 	work_s				_work;
 	ringbuffer::RingBuffer		*_reports;
 	int				_measure_ticks;
@@ -420,7 +419,7 @@ SF0X::ioctl(device::file_t *filp, int cmd, unsigned long arg)
 					bool want_start = (_measure_ticks == 0);
 
 					/* convert hz to tick interval via microseconds */
-					unsigned ticks = USEC2TICK(1000000 / arg);
+					int ticks = USEC2TICK(1000000 / arg);
 
 					/* check against maximum rate */
 					if (ticks < USEC2TICK(_conversion_interval)) {
@@ -565,7 +564,7 @@ SF0X::collect()
 	perf_begin(_sample_perf);
 
 	/* clear buffer if last read was too long ago */
-	uint64_t read_elapsed = hrt_elapsed_time(&_last_read);
+	int64_t read_elapsed = hrt_elapsed_time(&_last_read);
 
 	/* the buffer for read chars is buflen minus null termination */
 	char readbuf[sizeof(_linebuf)];
@@ -617,6 +616,7 @@ SF0X::collect()
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
 	report.covariance = 0.0f;
+	report.signal_quality = -1;
 	/* TODO: set proper ID */
 	report.id = 0;
 
@@ -644,21 +644,6 @@ SF0X::start()
 	/* schedule a cycle to start things */
 	work_queue(HPWORK, &_work, (worker_t)&SF0X::cycle_trampoline, this, 1);
 
-	// /* notify about state change */
-	// struct subsystem_info_s info = {
-	// 	true,
-	// 	true,
-	// 	true,
-	// 	SUBSYSTEM_TYPE_RANGEFINDER
-	// };
-	// static orb_advert_t pub = -1;
-
-	// if (pub > 0) {
-	// 	orb_publish(ORB_ID(subsystem_info), pub, &info);
-
-	// } else {
-	// 	pub = orb_advertise(ORB_ID(subsystem_info), &info);
-	// }
 }
 
 void
@@ -947,23 +932,25 @@ info()
 int
 sf0x_main(int argc, char *argv[])
 {
-	// check for optional arguments
 	int ch;
 	uint8_t rotation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
 	int myoptind = 1;
 	const char *myoptarg = nullptr;
 
-
 	while ((ch = px4_getopt(argc, argv, "R:", &myoptind, &myoptarg)) != EOF) {
 		switch (ch) {
 		case 'R':
 			rotation = (uint8_t)atoi(myoptarg);
-			PX4_INFO("Setting distance sensor orientation to %d", (int)rotation);
 			break;
 
 		default:
 			PX4_WARN("Unknown option!");
+			return -1;
 		}
+	}
+
+	if (myoptind >= argc) {
+		goto out_error;
 	}
 
 	/*
@@ -1002,10 +989,11 @@ sf0x_main(int argc, char *argv[])
 	/*
 	 * Print driver information.
 	 */
-	if (!strcmp(argv[myoptind], "info") || !strcmp(argv[1], "status")) {
+	if (!strcmp(argv[myoptind], "info") || !strcmp(argv[myoptind], "status")) {
 		sf0x::info();
 	}
 
+out_error:
 	PX4_ERR("unrecognized command, try 'start', 'test', 'reset' or 'info'");
-	return PX4_ERROR;
+	return -1;
 }

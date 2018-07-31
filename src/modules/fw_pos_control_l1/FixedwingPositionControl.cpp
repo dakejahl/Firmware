@@ -372,16 +372,21 @@ FixedwingPositionControl::manual_control_setpoint_poll()
 void
 FixedwingPositionControl::airspeed_poll()
 {
-	if (!_parameters.airspeed_disabled && _sub_airspeed.updated()) {
-		_sub_airspeed.update();
-		_airspeed_valid = PX4_ISFINITE(_sub_airspeed.get().indicated_airspeed_m_s)
-				  && PX4_ISFINITE(_sub_airspeed.get().true_airspeed_m_s);
-		_airspeed_last_received = hrt_absolute_time();
-		_airspeed = _sub_airspeed.get().indicated_airspeed_m_s;
+	if (!_parameters.airspeed_disabled && _sub_airspeed.update()) {
 
-		if (_sub_airspeed.get().indicated_airspeed_m_s > 0.0f
-		    && _sub_airspeed.get().true_airspeed_m_s > _sub_airspeed.get().indicated_airspeed_m_s) {
-			_eas2tas = max(_sub_airspeed.get().true_airspeed_m_s / _sub_airspeed.get().indicated_airspeed_m_s, 1.0f);
+		const airspeed_s &airspeed = _sub_airspeed.get();
+
+		_airspeed_valid = PX4_ISFINITE(airspeed.indicated_airspeed_m_s)
+				  && PX4_ISFINITE(airspeed.true_airspeed_m_s)
+				  && (airspeed.indicated_airspeed_m_s > 0.0f);
+
+		_airspeed_last_received = hrt_absolute_time();
+		_airspeed = airspeed.indicated_airspeed_m_s;
+
+		if (_airspeed_valid
+		    && airspeed.true_airspeed_m_s > airspeed.indicated_airspeed_m_s) {
+
+			_eas2tas = max(airspeed.true_airspeed_m_s / airspeed.indicated_airspeed_m_s, 1.0f);
 
 		} else {
 			_eas2tas = 1.0f;
@@ -510,7 +515,7 @@ FixedwingPositionControl::calculate_gndspeed_undershoot(const Vector2f &curr_pos
 			delta_altitude = pos_sp_curr.alt - pos_sp_prev.alt;
 
 		} else {
-			distance = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), pos_sp_curr.lat, pos_sp_curr.lon);
+			distance = get_distance_to_next_waypoint((double)curr_pos(0), (double)curr_pos(1), pos_sp_curr.lat, pos_sp_curr.lon);
 			delta_altitude = pos_sp_curr.alt - _global_pos.alt;
 		}
 
@@ -704,7 +709,7 @@ FixedwingPositionControl::control_position(const Vector2f &curr_pos, const Vecto
 	bool setpoint = true;
 
 	_att_sp.fw_control_yaw = false;		// by default we don't want yaw to be contoller directly with rudder
-	_att_sp.apply_flaps = false;		// by default we don't use flaps
+	_att_sp.apply_flaps = vehicle_attitude_setpoint_s::FLAPS_OFF;		// by default we don't use flaps
 
 	calculate_gndspeed_undershoot(curr_pos, ground_speed, pos_sp_prev, pos_sp_curr);
 
@@ -1137,6 +1142,10 @@ FixedwingPositionControl::control_takeoff(const Vector2f &curr_pos, const Vector
 		prev_wp(1) = (float)pos_sp_curr.lon;
 	}
 
+	// apply flaps for takeoff according to the corresponding scale factor set
+	// via FW_FLAPS_TO_SCL
+	_att_sp.apply_flaps = vehicle_attitude_setpoint_s::FLAPS_TAKEOFF;
+
 	// continuously reset launch detection and runway takeoff until armed
 	if (!_control_mode.flag_armed) {
 		_launchDetector.reset();
@@ -1305,7 +1314,7 @@ FixedwingPositionControl::control_landing(const Vector2f &curr_pos, const Vector
 
 	// apply full flaps for landings. this flag will also trigger the use of flaperons
 	// if they have been enabled using the corresponding parameter
-	_att_sp.apply_flaps = true;
+	_att_sp.apply_flaps = vehicle_attitude_setpoint_s::FLAPS_LAND;
 
 	// save time at which we started landing and reset abort_landing
 	if (_time_started_landing == 0) {
@@ -1314,17 +1323,20 @@ FixedwingPositionControl::control_landing(const Vector2f &curr_pos, const Vector
 		_fw_pos_ctrl_status.abort_landing = false;
 	}
 
-	const float bearing_airplane_currwp = get_bearing_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
+	const float bearing_airplane_currwp = get_bearing_to_next_waypoint((double)curr_pos(0), (double)curr_pos(1),
+					      (double)curr_wp(0), (double)curr_wp(1));
 
 	float bearing_lastwp_currwp = bearing_airplane_currwp;
 
 	if (pos_sp_prev.valid) {
-		bearing_lastwp_currwp = get_bearing_to_next_waypoint(prev_wp(0), prev_wp(1), curr_wp(0), curr_wp(1));
+		bearing_lastwp_currwp = get_bearing_to_next_waypoint((double)prev_wp(0), (double)prev_wp(1), (double)curr_wp(0),
+					(double)curr_wp(1));
 	}
 
 	/* Horizontal landing control */
 	/* switch to heading hold for the last meters, continue heading hold after */
-	float wp_distance = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
+	float wp_distance = get_distance_to_next_waypoint((double)curr_pos(0), (double)curr_pos(1), (double)curr_wp(0),
+			    (double)curr_wp(1));
 
 	/* calculate a waypoint distance value which is 0 when the aircraft is behind the waypoint */
 	float wp_distance_save = wp_distance;
@@ -1478,20 +1490,21 @@ FixedwingPositionControl::control_landing(const Vector2f &curr_pos, const Vector
 
 		if (!_land_noreturn_vertical) {
 			// just started with the flaring phase
-			_att_sp.pitch_body = 0.0f;
+			_flare_pitch_sp = 0.0f;
 			_flare_height = _global_pos.alt - terrain_alt;
 			mavlink_log_info(&_mavlink_log_pub, "Landing, flaring");
 			_land_noreturn_vertical = true;
 
 		} else {
 			if (_global_pos.vel_d > 0.1f) {
-				_att_sp.pitch_body = radians(_parameters.land_flare_pitch_min_deg) *
-						     constrain((_flare_height - (_global_pos.alt - terrain_alt)) / _flare_height, 0.0f, 1.0f);
+				_flare_pitch_sp = radians(_parameters.land_flare_pitch_min_deg) *
+						  constrain((_flare_height - (_global_pos.alt - terrain_alt)) / _flare_height, 0.0f, 1.0f);
 			}
 
-			// otherwise continue using previous _att_sp.pitch_body
+			// otherwise continue using previous _flare_pitch_sp
 		}
 
+		_att_sp.pitch_body = _flare_pitch_sp;
 		_flare_curve_alt_rel_last = flare_curve_alt_rel;
 
 	} else {
@@ -1599,20 +1612,8 @@ FixedwingPositionControl::run()
 	_manual_control_sub = orb_subscribe(ORB_ID(manual_control_setpoint));
 	_sensor_baro_sub = orb_subscribe(ORB_ID(sensor_baro));
 
-	/* rate limit control mode updates to 5Hz */
-	orb_set_interval(_control_mode_sub, 200);
-
-	/* rate limit vehicle status updates to 5Hz */
-	orb_set_interval(_vehicle_status_sub, 200);
-
-	/* rate limit vehicle land detected updates to 5Hz */
-	orb_set_interval(_vehicle_land_detected_sub, 200);
-
 	/* rate limit position updates to 50 Hz */
 	orb_set_interval(_global_pos_sub, 20);
-
-	/* rate limit barometer updates to 1 Hz */
-	orb_set_interval(_sensor_baro_sub, 1000);
 
 	/* abort on a nonzero return value from the parameter init */
 	if (parameters_update() != PX4_OK) {
@@ -1754,7 +1755,8 @@ FixedwingPositionControl::run()
 
 					Vector2f curr_wp((float)_pos_sp_triplet.current.lat, (float)_pos_sp_triplet.current.lon);
 
-					_fw_pos_ctrl_status.wp_dist = get_distance_to_next_waypoint(curr_pos(0), curr_pos(1), curr_wp(0), curr_wp(1));
+					_fw_pos_ctrl_status.wp_dist = get_distance_to_next_waypoint((double)curr_pos(0), (double)curr_pos(1),
+								      (double)curr_wp(0), (double)curr_wp(1));
 
 					fw_pos_ctrl_status_publish();
 				}

@@ -3,7 +3,7 @@
 # Standard startup script for sensor drivers.
 #
 
-if ver hwcmp AEROFC_V1
+if ver hwcmp AEROFC_V1 OMNIBUS_F4SD
 then
 	# Aero FC uses separate driver
 else
@@ -181,12 +181,12 @@ fi
 if ver hwcmp PX4FMU_V4
 then
 	# External I2C bus
-	hmc5883 -C -T -X start
+	#hmc5883 -C -T -X start
 	#lis3mdl -X -R 6 start
-	bmp280 -I start
+	#bmp280 -I start
 
 	# expansion i2c used for BMM150 rotated by 90deg
-	bmm150 -R 2 start
+	#bmm150 -R 2 start
 
 	# if hmc5883 -C -T -S -R 2 start
 	# then
@@ -237,7 +237,8 @@ then
 	then
 		# Start the smart battery
 		param set BAT_SOURCE 1
-		batt_smbus start
+		batt_smbus -X start
+		sh /etc/init.d/rc.battery_setup
 		param set CAL_ACC0_EN 1
 		param set CAL_ACC1_EN 0
 		param set CAL_GYRO0_EN 1
@@ -283,6 +284,11 @@ then
 
 	# I2C bypass of mpu
 	lps25h start
+
+	# Optical flow deck
+	vl53lxx start
+	pmw3901 start
+
 fi
 
 if ver hwcmp AEROFC_V1
@@ -296,6 +302,18 @@ then
 	ist8310 -C -b 1 -R 4 start
 	aerofc_adc start
 	ll40ls start i2c
+fi
+
+if ver hwcmp OMNIBUS_F4SD
+then
+	mpu6000 -R 12 -s start
+
+	# Possible external compasses
+	hmc5883 -X start
+
+	bmp280 start
+
+	adc start
 fi
 
 if ver hwcmp PX4FMU_V4PRO
@@ -343,6 +361,19 @@ then
 	ist8310 -C -b 5 start
 fi
 
+if ver hwcmp AV_X_V1
+then
+	adis16477 -R 8 start
+
+	#adis16497 start
+
+	lps22hb start
+
+	lsm303agr -R 4 start
+
+	#ms4525_airspeed start
+fi
+
 if ver hwcmp AEROCORE2
 then
 	l3gd20 -R 12 start
@@ -357,11 +388,7 @@ if [ ${VEHICLE_TYPE} == fw -o ${VEHICLE_TYPE} == vtol ]
 then
 	if param compare CBRK_AIRSPD_CHK 0
 	then
-		if sdp3x_airspeed start
-		then
-		else
-			sdp3x_airspeed start -b 2
-		fi
+		sdp3x_airspeed start -a
 
 		# Pixhawk 2.1 has a MS5611 on I2C which gets wrongly
 		# detected as MS5525 because the chip manufacturer was so
@@ -371,20 +398,13 @@ then
 		then
 			ms5525_airspeed start -b 2
 		else
-			ms5525_airspeed start
+			ms5525_airspeed start -a
 		fi
 
-		if ms4525_airspeed start
-		then
-		else
-			ms4525_airspeed start -b 2
-		fi
+		ms4525_airspeed start -a
 
-		if ets_airspeed start
-		then
-		else
-			ets_airspeed start -b 1
-		fi
+		ets_airspeed start -a
+
 	fi
 fi
 
@@ -412,19 +432,19 @@ fi
 # lightware i2c lidar sensor
 if param greater SENS_EN_SF1XX 0
 then
-	sf1xx start
+	sf1xx start -a
 fi
 
 # mb12xx sonar sensor
 if param greater SENS_EN_MB12XX 0
 then
-	mb12xx start
+	mb12xx start -a
 fi
 
 # teraranger one tof sensor
 if param greater SENS_EN_TRANGER 0
 then
-	teraranger start
+	teraranger start -a
 fi
 
 # pga460 sonar sensor
