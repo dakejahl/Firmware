@@ -54,6 +54,16 @@ echo "Wrote smart battery param - CUV Delay"
 batt_smbus -X write_flash 18751 2 184 11
 echo "Wrote smart battery param - CUV Recovery"
 
+# "Protections","CUVC","Threshold"
+batt_smbus -X write_flash 18753 2 96 9
+echo "Wrote smart battery param - CUV Threshold"
+# "Protections","CUVC","Delay"
+batt_smbus -X write_flash 18755 1 2
+echo "Wrote smart battery param - CUV Delay"
+# "Protections","CUVC","Recovery"
+batt_smbus -X write_flash 18756 2 184 11
+echo "Wrote smart battery param - CUV Recovery"
+
 # "Protections","COV","Threshold Low Temp"
 batt_smbus -X write_flash 18758 2 204 16
 echo "Wrote smart battery param - COV Threshold Low Temp"
