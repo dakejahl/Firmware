@@ -1,7 +1,7 @@
 #!nsh
 #
 # Startup script for writing battery parameters for BQ40Z50 SMBus smart battery
-# Note that data values for write_flash are signed ints
+# Note that data values for write_flash are signed integers
 #
 usleep 100000
 
