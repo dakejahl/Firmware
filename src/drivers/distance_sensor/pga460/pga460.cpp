@@ -346,6 +346,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.max_distance = get_maximum_distance();
 	report.id = 0;
 	report.covariance = 0;
+	report.signal_quality = 0;
 
 	bool data_is_valid = false;
 	static uint8_t good_data_counter = 0;
@@ -382,6 +383,7 @@ void PGA460::uORB_publish_results(const float &object_distance)
 
 	if (data_is_valid) {
 		_previous_valid_report = report;
+		report.signal_quality = 1;
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 	}
 }
