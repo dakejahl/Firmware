@@ -240,7 +240,7 @@ void usage(const char *reason)
 Smart battery driver for the BQ40Z50 fuel gauge IC.
 
 ### Examples
-To write to flash to set parameters. In this example 19069 is the address, 2 is the number of bytes to send, 27 is the first byte and 0 is the second byte.
+To write to flash to set parameters. address, number_of_bytes, byte0, ... , byteN
 $ batt_smbus -X write_flash 19069 2 27 0
 
 )DESCR_STR");
