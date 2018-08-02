@@ -432,6 +432,7 @@ PARAM_DEFINE_FLOAT(EKF2_BETA_NOISE, 0.3f);
  * Magnetic declination
  *
  * @group EKF2
+ * @volatile
  * @unit deg
  * @decimal 1
  */
@@ -1074,11 +1075,13 @@ PARAM_DEFINE_FLOAT(EKF2_MAGB_K, 0.2f);
  * If this parameter is enabled then the estimator will make use of the range finder measurements
  * to estimate it's height even if range sensor is not the primary height source. It will only do so if conditions
  * for range measurement fusion are met. This enables the range finder to be used during low speed and low altitude
- * operation. Speed and height criteria are controlled by EKF2_RNG_A_VMAX and EKF2_RNG_A_HMAX.
- * It should not be used for terrain following. It is intended to be used where a vertical takeoff and landing
- * is performed, and horizontal flight does not occur until above EKF2_RNG_A_HMAX. If vehicle motion causes
- * repeated switvhing between the rimary height sensor and range finder, an offset in the local position origin
- * can accumulate. For terrain following, it is recommended to use the MPC_ALT_MODE parameter instead.
+ * operation, eg takeoff and landing, where baro interference from rotor wash is excessive and can corrupt EKF state
+ * estimates. It is intended to be used where a vertical takeoff and landing is performed, and horizontal flight does
+ * not occur until above EKF2_RNG_A_HMAX. If vehicle motion causes repeated switching between the primary height
+ * sensor and range finder, an offset in the local position origin can accumulate. Also range finder measurements
+ * are less reliable and can experience unexpected errors. For these reasons, if accurate control of height
+ * relative to ground is required, it is recommended to use the MPC_ALT_MODE parameter instead, unless baro errors
+ * are severe enough to cause problems with landing and takeoff.
  *
  * @group EKF2
  * @value 0 Range aid disabled
@@ -1266,3 +1269,34 @@ PARAM_DEFINE_FLOAT(EKF2_ABL_GYRLIM, 3.0f);
  * @decimal 2
  */
 PARAM_DEFINE_FLOAT(EKF2_ABL_TAU, 0.5f);
+
+/**
+ * Multi GPS Blending Control Mask.
+ *
+ * Set bits in the following positions to set which GPS accuracy metrics will be used to calculate the blending weight. Set to zero to disable and always used first GPS instance.
+ * 0 : Set to true to use speed accuracy
+ * 1 : Set to true to use horizontal position accuracy
+ * 2 : Set to true to use vertical position accuracy
+ *
+ * @group EKF2
+ * @min 0
+ * @max 7
+ * @bit 0 use speed accuracy
+ * @bit 1 use hpos accuracy
+ * @bit 2 use vpos accuracy
+ */
+PARAM_DEFINE_INT32(EKF2_GPS_MASK, 0);
+
+/**
+ * Multi GPS Blending Time Constant
+ *
+ * Sets the longest time constant that will be applied to the calculation of GPS position and height offsets used to correct data from multiple GPS data for steady state position differences.
+ *
+ *
+ * @group EKF2
+ * @min 1.0
+ * @max 100.0
+ * @unit s
+ * @decimal 1
+ */
+PARAM_DEFINE_FLOAT(EKF2_GPS_TAU, 10.0f);

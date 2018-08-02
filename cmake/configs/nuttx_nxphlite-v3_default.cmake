@@ -32,6 +32,7 @@ set(config_module_list
 	drivers/pwm_out_sim
 	drivers/px4flow
 	drivers/px4fmu
+	drivers/rc_input
 	drivers/rgbled
 	drivers/rgbled_pwm
 	drivers/tap_esc
@@ -71,7 +72,6 @@ set(config_module_list
 	modules/commander/commander_tests
 	lib/controllib/controllib_test
 	modules/mavlink/mavlink_tests
-	modules/mc_pos_control/mc_pos_control_tests
 	modules/uORB/uORB_tests
 	systemcmds/tests
 

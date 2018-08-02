@@ -1,6 +1,7 @@
 #!nsh
 #
 # Startup script for writing battery parameters for BQ40Z50 SMBus smart battery
+# Note that data values for write_flash are signed integers
 #
 usleep 100000
 
@@ -44,23 +45,39 @@ echo "Wrote smart battery param - Specification Information"
 
 
 # "Protections","CUV","Threshold"
-batt_smbus -X write_flash 18748 2 84 11
+batt_smbus -X write_flash 18748 2 196 9
 echo "Wrote smart battery param - CUV Threshold"
+# "Protections","CUV","Delay"
+batt_smbus -X write_flash 18750 1 2
+echo "Wrote smart battery param - CUV Delay"
+# "Protections","CUV","Recovery"
+batt_smbus -X write_flash 18751 2 184 11
+echo "Wrote smart battery param - CUV Recovery"
+
+# "Protections","CUVC","Threshold"
+batt_smbus -X write_flash 18753 2 96 9
+echo "Wrote smart battery param - CUV Threshold"
+# "Protections","CUVC","Delay"
+batt_smbus -X write_flash 18755 1 2
+echo "Wrote smart battery param - CUV Delay"
+# "Protections","CUVC","Recovery"
+batt_smbus -X write_flash 18756 2 184 11
+echo "Wrote smart battery param - CUV Recovery"
 
 # "Protections","COV","Threshold Low Temp"
-batt_smbus -X write_flash 18758 2 -77 16
+batt_smbus -X write_flash 18758 2 204 16
 echo "Wrote smart battery param - COV Threshold Low Temp"
 # "Protections","COV","Threshold Standard Temp Low"
-batt_smbus -X write_flash 18760 2 -77 16
+batt_smbus -X write_flash 18760 2 204 16
 echo "Wrote smart battery param - COV Threshold Standard Temp Low"
 # "Protections","COV","Threshold Standard Temp High"
-batt_smbus -X write_flash 18762 2 -77 16
+batt_smbus -X write_flash 18762 2 204 16
 echo "Wrote smart battery param - COV Threshold Standard Temp High"
 # "Protections","COV","Threshold High Temp"
-batt_smbus -X write_flash 18764 2 -77 16
+batt_smbus -X write_flash 18764 2 204 16
 echo "Wrote smart battery param - COV Threshold High Temp"
 # "Protections","COV","Threshold Rec Temp"
-batt_smbus -X write_flash 18766 2 -77 16
+batt_smbus -X write_flash 18766 2 204 16
 echo "Wrote smart battery param - COV Threshold Rec Temp"
 
 # "Protections","AOLD","Latch Limit"
@@ -111,10 +128,10 @@ echo "Wrote smart battery param - OTD Recovery"
 
 
 # "Gas Gauging","IT Cfg","Term Min Cell V"
-batt_smbus -X write_flash 18511 2 -128 12
+batt_smbus -X write_flash 18511 2 240 10
 echo "Wrote smart battery param - Term Min Cell V"
 # "Gas Gauging","IT Cfg","Term Voltage"
-batt_smbus -X write_flash 18506 2 0 50
+batt_smbus -X write_flash 18506 2 40 35
 echo "Wrote smart battery param - Term Voltage"
 # "Gas Gauging","Current Thresholds","Chg Current Threshold"
 batt_smbus -X write_flash 19083 2 44 1

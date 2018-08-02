@@ -64,12 +64,14 @@
 #include <replay/definitions.hpp>
 #include <version/version.h>
 
-#ifdef __PX4_DARWIN
+#if defined(__PX4_DARWIN)
 #include <sys/param.h>
 #include <sys/mount.h>
 #else
 #include <sys/statfs.h>
 #endif
+
+typedef decltype(statfs::f_bavail) px4_statfs_buf_f_bavail_t;
 
 #define GPS_EPOCH_SECS ((time_t)1234567890ULL)
 
@@ -687,6 +689,7 @@ void Logger::add_estimator_replay_topics()
 {
 	// for estimator replay (need to be at full rate)
 	add_topic("ekf2_timestamps");
+	add_topic("ekf_gps_position");
 
 	// current EKF2 subscriptions
 	add_topic("airspeed");
@@ -2227,25 +2230,18 @@ int Logger::remove_directory(const char *dir)
 
 void Logger::ack_vehicle_command(orb_advert_t &vehicle_command_ack_pub, vehicle_command_s *cmd, uint32_t result)
 {
-	vehicle_command_ack_s vehicle_command_ack = {
-		.timestamp = hrt_absolute_time(),
-		.result_param2 = 0,
-		.command = cmd->command,
-		.result = (uint8_t)result,
-		.from_external = false,
-		.result_param1 = 0,
-		.target_system = cmd->source_system,
-		.target_component = cmd->source_component
-	};
+	vehicle_command_ack_s vehicle_command_ack = {};
+	vehicle_command_ack.timestamp = hrt_absolute_time();
+	vehicle_command_ack.command = cmd->command;
+	vehicle_command_ack.result = (uint8_t)result;
+	vehicle_command_ack.target_system = cmd->source_system;
+	vehicle_command_ack.target_component = cmd->source_component;
 
 	if (vehicle_command_ack_pub == nullptr) {
-		vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack,
-					  vehicle_command_ack_s::ORB_QUEUE_LENGTH);
-
+		vehicle_command_ack_pub = orb_advertise_queue(ORB_ID(vehicle_command_ack), &vehicle_command_ack, vehicle_command_ack_s::ORB_QUEUE_LENGTH);
 	} else {
 		orb_publish(ORB_ID(vehicle_command_ack), vehicle_command_ack_pub, &vehicle_command_ack);
 	}
-
 }
 
 } // namespace logger

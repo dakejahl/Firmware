@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,13 +30,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-px4_add_module(
-	MODULE modules__mc_pos_control__mc_pos_control_tests
-	MAIN mc_pos_control_tests
-	SRCS
-		mc_pos_control_tests.cpp
-		../mc_pos_control_main.cpp
-		test_controlmath.cpp
-		../Utility/ControlMath.cpp
-	DEPENDS
-	)
+
+px4_add_library(bezier
+		BezierQuad.cpp
+)

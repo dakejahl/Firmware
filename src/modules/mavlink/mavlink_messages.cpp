@@ -1547,7 +1547,7 @@ protected:
 
 			if (!(pos.flags & transponder_report_s::PX4_ADSB_FLAGS_RETRANSLATE)) { continue; }
 
-			msg.ICAO_address = pos.ICAO_address;
+			msg.ICAO_address = pos.icao_address;
 			msg.lat = pos.lat * 1e7;
 			msg.lon = pos.lon * 1e7;
 			msg.altitude_type = pos.altitude_type;
@@ -1720,25 +1720,24 @@ protected:
 
 				mavlink_msg_camera_trigger_send_struct(_mavlink->get_channel(), &msg);
 
-				struct vehicle_command_s cmd = {
-					.timestamp = 0,
-					.param5 = (double)NAN,
-					.param6 = (double)NAN,
-					.param1 = 0.0f, // all cameras
-					.param2 = 0.0f, // duration 0 because only taking one picture
-					.param3 = 1.0f, // only take one
-					.param4 = NAN,
-					.param7 = NAN,
-					.command = MAV_CMD_IMAGE_START_CAPTURE,
-					.target_system = mavlink_system.sysid,
-					.target_component = MAV_COMP_ID_CAMERA
-				};
+				vehicle_command_s vcmd = {};
+				vcmd.timestamp = hrt_absolute_time();
+				vcmd.param1 = 0.0f; // all cameras
+				vcmd.param2 = 0.0f; // duration 0 because only taking one picture
+				vcmd.param3 = 1.0f; // only take one
+				vcmd.param4 = NAN;
+				vcmd.param5 = (double)NAN;
+				vcmd.param6 = (double)NAN;
+				vcmd.param7 = NAN;
+				vcmd.command = MAV_CMD_IMAGE_START_CAPTURE;
+				vcmd.target_system = mavlink_system.sysid;
+				vcmd.target_component = MAV_COMP_ID_CAMERA;
 
-				MavlinkCommandSender::instance().handle_vehicle_command(cmd, _mavlink->get_channel());
+				MavlinkCommandSender::instance().handle_vehicle_command(vcmd, _mavlink->get_channel());
 
 				// TODO: move this camera_trigger and publish as a vehicle_command
 				/* send MAV_CMD_DO_DIGICAM_CONTROL*/
-				mavlink_command_long_t digicam_ctrl_cmd;
+				mavlink_command_long_t digicam_ctrl_cmd = {};
 
 				digicam_ctrl_cmd.target_system = 0; // 0 for broadcast
 				digicam_ctrl_cmd.target_component = MAV_COMP_ID_CAMERA;
@@ -2955,6 +2954,7 @@ protected:
 			msg.y = pos_sp.y;
 			msg.z = pos_sp.z;
 			msg.yaw = pos_sp.yaw;
+			msg.yaw_rate = pos_sp.yawspeed;
 			msg.vx = pos_sp.vx;
 			msg.vy = pos_sp.vy;
 			msg.vz = pos_sp.vz;
@@ -3686,8 +3686,8 @@ protected:
 			msg.target_bearing = (int16_t)math::degrees(_fw_pos_ctrl_status.target_bearing);
 			msg.wp_dist = (uint16_t)_fw_pos_ctrl_status.wp_dist;
 			msg.xtrack_error = _fw_pos_ctrl_status.xtrack_error;
-			msg.alt_error = _tecs_status.altitude_filtered - _tecs_status.altitudeSp;
-			msg.aspd_error = _tecs_status.airspeed_filtered - _tecs_status.airspeedSp;
+			msg.alt_error = _tecs_status.altitude_filtered - _tecs_status.altitude_sp;
+			msg.aspd_error = _tecs_status.airspeed_filtered - _tecs_status.airspeed_sp;
 
 			mavlink_msg_nav_controller_output_send_struct(_mavlink->get_channel(), &msg);
 

@@ -48,9 +48,8 @@ public:
 	FlightTaskManualStabilized() = default;
 
 	virtual ~FlightTaskManualStabilized() = default;
-
 	bool activate() override;
-
+	bool updateInitialize() override;
 	bool update() override;
 
 protected:
@@ -59,7 +58,6 @@ protected:
 	void _rotateIntoHeadingFrame(matrix::Vector2f &vec); /**< rotates vector into local frame */
 
 private:
-
 	void _updateHeadingSetpoints(); /**< sets yaw or yaw speed */
 	void _updateThrustSetpoints(); /**< sets thrust setpoint */
 	float _throttleCurve(); /**< piecewise linear mapping from stick to throttle */
@@ -69,7 +67,7 @@ private:
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskManual,
 					(ParamFloat<px4::params::MPC_MAN_Y_MAX>) _yaw_rate_scaling, /**< scaling factor from stick to yaw rate */
 					(ParamFloat<px4::params::MPC_MAN_TILT_MAX>) _tilt_max_man, /**< maximum tilt allowed for manual flight */
-					(ParamFloat<px4::params::MPC_THR_MIN>) _throttle_min, /**< minimum throttle that always has to be satisfied in flight*/
+					(ParamFloat<px4::params::MPC_MANTHR_MIN>) _throttle_min_stabilized, /**< minimum throttle for stabilized */
 					(ParamFloat<px4::params::MPC_THR_MAX>) _throttle_max, /**< maximum throttle that always has to be satisfied in flight*/
 					(ParamFloat<px4::params::MPC_THR_HOVER>) _throttle_hover /**< throttle value at which vehicle is at hover equilibrium */
 				       )

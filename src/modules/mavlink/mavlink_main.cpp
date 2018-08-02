@@ -523,9 +523,20 @@ Mavlink::forward_message(const mavlink_message_t *msg, Mavlink *self)
 		if (inst != self) {
 			const mavlink_msg_entry_t *meta = mavlink_get_msg_entry(msg->msgid);
 
-			// Extract target system and target component if set
-			int target_system_id = (meta->target_system_ofs != 0) ? ((uint8_t *)msg)[meta->target_system_ofs] : 0;
-			int target_component_id = (meta->target_component_ofs != 0) ? ((uint8_t *)msg)[meta->target_component_ofs] : 233;
+			int target_system_id = 0;
+			int target_component_id = 233;
+
+			// might be nullptr if message is unknown
+			if (meta) {
+				// Extract target system and target component if set
+				if (meta->target_system_ofs != 0) {
+					target_system_id = ((uint8_t *)msg)[meta->target_system_ofs];
+				}
+
+				if (meta->target_component_ofs != 0) {
+					target_component_id = ((uint8_t *)msg)[meta->target_component_ofs];
+				}
+			}
 
 			// Broadcast or addressing this system and not trying to talk
 			// to the autopilot component -> pass on to other components
@@ -1310,6 +1321,14 @@ void Mavlink::send_autopilot_capabilites()
 		board_get_uuid32(uid);
 		msg.uid = (((uint64_t)uid[PX4_CPU_UUID_WORD32_UNIQUE_M]) << 32) | uid[PX4_CPU_UUID_WORD32_UNIQUE_H];
 
+#ifdef CONFIG_ARCH_BOARD_SITL
+		// To avoid that multiple SITL instances have the same UUID, we add the mavlink
+		// system ID. We subtract 1, so that the first UUID remains unchanged given the
+		// default system ID is 1.
+		//
+		// Note that the UUID show in `ver` will still be the same for all instances.
+		msg.uid += mavlink_system.sysid - 1;
+#endif
 		mavlink_msg_autopilot_version_send_struct(get_channel(), &msg);
 	}
 }
@@ -1790,7 +1809,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("ACTUATOR_CONTROL_TARGET0", 10.0f);
 		configure_stream_local("ADSB_VEHICLE", unlimited_rate);
 		configure_stream_local("ALTITUDE", 10.0f);
-		configure_stream_local("ATTITUDE", 100.0f);
+		configure_stream_local("ATTITUDE", 10.0f);
 		configure_stream_local("ATTITUDE_QUATERNION", 50.0f);
 		configure_stream_local("ATTITUDE_TARGET", 10.0f);
 		configure_stream_local("CAMERA_CAPTURE", 2.0f);
@@ -1802,7 +1821,7 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("DISTANCE_SENSOR", 10.0f);
 		configure_stream_local("ESTIMATOR_STATUS", 1.0f);
 		configure_stream_local("EXTENDED_SYS_STATE", 5.0f);
-		configure_stream_local("GLOBAL_POSITION_INT", 50.0f);
+		configure_stream_local("GLOBAL_POSITION_INT", 5.0f);
 		configure_stream_local("GPS_RAW_INT", unlimited_rate);
 		configure_stream_local("HIGHRES_IMU", 50.0f);
 		configure_stream_local("HOME_POSITION", 0.5f);
@@ -1813,10 +1832,9 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 		configure_stream_local("PING", 1.0f);
 		configure_stream_local("POSITION_TARGET_GLOBAL_INT", 10.0f);
 		configure_stream_local("POSITION_TARGET_LOCAL_NED", 10.0f);
-		configure_stream_local("RC_CHANNELS", 20.0f);
-		configure_stream_local("SCALED_IMU", 50.0f);
-		configure_stream_local("SCALED_IMU2", 50.0f);
-		configure_stream_local("SCALED_IMU3", 50.0f);
+		configure_stream_local("RC_CHANNELS", 100.0f);
+		configure_stream_local("SCALED_IMU", 10.0f);
+		configure_stream_local("SCALED_IMU2", 10.0f);
 		configure_stream_local("SERVO_OUTPUT_RAW_0", 10.0f);
 		configure_stream_local("SYS_STATUS", 5.0f);
 		configure_stream_local("SYSTEM_TIME", 1.0f);
@@ -2290,16 +2308,13 @@ Mavlink::task_main(int argc, char *argv[])
 				}
 
 				// send positive command ack
-				struct vehicle_command_ack_s command_ack = {
-					.timestamp = vehicle_cmd.timestamp,
-					.result_param2 = 0,
-					.command = vehicle_cmd.command,
-					.result = vehicle_command_ack_s::VEHICLE_RESULT_ACCEPTED,
-					.from_external = !vehicle_cmd.from_external,
-					.result_param1 = 0,
-					.target_system = vehicle_cmd.source_system,
-					.target_component = vehicle_cmd.source_component
-				};
+				vehicle_command_ack_s command_ack = {};
+				command_ack.timestamp = vehicle_cmd.timestamp;
+				command_ack.command = vehicle_cmd.command;
+				command_ack.result = vehicle_command_ack_s::VEHICLE_RESULT_ACCEPTED;
+				command_ack.from_external = !vehicle_cmd.from_external;
+				command_ack.target_system = vehicle_cmd.source_system;
+				command_ack.target_component = vehicle_cmd.source_component;
 
 				if (command_ack_pub != nullptr) {
 					orb_publish(ORB_ID(vehicle_command_ack), command_ack_pub, &command_ack);
