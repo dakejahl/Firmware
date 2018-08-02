@@ -378,36 +378,9 @@ MPU9250_mag::ioctl(struct file *filp, int cmd, unsigned long arg)
 		memcpy((struct mag_scale *) arg, &_mag_scale, sizeof(_mag_scale));
 		return OK;
 
-	case MAGIOCSRANGE:
-		return -EINVAL;
-
-	case MAGIOCGRANGE:
-		return 48; // fixed full scale measurement range of +/- 4800 uT == 48 Gauss
-
-	case MAGIOCSELFTEST:
-		return self_test();
-
-#ifdef MAGIOCSHWLOWPASS
-
-	case MAGIOCSHWLOWPASS:
-		return -EINVAL;
-#endif
-
-#ifdef MAGIOCGHWLOWPASS
-
-	case MAGIOCGHWLOWPASS:
-		return -EINVAL;
-#endif
-
 	default:
 		return (int)CDev::ioctl(filp, cmd, arg);
 	}
-}
-
-int
-MPU9250_mag::self_test(void)
-{
-	return 0;
 }
 
 void

@@ -32,33 +32,48 @@
  ****************************************************************************/
 
 /**
- * @file FlightTaskAutoLine.hpp
+ * @file FlightTaskAutoMapper.hpp
  *
- * Flight task for autonomous, gps driven mode. The vehicle flies
- * along a straight line in between waypoints.
+ * Abstract Flight task which generates local setpoints
+ * based on the triplet type.
  */
 
 #pragma once
 
-#include "FlightTaskAutoMapper.hpp"
+#include "FlightTaskAuto.hpp"
 
-class FlightTaskAutoLine : public FlightTaskAutoMapper
+class FlightTaskAutoMapper : public FlightTaskAuto
 {
 public:
-	FlightTaskAutoLine() = default;
-	virtual ~FlightTaskAutoLine() = default;
+	FlightTaskAutoMapper() = default;
+	virtual ~FlightTaskAutoMapper() = default;
+	bool activate() override;
+	bool update() override;
 
 protected:
 
-	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskAutoMapper,
-					(ParamFloat<px4::params::MIS_YAW_ERR>) MIS_YAW_ERR, // yaw-error threshold
-					(ParamFloat<px4::params::MPC_ACC_HOR>) MPC_ACC_HOR, // acceleration in flight
-					(ParamFloat<px4::params::MPC_ACC_UP_MAX>) MPC_ACC_UP_MAX,
-					(ParamFloat<px4::params::MPC_ACC_DOWN_MAX>) MPC_ACC_DOWN_MAX
+	float _alt_above_ground{0.0f}; /**< If home provided, then it is altitude above home, otherwise it is altitude above local position reference. */
+
+	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTaskAuto,
+					(ParamFloat<px4::params::MPC_LAND_SPEED>) MPC_LAND_SPEED,
+					(ParamFloat<px4::params::MPC_TILTMAX_LND>) MPC_TILTMAX_LND,
+					(ParamFloat<px4::params::MPC_LAND_ALT1>) MPC_LAND_ALT1, // altitude at which speed limit downwards reaches maximum speed
+					(ParamFloat<px4::params::MPC_LAND_ALT2>) MPC_LAND_ALT2, // altitude at which speed limit downwards reached minimum speed
+					(ParamFloat<px4::params::MPC_TKO_SPEED>) MPC_TKO_SPEED
 				       );
 
-	void _generateSetpoints() override; /**< Generate setpoints along line. */
+	virtual void _generateSetpoints() = 0; /**< Generate velocity and position setpoint for following line. */
 
-	void _generateAltitudeSetpoints(); /**< Generate velocity and position setpoints for following line along z. */
-	void _generateXYsetpoints(); /**< Generate velocity and position setpoints for following line along xy. */
+	void _generateIdleSetpoints();
+	void _generateLandSetpoints();
+	void _generateVelocitySetpoints();
+	void _generateTakeoffSetpoints();
+
+	void _updateAltitudeAboveGround(); /**< Computes altitude above ground based on sensors available. */
+	void updateParams() override; /**< See ModuleParam class */
+
+private:
+	void _reset(); /**< Resets member variables to current vehicle state */
+	WaypointType _type_previous{WaypointType::idle}; /**< Previous type of current target triplet. */
+	bool _highEnoughForLandingGear(); /**< Checks if gears can be lowered. */
 };
