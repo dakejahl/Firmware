@@ -81,7 +81,7 @@ then
 	#param set EKF2_HEAD_NOISE 0.3       #default EKF2_HEAD_NOISE 0.3
 	#param set EKF2_MAG_TYPE 0           #default EKF2_MAG_TYPE 0
 
-	param set EKF2_AID_MASK 0
+	param set EKF2_AID_MASK 1
 	param set EKF2_GPS_CHECK 511
 	param set EKF2_GPS_POS_X -0.04
 	param set EKF2_IMU_POS_X -0.06
