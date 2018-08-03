@@ -85,24 +85,20 @@ then
 	param set EKF2_GPS_CHECK 511
 	param set EKF2_GPS_POS_X -0.04
 	param set EKF2_IMU_POS_X -0.06
-	param set EKF2_MIN_RNG 0.05
+	param set EKF2_MIN_RNG 0.07
 	param set EKF2_RNG_AID 1
 	param set EKF2_RNG_A_VMAX 2.0
-	param set EKF2_RNG_POS_X 0.065
-	param set EKF2_RNG_POS_Z 0.025
 
 	# gps
 	param set GPS_UBX_DYNMODEL 7
 
 	# geofence
 	param set GF_ACTION 1
-	param set GF_MAX_HOR_DIST 0
 
 	# land detector
 	param set LNDMC_THR_RANGE 0.35
 	param set LNDMC_XY_VEL_MAX 2.0
 	param set LNDMC_ROT_MAX 25.0
-	param set LNDMC_Z_VEL_MAX 0.5
 
 	# mc_att_control
 	param set MC_ACRO_P_MAX 540.0
@@ -114,39 +110,24 @@ then
 	param set MC_ROLLRATE_I 0.2
 	param set MC_ROLLRATE_D 0.0012
 	param set MC_ROLLRATE_MAX 240.0
-	param set MC_ROLLRATE_FF 0.0
-	param set MC_RR_INT_LIM 0.3
 
-	param set MC_PITCH_P 6.5
 	param set MC_PITCHRATE_P 0.06
 	param set MC_PITCHRATE_I 0.2
 	param set MC_PITCHRATE_D 0.0012
 	param set MC_PITCHRATE_MAX 240.0
-	param set MC_PITCHRATE_FF 0.0
-	param set MC_PR_INT_LIM 0.3
 
 	param set MC_YAW_P 2.0
 	param set MC_YAWRATE_P 0.08
 	param set MC_YAWRATE_I 0.8
-	param set MC_YAWRATE_D 0.0
-	param set MC_YAWRAUTO_MAX 45.0
-	param set MC_YAWRATE_FF 0.0
 	param set MC_YAWRATE_MAX 240.0
 
 	# mc_pos_control
 	param set MPC_ACC_DOWN_MAX 5.0
 	param set MPC_ACC_HOR 6.5
-	param set MPC_ACC_HOR_MAX 10.0
 	param set MPC_ACC_UP_MAX 2.5
-	param set MPC_DEC_HOR_SLOW 5.0
-	param set MPC_HOLD_DZ 0.10
-	param set MPC_HOLD_MAX_XY 0.8
-	param set MPC_HOLD_MAX_Z 0.6
 	param set MPC_JERK_MAX 7.5
-	param set MPC_JERK_MIN 1.0
 	param set MPC_LAND_ALT1 7.5
 	param set MPC_LAND_ALT2 3.0
-	param set MPC_LAND_SPEED 0.8
 	param set MPC_MANTHR_MAX 0.85
 	param set MPC_MANTHR_MIN 0.15
 	param set MPC_MAN_TILT_MAX 45.0
@@ -154,7 +135,6 @@ then
 	param set MPC_THR_MAX 0.85
 	param set MPC_THR_MIN 0.15
 	param set MPC_TILTMAX_AIR 45.0
-	param set MPC_TILTMAX_LND 15.0
 	param set MPC_TKO_RAMP_T 0.75
 	param set MPC_TKO_SPEED 0.75
 	param set MPC_VEL_MANUAL 26.5
@@ -165,14 +145,10 @@ then
 	param set MPC_XY_VEL_D 0.014
 	param set MPC_XY_VEL_MAX 26.5
 	param set MPC_Z_P 0.8
-	param set MPC_Z_VEL_P 0.2
-	param set MPC_Z_VEL_I 0.02
+
 	param set MPC_Z_VEL_D 0.02
 	param set MPC_Z_VEL_MAX_DN 4.0
 	param set MPC_Z_VEL_MAX_UP 6.0
-
-	# mission
-	param set MIS_TAKEOFF_ALT 2.5
 
 	# navigator
 	param set NAV_ACC_RAD 2.5
@@ -194,10 +170,6 @@ then
 
 	# sensors
 	param set SENS_EN_PGA460 1
-
-	# sd logging
-	param set SDLOG_DIRS_MAX 10
-	param set SDLOG_PROFILE 109
 
 	# system
 	param set SYS_COMPANION 1921600
