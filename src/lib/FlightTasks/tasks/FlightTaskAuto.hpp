@@ -83,6 +83,7 @@ protected:
 	float _getMaxCruiseSpeed() {return MPC_XY_CRUISE.get();} /**< getter for default cruise speed */
 	matrix::Vector2f _getTargetVelocityXY(); /**< only used for follow-me and only here because of legacy reason.*/
 	void _updateInternalWaypoints(); /**< Depending on state of vehicle, the internal waypoints might differ from target (for instance if offtrack). */
+	bool _compute_heading_from_2D_vector(float &heading, matrix::Vector2f v); /**< Computes and sets heading a 2D vector */
 
 	matrix::Vector3f _prev_prev_wp{}; /**< Pre-previous waypoint (local frame). This will be used for smoothing trajectories -> not used yet. */
 	matrix::Vector3f _prev_wp{}; /**< Previous waypoint  (local frame). If no previous triplet is available, the prev_wp is set to current position. */
@@ -92,7 +93,6 @@ protected:
 	WaypointType _type{WaypointType::idle}; /**< Type of current target triplet. */
 	uORB::Subscription<home_position_s> *_sub_home_position{nullptr};
 
-
 	State _current_state{State::none};
 
 	float _speed_at_target = 0.0f; /**< Desired velocity at target. */
@@ -100,9 +100,9 @@ protected:
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTask,
 					(ParamFloat<px4::params::MPC_XY_CRUISE>) MPC_XY_CRUISE,
 					(ParamFloat<px4::params::MPC_CRUISE_90>) MPC_CRUISE_90, // speed at corner when angle is 90 degrees move to line
-					(ParamFloat<px4::params::NAV_ACC_RAD>) NAV_ACC_RAD // acceptance radius at which waypoints are updated move to line
-				       ); /**< Default mc cruise speed.*/
-
+					(ParamFloat<px4::params::NAV_ACC_RAD>) NAV_ACC_RAD, // acceptance radius at which waypoints are updated move to line
+					(ParamInt<px4::params::MPC_YAW_MODE>) MPC_YAW_MODE // defines how heading is executed
+				       );
 
 private:
 	matrix::Vector2f _lock_position_xy{NAN, NAN}; /**< if no valid triplet is received, lock positition to current position */
@@ -126,4 +126,5 @@ private:
 	bool _evaluateGlobalReference(); /**< Check is global reference is available. */
 	float _getVelocityFromAngle(const float angle); /**< Computes the speed at target depending on angle. */
 	State _getCurrentState(); /**< Computes the current vehicle state based on the vehicle position and navigator triplets. */
+	void _set_heading_from_mode(); /**< @see  MPC_YAW_MODE */
 };

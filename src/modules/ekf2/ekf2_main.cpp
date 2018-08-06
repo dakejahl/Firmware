@@ -121,7 +121,7 @@ private:
 	void update_mag_bias(Param &mag_bias_param, int axis_index);
 	template<typename Param>
 	bool update_mag_decl(Param &mag_decl_param);
-	bool publish_attitude(const sensor_combined_s &sensors);
+	bool publish_attitude(const sensor_combined_s &sensors, const hrt_abstime &now);
 	bool publish_wind_estimate(const hrt_abstime &timestamp);
 
 	const Vector3f get_vel_body_wind();
@@ -798,7 +798,7 @@ void Ekf2::run()
 		_ekf.setIMUData(now, sensors.gyro_integral_dt, sensors.accelerometer_integral_dt, gyro_integral, accel_integral);
 
 		// publish attitude immediately (uses quaternion from output predictor)
-		publish_attitude(sensors);
+		publish_attitude(sensors, now);
 
 		// read mag data
 		bool magnetometer_updated = false;
@@ -1414,6 +1414,7 @@ void Ekf2::run()
 			estimator_status_s status;
 			status.timestamp = now;
 			_ekf.get_state_delayed(status.states);
+			status.n_states = 24;
 			_ekf.get_covariances(status.covariances);
 			_ekf.get_gps_check_status(&status.gps_check_fail_flags);
 			status.control_mode_flags = control_status.value;
@@ -1428,7 +1429,6 @@ void Ekf2::run()
 			_ekf.get_ekf_soln_status(&status.solution_status_flags);
 			_ekf.get_imu_vibe_metrics(status.vibe);
 			status.time_slip = _last_time_slip_us / 1e6f;
-			status.nan_flags = 0.0f; // unused
 			status.health_flags = 0.0f; // unused
 			status.timeout_flags = 0.0f; // unused
 			status.pre_flt_fail = _preflt_fail;
@@ -1643,12 +1643,12 @@ int Ekf2::getRangeSubIndex(const int *subs)
 	return -1;
 }
 
-bool Ekf2::publish_attitude(const sensor_combined_s &sensors)
+bool Ekf2::publish_attitude(const sensor_combined_s &sensors, const hrt_abstime &now)
 {
 	if (_ekf.attitude_valid()) {
 		// generate vehicle attitude quaternion data
 		vehicle_attitude_s att;
-		att.timestamp = hrt_absolute_time();
+		att.timestamp = now;
 
 		const Quatf q{_ekf.calculate_quaternion()};
 		q.copyTo(att.q);
