@@ -183,23 +183,26 @@ void BATT_SMBUS::cycle()
 		new_report.voltage_v = ((float)tmp) / 1000.0f;
 		new_report.voltage_filtered_v = new_report.voltage_v;
 
-        // Read cell voltages
-        if (read_word(BATT_SMBUS_CELL_1_VOLTAGE, &tmp) == PX4_OK) {
-            // Convert millivolts to volts.
-            new_report.voltage_cell_v[0] = ((float)tmp) / 1000.0f;
-        }
-        if (read_word(BATT_SMBUS_CELL_2_VOLTAGE, &tmp) == PX4_OK) {
-            // Convert millivolts to volts.
-            new_report.voltage_cell_v[1] = ((float)tmp) / 1000.0f;
-        }
-        if (read_word(BATT_SMBUS_CELL_3_VOLTAGE, &tmp) == PX4_OK) {
-            // Convert millivolts to volts.
-            new_report.voltage_cell_v[2] = ((float)tmp) / 1000.0f;
-        }
-        if (read_word(BATT_SMBUS_CELL_4_VOLTAGE, &tmp) == PX4_OK) {
-            // Convert millivolts to volts.
-            new_report.voltage_cell_v[3] = ((float)tmp) / 1000.0f;
-        }
+		// Read cell voltages
+		if (read_word(BATT_SMBUS_CELL_1_VOLTAGE, &tmp) == PX4_OK) {
+			// Convert millivolts to volts.
+			new_report.voltage_cell_v[0] = ((float)tmp) / 1000.0f;
+		}
+
+		if (read_word(BATT_SMBUS_CELL_2_VOLTAGE, &tmp) == PX4_OK) {
+			// Convert millivolts to volts.
+			new_report.voltage_cell_v[1] = ((float)tmp) / 1000.0f;
+		}
+
+		if (read_word(BATT_SMBUS_CELL_3_VOLTAGE, &tmp) == PX4_OK) {
+			// Convert millivolts to volts.
+			new_report.voltage_cell_v[2] = ((float)tmp) / 1000.0f;
+		}
+
+		if (read_word(BATT_SMBUS_CELL_4_VOLTAGE, &tmp) == PX4_OK) {
+			// Convert millivolts to volts.
+			new_report.voltage_cell_v[3] = ((float)tmp) / 1000.0f;
+		}
 
 		// Read current.
 		if (read_word(BATT_SMBUS_CURRENT, &tmp) == PX4_OK) {
