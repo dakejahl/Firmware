@@ -214,6 +214,7 @@ bool FlightTaskAuto::_evaluateTriplets()
 
 	if (triplet_update || (_current_state != previous_state)) {
 		_updateInternalWaypoints();
+		_updateAvoidanceWaypoints();
 	}
 
 	return true;
@@ -262,6 +263,30 @@ void FlightTaskAuto::_set_heading_from_mode()
 	} else {
 		_yaw_setpoint = NAN;
 	}
+}
+
+void FlightTaskAuto::_updateAvoidanceWaypoints()
+{
+	_desired_waypoint.timestamp = hrt_absolute_time();
+
+	_triplet_target.copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].position);
+	Vector3f(NAN, NAN, NAN).copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].velocity);
+	Vector3f(NAN, NAN, NAN).copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].acceleration);
+
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].yaw = _yaw_setpoint;
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].yaw_speed = _yawspeed_setpoint;
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_1].point_valid = true;
+
+
+	_triplet_next_wp.copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].position);
+	Vector3f(NAN, NAN, NAN).copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].velocity);
+	Vector3f(NAN, NAN, NAN).copyTo(_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].acceleration);
+
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].yaw = _sub_triplet_setpoint->get().next.yaw;
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].yaw_speed =
+		_sub_triplet_setpoint->get().next.yawspeed_valid ?
+		_sub_triplet_setpoint->get().next.yawspeed : NAN;
+	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].point_valid = true;
 }
 
 bool FlightTaskAuto::_isFinite(const position_setpoint_s sp)
