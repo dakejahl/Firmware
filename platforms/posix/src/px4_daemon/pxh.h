@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2016 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,31 +30,69 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
 /**
- * @file FlightManualPositionSmooth.hpp
+ * @file pxh.h
  *
- * Flight task for smooth manual controlled position.
+ * The POSIX PX4 implementation features a simple shell to start modules
+ * or use system commands.
+ *
+ * @author Mark Charlebois <charlebm@gmail.com>
+ * @author Roman Bapst <bapstroman@gmail.com>
+ * @author Julian Oes <julian@oes.ch>
  */
-
 #pragma once
 
-#include "FlightTaskManualPosition.hpp"
-#include "Utility/ManualSmoothingXY.hpp"
-#include "Utility/ManualSmoothingZ.hpp"
+#include <vector>
+#include <string>
+#include <termios.h>
 
-class FlightTaskManualPositionSmooth : public FlightTaskManualPosition
+#include <platforms/posix/apps.h>
+#include "history.h"
+
+namespace px4_daemon
+{
+
+
+class Pxh
 {
 public:
-	FlightTaskManualPositionSmooth();
+	Pxh();
+	~Pxh();
 
-	virtual ~FlightTaskManualPositionSmooth() = default;
+	/**
+	 * Process and run one command line.
+	 *
+	 * @param silently_fail: don't make a fuss on failure
+	 * @return 0 if successful. */
+	static int process_line(const std::string &line, bool silently_fail);
 
-protected:
+	/**
+	 * Run the pxh shell. This will only return if stop() is called.
+	 */
+	void run_pxh();
 
-	virtual void _updateSetpoints() override;
+	/**
+	 * Can be called to stop pxh.
+	 */
+	static void stop();
 
 private:
-	ManualSmoothingXY _smoothingXY; /**< smoothing for velocity setpoints in xy */
-	ManualSmoothingZ _smoothingZ; /**< smoothing for velocity in z */
+	void _print_prompt();
+	void _move_cursor(int position);
+	void _clear_line();
+
+	void _setup_term();
+	static void _restore_term();
+
+	bool _should_exit;
+	History _history;
+	struct termios _orig_term;
+
+	static apps_map_type _apps;
+	static Pxh *_instance;
 };
+
+
+
+} // namespace px4_daemon
+

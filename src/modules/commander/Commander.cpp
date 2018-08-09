@@ -502,15 +502,15 @@ void usage(const char *reason)
 
 void print_status()
 {
-	warnx("type: %s", (status.is_rotary_wing) ? "symmetric motion" : "forward motion");
-	warnx("safety: USB enabled: %s, power state valid: %s", (status_flags.usb_connected) ? "[OK]" : "[NO]",
+	PX4_INFO("type: %s", (status.is_rotary_wing) ? "symmetric motion" : "forward motion");
+	PX4_INFO("safety: USB enabled: %s, power state valid: %s", (status_flags.usb_connected) ? "[OK]" : "[NO]",
 	      (status_flags.condition_power_input_valid) ? " [OK]" : "[NO]");
-	warnx("home: lat = %.7f, lon = %.7f, alt = %.2f, yaw: %.2f", _home.lat, _home.lon, (double)_home.alt, (double)_home.yaw);
-	warnx("home: x = %.7f, y = %.7f, z = %.2f ", (double)_home.x, (double)_home.y, (double)_home.z);
-	warnx("datalink: %s %s", (status.data_link_lost) ? "LOST" : "OK", (status.high_latency_data_link_active) ? "(high latency)" : " ");
-	warnx("main state: %d", internal_state.main_state);
-	warnx("nav state: %d", status.nav_state);
-	warnx("arming: %s", arming_state_names[status.arming_state]);
+	PX4_INFO("home: lat = %.7f, lon = %.7f, alt = %.2f, yaw: %.2f", _home.lat, _home.lon, (double)_home.alt, (double)_home.yaw);
+	PX4_INFO("home: x = %.7f, y = %.7f, z = %.2f ", (double)_home.x, (double)_home.y, (double)_home.z);
+	PX4_INFO("datalink: %s %s", (status.data_link_lost) ? "LOST" : "OK", (status.high_latency_data_link_active) ? "(high latency)" : " ");
+	PX4_INFO("main state: %d", internal_state.main_state);
+	PX4_INFO("nav state: %d", status.nav_state);
+	PX4_INFO("arming: %s", arming_state_names[status.arming_state]);
 }
 
 static orb_advert_t status_pub;
@@ -4078,7 +4078,7 @@ void Commander::data_link_checks(int32_t highlatencydatalink_loss_timeout, int32
 			// to avoid transmitting unnecessary data over that link
 			status.high_latency_data_link_active = false;
 			*status_changed = true;
-			mavlink_log_critical(&mavlink_log_pub, "LOW LATENCY DATA LINKS REGAINED, DEACTIVATING HIGH LATENCY LINK");
+			mavlink_log_critical(&mavlink_log_pub, "LOW LAT LINKS REGAINED, DEACTIVATE HIGH LAT LINK");
 		}
 
 	} else {
@@ -4095,7 +4095,7 @@ void Commander::data_link_checks(int32_t highlatencydatalink_loss_timeout, int32
 			}
 
 			if (!status.data_link_lost) {
-				mavlink_log_critical(&mavlink_log_pub, "ALL LOW LATENCY DATA LINKS LOST, ACTIVATING HIGH LATENCY LINK");
+				mavlink_log_critical(&mavlink_log_pub, "ALL LOW LAT LINKS LOST, ACTIVATE HIGH LAT LINK");
 
 			} else {
 				mavlink_log_critical(&mavlink_log_pub, "ACTIVATING AVAILABLE HIGH LATENCY LINK");
