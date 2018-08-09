@@ -145,6 +145,7 @@ then
 	param set MPC_XY_VEL_D 0.014
 	param set MPC_XY_VEL_MAX 26.5
 	param set MPC_Z_P 0.8
+	param set MPC_TILTMAX_LND 18.0
 
 	param set MPC_Z_VEL_D 0.02
 	param set MPC_Z_VEL_MAX_DN 4.0
