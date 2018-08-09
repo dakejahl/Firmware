@@ -85,9 +85,13 @@
 #define BATT_SMBUS_MEASUREMENT_INTERVAL_US              100000                  ///< time in microseconds, measure at 10Hz
 #define BATT_SMBUS_TIMEOUT_US                           1000000                ///< timeout looking for battery 10seconds after startup
 #define BATT_SMBUS_MANUFACTURER_ACCESS                  0x00
-#define BATT_SMBUS_MANUFACTURER_DATA			0x23
+#define BATT_SMBUS_MANUFACTURER_DATA			        0x23
 #define BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS            0x44
-#define BATT_SMBUS_SECURITY_KEYS			0x0035
+#define BATT_SMBUS_SECURITY_KEYS			            0x0035
+#define BATT_SMBUS_CELL_1_VOLTAGE                       0x3F
+#define BATT_SMBUS_CELL_2_VOLTAGE                       0x3E
+#define BATT_SMBUS_CELL_3_VOLTAGE                       0x3D
+#define BATT_SMBUS_CELL_4_VOLTAGE                       0x3C
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
