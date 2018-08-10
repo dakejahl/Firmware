@@ -33,7 +33,7 @@
 px4_add_module(
 	MODULE drivers__pga460
 	MAIN pga460
-	STACK_MAIN 1200
+	STACK_MAIN 1280
 	COMPILE_FLAGS
 		-Os
 	SRCS
