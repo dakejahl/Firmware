@@ -355,8 +355,8 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
 		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
-		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + 0.6f)
-					      && (report.current_distance > _previous_valid_report.current_distance - 0.6f);
+		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + MAX_SAMPLE_DEVIATION)
+					      && (report.current_distance > _previous_valid_report.current_distance - MAX_SAMPLE_DEVIATION);
 
 		/* Must have 3 valid samples every 1 second */
 		if ((report.timestamp - _previous_valid_report.timestamp < 1e6) && sample_deviation_valid) {
