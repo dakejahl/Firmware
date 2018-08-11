@@ -190,6 +190,20 @@ PARAM_DEFINE_FLOAT(COM_EF_C2T, 5.0f);
 PARAM_DEFINE_FLOAT(COM_EF_TIME, 10.0f);
 
 /**
+ * RC loss loiter time threshold
+ *
+ * After this amount of seconds without RC connection the rc lost loiter timeout flag is set to true
+ *
+ * @group Commander
+ * @unit s
+ * @min 0
+ * @max 120
+ * @decimal 1
+ * @increment 0.1
+ */
+PARAM_DEFINE_FLOAT(COM_LOSS_LTR_T, 0.0f);
+
+/**
  * RC loss time threshold
  *
  * After this amount of seconds without RC connection the rc lost flag is set to true

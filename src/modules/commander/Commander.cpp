@@ -184,6 +184,7 @@ static bool _last_condition_global_position_valid = false;
 static struct vehicle_land_detected_s land_detector = {};
 
 static float _eph_threshold_adj = INFINITY;	///< maximum allowable horizontal position uncertainty after adjustment for flight condition
+
 static bool _skip_pos_accuracy_check = false;
 
 /**
@@ -1130,6 +1131,7 @@ Commander::run()
 	param_t _param_datalink_loss_timeout = param_find("COM_DL_LOSS_T");
 	param_t _param_highlatencydatalink_loss_timeout = param_find("COM_HLDL_LOSS_T");
 	param_t _param_rc_loss_timeout = param_find("COM_RC_LOSS_T");
+	param_t _param_rc_loss_loiter_timeout = param_find("COM_LOSS_LTR_T");
 	param_t _param_datalink_regain_timeout = param_find("COM_DL_REG_T");
 	param_t _param_highlatencydatalink_regain_timeout = param_find("COM_HLDL_REG_T");
 	param_t _param_ef_throttle_thres = param_find("COM_EF_THROT");
@@ -1372,6 +1374,7 @@ Commander::run()
 	int32_t datalink_loss_timeout = 10;
 	int32_t highlatencydatalink_loss_timeout = 120;
 	float rc_loss_timeout = 0.5;
+	float rc_loss_loiter_timeout = 0.0;
 	int32_t datalink_regain_timeout = 0;
 	int32_t highlatencydatalink_regain_timeout = 0;
 	float offboard_loss_timeout = 0.0f;
@@ -1479,6 +1482,7 @@ Commander::run()
 			param_get(_param_datalink_loss_timeout, &datalink_loss_timeout);
 			param_get(_param_highlatencydatalink_loss_timeout, &highlatencydatalink_loss_timeout);
 			param_get(_param_rc_loss_timeout, &rc_loss_timeout);
+			param_get(_param_rc_loss_loiter_timeout, &rc_loss_loiter_timeout);
 			param_get(_param_rc_in_off, &rc_in_off);
 			status.rc_input_mode = rc_in_off;
 			param_get(_param_rc_arm_hyst, &rc_arm_hyst);
@@ -1808,7 +1812,7 @@ Commander::run()
 						if (low_bat_action == 1 || low_bat_action == 3) {
 							// let us send the critical message even if already in RTL
 							if (status.rc_signal_lost &&
-								TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
+							    TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
 								warning_action_on = true;
 								mavlink_log_emergency(&mavlink_log_pub, "CRITICAL BATTERY, RETURNING TO LAND");
 
@@ -2303,6 +2307,15 @@ Commander::run()
 			}
 		}
 
+		if (status.rc_signal_lost &&
+		    rc_loss_loiter_timeout > 0.0f &&
+		    rc_loss_loiter_timeout <= hrt_elapsed_time(&rc_signal_lost_timestamp) / 1e6f) {
+
+			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
+				mavlink_log_emergency(&mavlink_log_pub, "RC LOSS LOITER TIMEOUT, RETURNING TO LAND");
+			}
+		}
+
 		/* check if we are disarmed and there is a better mode to wait in */
 		if (!armed.armed) {
 
@@ -2369,7 +2382,7 @@ Commander::run()
 			     internal_state.main_state == commander_state_s::MAIN_STATE_STAB ||
 			     internal_state.main_state == commander_state_s::MAIN_STATE_ALTCTL ||
 			     internal_state.main_state == commander_state_s::MAIN_STATE_POSCTL) &&
-			    status.rc_signal_lost) {
+			     status.rc_signal_lost) {
 
 				armed.force_failsafe = true;
 				status_changed = true;
