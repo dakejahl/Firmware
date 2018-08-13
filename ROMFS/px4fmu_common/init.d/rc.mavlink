@@ -77,7 +77,8 @@ fi
 if [ "x$MAVLINK_F" == xnone ]
 then
 else
-	mavlink start ${MAVLINK_F}
+	# Extra mavlink isntance, why?
+	# mavlink start ${MAVLINK_F}
 fi
 
 #
