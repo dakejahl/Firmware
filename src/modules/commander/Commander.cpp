@@ -2309,7 +2309,8 @@ Commander::run()
 
 		if (status.rc_signal_lost &&
 		    rc_loss_loiter_timeout > 0.0f &&
-		    rc_loss_loiter_timeout <= hrt_elapsed_time(&rc_signal_lost_timestamp) / 1e6f) {
+		    rc_loss_loiter_timeout <= hrt_elapsed_time(&rc_signal_lost_timestamp) / 1e6f &&
+		    internal_state.main_state != commander_state_s::MAIN_STATE_AUTO_RTL && armed.armed) {
 
 			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
 				mavlink_log_emergency(&mavlink_log_pub, "RC LOSS LOITER TIMEOUT, RETURNING TO LAND");
