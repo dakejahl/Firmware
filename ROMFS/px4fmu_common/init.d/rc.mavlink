@@ -74,7 +74,9 @@ fi
 
 if [ "x$MAVLINK_F" != xnone ]
 then
-	mavlink start ${MAVLINK_F}
+else
+	# Extra mavlink isntance, why?
+	# mavlink start ${MAVLINK_F}
 fi
 
 #
@@ -201,7 +203,7 @@ then
 fi
 if param compare SYS_COMPANION 1921600
 then
-	mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 921600 -r 20000
+	mavlink start -d ${MAVLINK_COMPANION_DEVICE} -b 921600 -m onboard -r 20000
 fi
 
 #
