@@ -41,15 +41,13 @@
 #ifndef _PGA460_H
 #define _PGA460_H
 
+#include <cstring>
+#include <termios.h>
+
 #include <drivers/device/device.h>
 #include <drivers/drv_hrt.h>
-#include <drivers/drv_range_finder.h>
-
-#include <stdlib.h>
-#include <stdio.h>
 
 #include <uORB/topics/distance_sensor.h>
-#include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/parameter_update.h>
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"

@@ -38,10 +38,6 @@
  * Driver for the TI PGA460 Ultrasonic Signal Processor and Transducer Driver
  */
 
-#include <cstring>
-#include <termios.h>
-#include <math.h>
-
 #include "pga460.h"
 
 
@@ -100,10 +96,13 @@ int PGA460::start()
 		return PX4_ERROR;
 	}
 
+	int priority = 50;
+	int stack_size = 1024;
+
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
-					  50,
-					  1000,
+					  priority,
+					  stack_size,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
@@ -134,7 +133,7 @@ int PGA460::init()
 				 &_orb_class_instance, ORB_PRIO_HIGH);
 
 	if (_distance_sensor_topic == nullptr) {
-		PX4_WARN("failed to create distance_sensor object. Did you start uOrb?");
+		PX4_WARN("Failed to create distance_sensor object. Did you start uOrb?");
 		return PX4_ERROR;
 	}
 
@@ -277,7 +276,6 @@ uint32_t PGA460::collect_results()
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
 
-	int bytesread = 0;
 	int timeout = 10;
 	uint8_t buf_rx[6] = {0};
 
@@ -286,7 +284,7 @@ uint32_t PGA460::collect_results()
 	// Waiting for a maximum of 10ms
 	if (ret) {
 		usleep(10000);
-		bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
+		px4_read(_fd, buf_rx, sizeof(buf_rx));
 	}
 
 	uint16_t time_of_flight = (buf_rx[1] << 8) + buf_rx[2];
@@ -476,7 +474,7 @@ int PGA460::open_serial()
 
 	unsigned speed = 115200;
 
-	/* set baud rate */
+	// set baud rate
 	if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {
 		PX4_WARN("PGA460: ERR CFG: %d ISPD", termios_state);
 		return 0;
