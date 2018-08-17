@@ -321,39 +321,46 @@ void BATT_SMBUS::cycle()
 			//Check if max lifetime voltage delta is greater than allowed.
 			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
 				new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-			}
-
-			// Check if remaining % is out of range.
-			else if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-				PX4_INFO("Percent out of range: %4.2f", (double)new_report.remaining);
-			}
-
-			// Check if discharged amount is greater than the starting capacity.
-			else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-				PX4_INFO("Discharged greater than startup capacity: %4.2f", (double)new_report.discharged_mah);
-			}
-
-			//Check if cells are mismatched or damaged.
-			else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
 
 				uint64_t timer = hrt_absolute_time() - now;
 
 				/* Only warn every 5 seconds */
 				if (timer > 5000000) {
-					PX4_WARN("Battery Damaged Emergency. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
+					PX4_WARN("Bad battery. Max Lifetime Imbalance: %4.2f V", (double)_lifetime_max_delta_cell_voltage);
 				}
 			}
 
-			//Check if cells are mismatched or damaged
-			else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_RTL) {
-				if (_last_report.warning != battery_status_s::BATTERY_WARNING_EMERGENCY) {
-					new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
-					PX4_WARN("Battery Damaged Critical. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
-				}
-			}
+			// // Check if remaining % is out of range.
+			// else if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+			// PX4_INFO("Percent out of range: %4.2f", (double)new_report.remaining);
+			// }
+
+			// // Check if discharged amount is greater than the starting capacity.
+			// else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+			// PX4_INFO("Discharged greater than startup capacity: %4.2f", (double)new_report.discharged_mah);
+			// }
+
+			// //Check if cells are mismatched or damaged.
+			// else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+
+			// uint64_t timer = hrt_absolute_time() - now;
+
+			// /* Only warn every 5 seconds */
+			// if (timer > 5000000) {
+			// PX4_WARN("Battery Damaged Emergency. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
+			// }
+			// }
+
+			// //Check if cells are mismatched or damaged
+			// else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_RTL) {
+			// if (_last_report.warning != battery_status_s::BATTERY_WARNING_EMERGENCY) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+			// PX4_WARN("Battery Damaged Critical. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
+			// }
+			// }
 
 			// Propagate warning state.
 			else {

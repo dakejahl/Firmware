@@ -20,22 +20,13 @@ batt_smbus -X write_flash 18571 2 1 0
 batt_smbus -X write_flash 19069 2 27 0
 #echo "Wrote smart battery param - DA Configuration"
 # "Settings","Configuration","IT Gauging Configuration"
-batt_smbus -X write_flash 18711 2 222 210
+batt_smbus -X write_flash 18711 2 208 222
 #echo "Wrote smart battery param - IT Gauging Configuration"
 
 # "Settings","Protection","Enabled Protections A"
 batt_smbus -X write_flash 18744 1 207
 # "Settings","Protection","Enabled Protections B"
 batt_smbus -X write_flash 18745 1 63
-# "Settings","Protection","Enabled Protections C"
-batt_smbus -X write_flash 18746 1 0
-# "Settings","Protection","Enabled Protections D"
-batt_smbus -X write_flash 18747 1 15
-
-# "Settings","Protection","Enabled Protections A"
-batt_smbus -X write_flash 18744 1 207
-# "Settings","Protection","Enabled Protections B"
-batt_smbus -X write_flash 18745 1 127
 # "Settings","Protection","Enabled Protections C"
 batt_smbus -X write_flash 18746 1 0
 # "Settings","Protection","Enabled Protections D"
@@ -58,7 +49,7 @@ batt_smbus -X write_flash 18607 2 255 255
 
 
 # "SBS Configuration","Data","Specification Information"
-batt_smbus -X write_flash 18642 2 52 0
+batt_smbus -X write_flash 18642 2 53 0
 #echo "Wrote smart battery param - Specification Information"
 
 
@@ -151,12 +142,21 @@ batt_smbus -X write_flash 18511 2 240 10
 # "Gas Gauging","IT Cfg","Term Voltage"
 batt_smbus -X write_flash 18506 2 0 50
 #echo "Wrote smart battery param - Term Voltage"
+# "Gas Gauging","IT Cfg","Term Voltage Delta"
+batt_smbus -X write_flash 18509 2 100 0
+#echo "Wrote smart battery param - Term Voltage Delta"
 # "Gas Gauging","IT Cfg","Reference Grid"
-batt_smbus -X write_flash 18451 1 11
+batt_smbus -X write_flash 18451 1 4
 #echo "Wrote smart battery param - Reference Grid"
 # "Gas Gauging","IT Cfg","Reserve Cap-mAh"
 batt_smbus -X write_flash 18724 2 150 0
 #echo "Wrote smart battery param - Reserve Cap-mAh"
+# "Gas Gauging","IT Cfg","Load Select"
+batt_smbus -X write_flash 18717 1 3
+#echo "Wrote smart battery param - Load Select"
+# "Gas Gauging","IT Cfg","Fast Scale Load Select"
+batt_smbus -X write_flash 18718 1 3
+#echo "Wrote smart battery param - Fast Scale Load Select"
 # "Gas Gauging","Current Thresholds","Chg Current Threshold"
 batt_smbus -X write_flash 19083 2 44 1
 #echo "Wrote smart battery param - Chg Current Threshold"
