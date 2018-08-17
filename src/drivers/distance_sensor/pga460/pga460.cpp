@@ -38,10 +38,6 @@
  * Driver for the TI PGA460 Ultrasonic Signal Processor and Transducer Driver
  */
 
-#include <cstring>
-#include <termios.h>
-#include <math.h>
-
 #include "pga460.h"
 
 
@@ -50,12 +46,10 @@ extern "C" __EXPORT int pga460_main(int argc, char *argv[]);
 PGA460 *pga460_task;
 
 PGA460::PGA460(const char *port) :
-	CDev("PGA460", RANGE_FINDER0_DEVICE_PATH),
 	_task_handle(-1),
 	_task_is_running(0),
 	_task_should_exit(0),
 	_ranging_mode(MODE_SHORT_RANGE),
-	_class_instance(-1),
 	_orb_class_instance(-1),
 	_fd(-1),
 	_min_distance(MIN_DETECTABLE_DISTANCE),
@@ -66,17 +60,10 @@ PGA460::PGA460(const char *port) :
 	strncpy(_port, port, sizeof(_port));
 	// enforce null termination
 	_port[sizeof(_port) - 1] = '\0';
-
-	// disable debug() calls
-	_debug_enabled = false;
 }
 
 PGA460::~PGA460()
 {
-	if (_class_instance != -1) {
-		unregister_class_devname(RANGE_FINDER_BASE_DEVICE_PATH, _class_instance);
-	}
-
 	if (_task_handle != -1) {
 		_task_should_exit = true;
 	}
@@ -109,10 +96,13 @@ int PGA460::start()
 		return PX4_ERROR;
 	}
 
+	int priority = 50;
+	int stack_size = 1024;
+
 	_task_handle = px4_task_spawn_cmd("pga460",
 					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_DEFAULT,
-					  1100,
+					  priority,
+					  stack_size,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);
 
@@ -121,30 +111,29 @@ int PGA460::start()
 
 int PGA460::init()
 {
-	if (CDev::init() != OK) {
-		return PX4_ERROR;
-	}
-
 	if (init_pga460() != OK) {
 		return PX4_ERROR;
 	}
 
-	_class_instance = register_class_devname(RANGE_FINDER_BASE_DEVICE_PATH);
-
 	struct distance_sensor_s ds_report = {};
 
 	ds_report.timestamp = hrt_absolute_time();
+
 	ds_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
+
 	ds_report.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
+
 	ds_report.id = 0;
+
 	ds_report.current_distance = -1.0f;	// make evident that this range sample is invalid
+
 	ds_report.covariance = 0;
 
 	_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
 				 &_orb_class_instance, ORB_PRIO_HIGH);
 
 	if (_distance_sensor_topic == nullptr) {
-		DEVICE_LOG("failed to create distance_sensor object. Did you start uOrb?");
+		PX4_WARN("Failed to create distance_sensor object. Did you start uOrb?");
 		return PX4_ERROR;
 	}
 
@@ -169,7 +158,7 @@ int PGA460::init_pga460()
 
 	usleep(10000);
 
-	/* Check if the device is even alive*/
+	// Check if the device is even alive
 	if (read_register(0x00) != USER_DATA1) {
 		close_serial();
 		return PX4_ERROR;
@@ -219,17 +208,21 @@ void PGA460::task_main()
 {
 	while (1) {
 		open_serial();
+		_start_loop = hrt_absolute_time();
 
 		while (!_task_should_exit) {
 			_task_is_running = true;
 
-			/* Check last report to determine if we need to switch range modes */
+			// Check last report to determine if we need to switch range modes.
 			uint8_t mode = set_range_mode();
 
 			take_measurement(mode);
 
-			/* Wait long enough for a pulse to travel 10meters (~30ms) */
-			usleep(30000);
+			// Control rate
+			_loop_time = hrt_absolute_time() - _start_loop;
+			uint32_t sleep_time = (_loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - _loop_time;
+			usleep(sleep_time);
+			_start_loop = hrt_absolute_time();
 
 			request_results();
 
@@ -248,20 +241,17 @@ void PGA460::task_main()
 
 uint8_t PGA460::set_range_mode()
 {
-	/* Check value from last report. If greater/less than MODE_SET_THRESH +/- MODE_SET_HYST, set the mode*/
-	/* If in short range mode and value exceeds MODE_SET_THRESH + MODE_SET_HYST */
+	// Set the ASICs settings depening on the distance read from our last report. If
+	// it has been longer than 1 second since a good reading, toggle the mode.
 	if (_previous_valid_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
 		_ranging_mode = MODE_LONG_RANGE;
-		return _ranging_mode;
 
 	} else if (_previous_valid_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
 		_ranging_mode = MODE_SHORT_RANGE;
-		return _ranging_mode;
 
-	} else {
-		/* If in between upper hyst and lower hyst, return the current mode. */
-		return _ranging_mode;
 	}
+
+	return _ranging_mode;
 }
 
 void PGA460::take_measurement(const uint8_t mode)
@@ -286,19 +276,15 @@ uint32_t PGA460::collect_results()
 	fds[0].fd = _fd;
 	fds[0].events = POLLIN;
 
-	int bytesread = 0;
 	int timeout = 10;
 	uint8_t buf_rx[6] = {0};
 
 	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
 
-	while (ret) {
-		if (fds[0].revents & POLLIN) {
-			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
-
-		} else { break; }
-
-		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
+	// Waiting for a maximum of 10ms
+	if (ret) {
+		usleep(10000);
+		px4_read(_fd, buf_rx, sizeof(buf_rx));
 	}
 
 	uint16_t time_of_flight = (buf_rx[1] << 8) + buf_rx[2];
@@ -306,7 +292,6 @@ uint32_t PGA460::collect_results()
 	uint8_t Amplitude = buf_rx[4];
 
 	float object_distance = calculate_object_distance(time_of_flight);
-
 
 	uORB_publish_results(object_distance);
 
@@ -335,7 +320,7 @@ float PGA460::calculate_object_distance(uint16_t time_of_flight)
 	return object_distance;
 }
 
-void PGA460::uORB_publish_results(const float &object_distance)
+void PGA460::uORB_publish_results(const float object_distance)
 {
 	struct distance_sensor_s report = {};
 	report.timestamp = hrt_absolute_time();
@@ -344,41 +329,40 @@ void PGA460::uORB_publish_results(const float &object_distance)
 	report.current_distance = object_distance;
 	report.min_distance = get_minimum_distance();
 	report.max_distance = get_maximum_distance();
-	report.id = 0;
-	report.covariance = 0;
 	report.signal_quality = 0;
 
 	bool data_is_valid = false;
 	static uint8_t good_data_counter = 0;
 
-	/* If we are within our MIN and MAX thresholds, continue */
+	// If we are within our MIN and MAX thresholds, continue.
 	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
 
-		/* Height cannot change by more than 0.6m between measurements (6m/s / 10hz) */
+		// Height cannot change by more than MAX_SAMPLE_DEVIATION between measurements.
 		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + MAX_SAMPLE_DEVIATION)
 					      && (report.current_distance > _previous_valid_report.current_distance - MAX_SAMPLE_DEVIATION);
 
-		/* Must have 3 valid samples every 1 second */
-		if ((report.timestamp - _previous_valid_report.timestamp < 1e6) && sample_deviation_valid) {
+		// Must have NUM_SAMPLES_CONSISTENT valid samples to be publishing.
+		if (sample_deviation_valid) {
 			good_data_counter++;
 
-			if (good_data_counter > 2) {
-				good_data_counter = 3;
+			if (good_data_counter > NUM_SAMPLES_CONSISTENT - 1) {
+				good_data_counter = NUM_SAMPLES_CONSISTENT;
 				data_is_valid = true;
 
 			} else {
-				/* Have not gotten 3 consistently valid samples in 1 second */
+				// Have not gotten NUM_SAMPLES_CONSISTENT consistently valid samples.
 				data_is_valid = false;
 			}
 
+		} else if (good_data_counter > 0) {
+			good_data_counter--;
+
 		} else {
-			/* Reset our quality of data estimate */
+			// Reset our quality of data estimate after NUM_SAMPLES_CONSISTENT invalid samples.
 			_previous_valid_report = _previous_report;
-			good_data_counter = 0;
 		}
 
 		_previous_report = report;
-
 	}
 
 	if (data_is_valid) {
@@ -445,7 +429,7 @@ int PGA460::open_serial()
 
 	int termios_state;
 
-	/* fill the struct for the new configuration */
+	// fill the struct for the new configuration
 	tcgetattr(_fd, &uart_config);
 
 	//
@@ -467,10 +451,9 @@ int PGA460::open_serial()
 	// no NL to CR translation, no column 0 CR suppression,
 	// no Ctrl-D suppression, no fill characters, no case mapping,
 	// no local output processing
-	//
 	uart_config.c_oflag &= ~(OCRNL | ONLCR | ONLRET | ONOCR | OFILL | OPOST);
 
-	//uart_config.c_oflag = 0;
+
 
 	//
 	// No line processing
@@ -480,7 +463,7 @@ int PGA460::open_serial()
 	//
 	uart_config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
 
-	/* no parity, one stop bit, disable flow control */
+	// no parity, one stop bit, disable flow control
 	uart_config.c_cflag &= ~(CSIZE | PARENB | CSTOPB | CRTSCTS);
 
 	uart_config.c_cflag |= (CS8 | CREAD | CLOCAL);
@@ -491,7 +474,7 @@ int PGA460::open_serial()
 
 	unsigned speed = 115200;
 
-	/* set baud rate */
+	// set baud rate
 	if ((termios_state = cfsetispeed(&uart_config, speed)) < 0) {
 		PX4_WARN("PGA460: ERR CFG: %d ISPD", termios_state);
 		return 0;
@@ -1058,25 +1041,25 @@ void info()
 
 int pga460_main(int argc, char *argv[])
 {
-	//Start/load the driver.
+	// Start/load the driver.
 	if (!strcmp(argv[1], "start")) {
 		start();
 		return 0;
 	}
 
-	//Stop the driver
+	// Stop the driver
 	if (!strcmp(argv[1], "stop")) {
 		stop();
 		return 0;
 	}
 
-	//Prints options
+	// Prints options
 	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
 		info();
 		return 0;
 	}
 
-	//Checks the eeprom an reports whether or not the settings match the defaults
+	// Checks the eeprom an reports whether or not the settings match the defaults
 	if (!strcmp(argv[1], "check_eeprom")) {
 		pga460_task->suspend();
 
@@ -1097,7 +1080,7 @@ int pga460_main(int argc, char *argv[])
 		return 0;
 	}
 
-	//Flashes default settings to the EEPROM
+	// Flashes default settings to the EEPROM
 	if (!strcmp(argv[1], "write_eeprom")) {
 		pga460_task->suspend();
 
@@ -1118,7 +1101,7 @@ int pga460_main(int argc, char *argv[])
 		return 0;
 	}
 
-	//Read the diagnostic registers: Measured transducer frequency and transducer decay time
+	// Read the diagnostic registers: Measured transducer frequency and transducer decay time
 	if (!strcmp(argv[1], "diagnostics")) {
 		pga460_task->suspend();
 		pga460_task->open_serial();
@@ -1146,7 +1129,7 @@ int pga460_main(int argc, char *argv[])
 		return 0;
 	}
 
-	//Writes to the (register) the (value)
+	// Writes to the (register) the (value)
 	if (!strcmp(argv[1], "write_register")) {
 		if (argv[2] && argv[3]) {
 			pga460_task->suspend();
@@ -1164,7 +1147,7 @@ int pga460_main(int argc, char *argv[])
 		return 0;
 	}
 
-	//Sweeps across a frequency range and sets the operating frequency to the resonant
+	// Sweeps across a frequency range and sets the operating frequency to the resonant
 	if (!strcmp(argv[1], "calibrate")) {
 		pga460_task->suspend();
 		pga460_task->open_serial();
