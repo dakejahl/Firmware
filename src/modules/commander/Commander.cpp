@@ -1204,6 +1204,7 @@ Commander::run()
 
 	/* mark all signals lost as long as they haven't been found */
 	status.rc_signal_lost = true;
+	rc_signal_lost_timestamp = hrt_absolute_time();
 	status_flags.offboard_control_signal_lost = true;
 	status.data_link_lost = true;
 	status_flags.offboard_control_loss_timeout = false;
@@ -2309,7 +2310,7 @@ Commander::run()
 
 		if (status.rc_signal_lost &&
 		    rc_loss_loiter_timeout > 0.0f &&
-		    rc_loss_loiter_timeout <= hrt_elapsed_time(&rc_signal_lost_timestamp) / 1e6f &&
+		    (uint64_t)rc_loss_loiter_timeout <= (hrt_elapsed_time(&rc_signal_lost_timestamp) / 1000000ULL) &&
 		    internal_state.main_state != commander_state_s::MAIN_STATE_AUTO_RTL && armed.armed) {
 
 			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
