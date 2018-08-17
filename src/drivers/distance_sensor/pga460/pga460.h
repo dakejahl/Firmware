@@ -45,6 +45,9 @@
 #include <drivers/drv_hrt.h>
 #include <drivers/drv_range_finder.h>
 
+#include <stdlib.h>
+#include <stdio.h>
+
 #include <uORB/topics/distance_sensor.h>
 #include <uORB/topics/subsystem_info.h>
 #include <uORB/topics/parameter_update.h>
@@ -56,7 +59,9 @@
 #define MIN_DETECTABLE_TEMPERATURE     -20.0f
 #define MODE_SET_THRESH	0.6f
 #define MODE_SET_HYST 	0.0f
-#define MAX_SAMPLE_DEVIATION 0.25f
+#define MAX_SAMPLE_DEVIATION 0.15f
+#define NUM_SAMPLES_CONSISTENT 5
+#define POLL_RATE_US 0ULL
 
 #define MODE_SHORT_RANGE P1BL
 #define MODE_LONG_RANGE P2BL
@@ -135,7 +140,7 @@
 #define	PULSE_P2	0x1F	//reg addr	0x1F
 #define	CURR_LIM_P1	0x7F	//reg addr	0x20
 #define	CURR_LIM_P2	0x7F	//reg addr	0x21
-#define	REC_LENGTH	0x88	//reg addr	0x22
+#define	REC_LENGTH	0x44	//reg addr	0x22
 #define	FREQ_DIAG	0x1B	//reg addr	0x23
 #define	SAT_FDIAG_TH	0x2C	//reg addr	0x24
 #define	FVOLT_DEC	0x7C	//reg addr	0x25
@@ -198,7 +203,7 @@ bool    start();
 bool    stop();
 void    info();
 
-class PGA460 : public device::CDev
+class PGA460
 {
 public:
 
@@ -383,7 +388,7 @@ private:
 	 * @brief Commands the device to publish the measurement results to uORB.
 	 * @param dist The calculated distance to the object.
 	 */
-	void uORB_publish_results(const float &dist);
+	void uORB_publish_results(const float dist);
 
 	/**
 	 * @brief Send the unlock command to the EEPROM to enable reading and writing -- not needed w/ bulk write
@@ -426,6 +431,12 @@ private:
 
 	/** @param _diagnostic_byte Holds the diagnostic byte from the most recent pga460 response. */
 	uint8_t _diagnostic_byte;
+
+	/** @param _loop_time The loop time of the main loop. */
+	uint64_t _loop_time = 0;
+
+	/** @param _start_loop The starting value for the loop time of the main loop. */
+	uint64_t _start_loop = 0;
 
 	/** @param _class_instance Instance value returned from registering the class of device type. */
 	int _class_instance;
