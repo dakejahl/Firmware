@@ -55,8 +55,6 @@ PARAM_DEFINE_INT32(SDLOG_UTC_OFFSET, 0);
  * Determines when to start and stop logging. By default, logging is started
  * when arming the system, and stopped when disarming.
  *
- * This parameter is only for the new logger (SYS_LOGGER=1).
- *
  * @value 0 when armed until disarm (default)
  * @value 1 from boot until disarm
  * @value 2 from boot until shutdown
@@ -69,9 +67,9 @@ PARAM_DEFINE_INT32(SDLOG_UTC_OFFSET, 0);
 PARAM_DEFINE_INT32(SDLOG_MODE, 0);
 
 /**
- * Logging Topic Profile
+ * Logging topic profile (integer bitmask).
  *
- * This is an integer bitmask controlling the set and rates of logged topics.
+ * This integer bitmask controls the set and rates of logged topics.
  * The default allows for general log analysis and estimator replay, while
  * keeping the log file size reasonably small.
  *

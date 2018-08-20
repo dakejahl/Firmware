@@ -44,6 +44,7 @@
  */
 
 #include <px4_defines.h>
+#include <mathlib/mathlib.h>
 
 #include "batt_smbus.h"
 
@@ -59,7 +60,9 @@ BATT_SMBUS::BATT_SMBUS(device::Device *interface, const char *path) :
 	_crit_thr(0.0f),
 	_emergency_thr(0.0f),
 	_low_thr(0.0f),
-	_manufacturer_name(nullptr)
+	_manufacturer_name(nullptr),
+	_lifetime_max_delta_cell_voltage(0.0f),
+	_cell_undervoltage_protection_status(1)
 {
 	// Set the device type from the interface.
 	_device_id.devid_s.bus_type = _interface->get_device_bus_type();
@@ -175,6 +178,9 @@ void BATT_SMBUS::cycle()
 	// Temporary variable for storing SMBUS reads.
 	uint16_t tmp;
 
+	// Stores the minimum voltage of the four cells
+	float min_cell_voltage = 0.0f;
+
 	if (read_word(BATT_SMBUS_VOLTAGE, &tmp) == PX4_OK) {
 
 		new_report.connected = true;
@@ -182,6 +188,52 @@ void BATT_SMBUS::cycle()
 		// Convert millivolts to volts.
 		new_report.voltage_v = ((float)tmp) / 1000.0f;
 		new_report.voltage_filtered_v = new_report.voltage_v;
+
+		// Read cell voltages
+		if (read_word(BATT_SMBUS_CELL_1_VOLTAGE, &tmp) == PX4_OK) {
+			// Convert millivolts to volts.
+			new_report.voltage_cell_v[0] = ((float)tmp) / 1000.0f;
+
+			if (read_word(BATT_SMBUS_CELL_2_VOLTAGE, &tmp) == PX4_OK) {
+				// Convert millivolts to volts.
+				new_report.voltage_cell_v[1] = ((float)tmp) / 1000.0f;
+
+				if (read_word(BATT_SMBUS_CELL_3_VOLTAGE, &tmp) == PX4_OK) {
+					// Convert millivolts to volts.
+					new_report.voltage_cell_v[2] = ((float)tmp) / 1000.0f;
+
+					if (read_word(BATT_SMBUS_CELL_4_VOLTAGE, &tmp) == PX4_OK) {
+						// Convert millivolts to volts.
+						new_report.voltage_cell_v[3] = ((float)tmp) / 1000.0f;
+
+						//Calculate max cell delta
+						min_cell_voltage = new_report.voltage_cell_v[0];
+						float max_cell_voltage = new_report.voltage_cell_v[0];
+
+						for (uint8_t i = 1; i < (sizeof(new_report.voltage_cell_v) / sizeof(new_report.voltage_cell_v[0])); i++) {
+							min_cell_voltage = math::min(min_cell_voltage, new_report.voltage_cell_v[i]);
+							max_cell_voltage = math::max(max_cell_voltage, new_report.voltage_cell_v[i]);
+						}
+
+						// Calculate the max difference between the min and max cells with complementary filter.
+						new_report.max_cell_voltage_delta = (0.5f * (max_cell_voltage - min_cell_voltage)) +
+										    (0.5f * _last_report.max_cell_voltage_delta);
+
+					} else {
+						success = false;
+					}
+
+				} else {
+					success = false;
+				}
+
+			} else {
+				success = false;
+			}
+
+		} else {
+			success = false;
+		}
 
 		// Read current.
 		if (read_word(BATT_SMBUS_CURRENT, &tmp) == PX4_OK) {
@@ -195,6 +247,40 @@ void BATT_SMBUS::cycle()
 		// Read average current.
 		if (read_word(BATT_SMBUS_AVERAGE_CURRENT, &tmp) == PX4_OK) {
 			new_report.average_current_a = (-1.0f * ((float)(*(int16_t *)&tmp)) / 1000.0f);
+
+			// Disable undervoltage protection if armed. Enable if disarmed and cell voltage is above limit.
+			if (new_report.average_current_a > BATT_CURRENT_UNDERVOLTAGE_THRESHOLD) {
+				if (_cell_undervoltage_protection_status != 0) {
+					// Disable undervoltage protection
+					uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED;
+					uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
+
+					if (write_flash(address, &protections_a_tmp, 1) == PX4_OK) {
+						_cell_undervoltage_protection_status = 0;
+						PX4_WARN("Disabled CUV");
+
+					} else {
+						PX4_WARN("Dataflash write failed");
+					}
+				}
+
+			} else {
+				if (_cell_undervoltage_protection_status == 0) {
+					if (min_cell_voltage > BATT_VOLTAGE_UNDERVOLTAGE_THRESHOLD) {
+						// Enable undervoltage protection
+						uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT;
+						uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
+
+						if (write_flash(address, &protections_a_tmp, 1) == PX4_OK) {
+							_cell_undervoltage_protection_status = 1;
+							PX4_WARN("Enabled CUV");
+
+						} else {
+							PX4_WARN("Dataflash write failed");
+						}
+					}
+				}
+			}
 
 		} else {
 			success = false;
@@ -225,24 +311,56 @@ void BATT_SMBUS::cycle()
 				_batt_capacity = (uint16_t)tmp;
 			}
 
-			// Calculate remaining capacity percent with complementary filter
+			// Calculate remaining capacity percent with complementary filter.
 			new_report.remaining = ((float)_last_report.remaining * 0.8f) + (0.2f * (1.0f -
 					       (((float)_batt_capacity - (float)tmp) / (float)_batt_capacity)));
 
 			// Calculate total discharged amount.
 			new_report.discharged_mah = (float)_batt_startup_capacity - (float)tmp;
 
-			// Check if remaining % is out of range.
-			if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-				PX4_INFO("Percent out of range: %4.2f", (double)new_report.remaining);
+			//Check if max lifetime voltage delta is greater than allowed.
+			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
+				new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+
+				uint64_t timer = hrt_absolute_time() - now;
+
+				/* Only warn every 5 seconds */
+				if (timer > 5000000) {
+					PX4_WARN("Bad battery. Max Lifetime Imbalance: %4.2f V", (double)_lifetime_max_delta_cell_voltage);
+				}
 			}
 
-			// Check if discharged amount is greater than the starting capacity.
-			else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
-				new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
-				PX4_INFO("Discharged greater than startup capacity: %4.2f", (double)new_report.discharged_mah);
-			}
+			// // Check if remaining % is out of range.
+			// else if ((new_report.remaining > 1.00f) || (new_report.remaining <= 0.00f)) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+			// PX4_INFO("Percent out of range: %4.2f", (double)new_report.remaining);
+			// }
+
+			// // Check if discharged amount is greater than the starting capacity.
+			// else if (new_report.discharged_mah > (float)_batt_startup_capacity) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+			// PX4_INFO("Discharged greater than startup capacity: %4.2f", (double)new_report.discharged_mah);
+			// }
+
+			// //Check if cells are mismatched or damaged.
+			// else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_EMERGENCY;
+
+			// uint64_t timer = hrt_absolute_time() - now;
+
+			// /* Only warn every 5 seconds */
+			// if (timer > 5000000) {
+			// PX4_WARN("Battery Damaged Emergency. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
+			// }
+			// }
+
+			// //Check if cells are mismatched or damaged
+			// else if (new_report.max_cell_voltage_delta > BATT_CELL_VOLTAGE_THRESHOLD_RTL) {
+			// if (_last_report.warning != battery_status_s::BATTERY_WARNING_EMERGENCY) {
+			// new_report.warning = battery_status_s::BATTERY_WARNING_CRITICAL;
+			// PX4_WARN("Battery Damaged Critical. Max voltage difference: %4.2f", (double)new_report.max_cell_voltage_delta);
+			// }
+			// }
 
 			// Propagate warning state.
 			else {
@@ -281,6 +399,7 @@ void BATT_SMBUS::cycle()
 		new_report.capacity = _batt_capacity;
 		new_report.cycle_count = _cycle_count;
 		new_report.serial_number = _serial_number;
+		new_report.cell_count = (int)4;
 
 		// Publish to orb.
 		if (_batt_topic != nullptr && success) {
@@ -329,7 +448,6 @@ int BATT_SMBUS::dataflash_read(uint16_t &address, void *data)
 
 	return PX4_OK;
 }
-
 
 int BATT_SMBUS::dataflash_write(uint16_t &address, void *data, const unsigned length)
 {
@@ -419,6 +537,21 @@ int BATT_SMBUS::get_startup_info()
 	if (read_word(BATT_SMBUS_FULL_CHARGE_CAPACITY, &tmp) == PX4_OK) {
 		_batt_capacity = tmp;
 		result = PX4_OK;
+	}
+
+	if (lifetime_data_flush() == PX4_OK) {
+		if (lifetime_read_block_one() == PX4_OK) {
+			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
+				PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
+					 (double)_lifetime_max_delta_cell_voltage);
+			}
+
+		} else {
+			PX4_WARN("Failed to read lifetime block 1");
+		}
+
+	} else {
+		PX4_WARN("Failed to flush lifetime data");
 	}
 
 	// Read battery threshold params on startup.
@@ -530,8 +663,8 @@ int BATT_SMBUS::manufacturer_read(const uint16_t cmd_code, void *data, const uns
 	uint8_t rx_buf[DATA_BUFFER_SIZE] = {0};
 	memcpy(rx_buf, data, DATA_BUFFER_SIZE);
 
-	PX4_INFO("Received data: %d %d %d %d %d %d %d %d %d %d %d %d", rx_buf[0], rx_buf[1], rx_buf[2], rx_buf[3], rx_buf[4],
-		 rx_buf[5], rx_buf[6], rx_buf[7], rx_buf[8], rx_buf[9], rx_buf[10], rx_buf[11]);
+	//PX4_INFO("Received data: %d %d %d %d %d %d %d %d %d %d %d %d", rx_buf[0], rx_buf[1], rx_buf[2], rx_buf[3], rx_buf[4],
+	//	 rx_buf[5], rx_buf[6], rx_buf[7], rx_buf[8], rx_buf[9], rx_buf[10], rx_buf[11]);
 
 	return PX4_OK;
 }
@@ -633,4 +766,55 @@ int BATT_SMBUS::unseal()
 	}
 
 	return PX4_OK;
+}
+
+int BATT_SMBUS::lifetime_data_flush()
+{
+	// See pg95 of bq40z50 technical reference.
+	uint16_t flush = BATT_SMBUS_LIFETIME_FLUSH;
+
+	if (PX4_OK != manufacturer_write(flush, 0, 0)) {
+		PX4_INFO("Failed to flush lifetimes.");
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::lifetime_read_block_one()
+{
+
+	uint8_t lifetime_block_one_size = 19;
+	uint16_t lifetime_block_one[lifetime_block_one_size] = {0};
+
+	if (PX4_OK != manufacturer_read(BATT_SMBUS_LIFETIME_BLOCK_ONE, &lifetime_block_one, lifetime_block_one_size)) {
+		PX4_INFO("Failed to read lifetime block 1.");
+		return PX4_ERROR;
+	}
+
+	//Get max cell voltage delta and convert from mV to V.
+	_lifetime_max_delta_cell_voltage = (float)lifetime_block_one[8] / 1000.0f;
+
+	PX4_INFO("Max Cell Delta: %4.2f", (double)_lifetime_max_delta_cell_voltage);
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::write_flash(uint16_t address, uint8_t *tx_buf, const unsigned length)
+{
+
+	if (length > 32) {
+		PX4_WARN("Data length out of range: Max 32 bytes");
+		return PX4_ERROR;
+	}
+
+	if (PX4_OK != dataflash_write(address, tx_buf, length)) {
+		PX4_INFO("Dataflash write failed: %d", address);
+		usleep(100000);
+		return PX4_ERROR;
+
+	} else {
+		usleep(100000);
+		return PX4_OK;
+	}
 }
