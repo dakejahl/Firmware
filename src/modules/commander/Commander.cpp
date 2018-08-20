@@ -2314,6 +2314,7 @@ Commander::run()
 		    internal_state.main_state != commander_state_s::MAIN_STATE_AUTO_RTL && armed.armed) {
 
 			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
+				warning_action_on = true;
 				mavlink_log_emergency(&mavlink_log_pub, "RC LOSS LOITER TIMEOUT, RETURNING TO LAND");
 			}
 		}
