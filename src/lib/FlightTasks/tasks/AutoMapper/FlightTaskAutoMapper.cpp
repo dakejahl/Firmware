@@ -116,12 +116,19 @@ void FlightTaskAutoMapper::_generateIdleSetpoints()
 
 void FlightTaskAutoMapper::_generateLandSetpoints()
 {
+	// limit vertical downwards speed (positive z) close to ground
+	// for now we use the altitude above home and assume that we want to land at same height as we took off
+	float vel_limit_down = math::gradual(-_position(2),
+					     MPC_LAND_ALT2.get(), MPC_LAND_ALT1.get(),
+					     MPC_LAND_SPEED.get(), MPC_Z_VEL_MAX_DN.get());
+
 	// Keep xy-position and go down with landspeed
 	_position_setpoint = Vector3f(_target(0), _target(1), NAN);
-	_velocity_setpoint = Vector3f(Vector3f(NAN, NAN, MPC_LAND_SPEED.get()));
+	_velocity_setpoint = Vector3f(Vector3f(NAN, NAN, vel_limit_down));
 	// set constraints
 	_constraints.tilt = MPC_TILTMAX_LND.get();
-	_constraints.speed_down = MPC_LAND_SPEED.get();
+
+	_constraints.speed_down = MPC_Z_VEL_MAX_DN.get();
 	_constraints.landing_gear = vehicle_constraints_s::GEAR_DOWN;
 }
 

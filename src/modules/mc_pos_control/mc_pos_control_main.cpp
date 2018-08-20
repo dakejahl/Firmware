@@ -141,6 +141,8 @@ private:
 		(ParamFloat<px4::params::MPC_LAND_SPEED>) _land_speed,
 		(ParamFloat<px4::params::MPC_TKO_SPEED>) _tko_speed,
 		(ParamFloat<px4::params::MPC_LAND_ALT2>) MPC_LAND_ALT2, // altitude at which speed limit downwards reached minimum speed
+		(ParamFloat<px4::params::MPC_LAND_ALT1>)
+		MPC_LAND_ALT1, // First altitude at which downward speed begins being contrained
 		(ParamInt<px4::params::MPC_POS_MODE>) MPC_POS_MODE,
 		(ParamInt<px4::params::MPC_ALT_MODE>) MPC_ALT_MODE,
 		(ParamFloat<px4::params::MPC_IDLE_TKO>) MPC_IDLE_TKO, /**< time constant for smooth takeoff ramp */
@@ -972,7 +974,14 @@ MulticopterPositionControl::failsafe(vehicle_local_position_setpoint_s &setpoint
 	if (PX4_ISFINITE(_states.velocity(2))) {
 		// We have a valid velocity in D-direction.
 		// descend downwards with landspeed.
-		setpoint.vz = _land_speed.get();
+
+		// limit vertical downwards speed (positive z) close to ground
+		// for now we use the altitude above home and assume that we want to land at same height as we took off
+		float vel_limit_down = math::gradual(-states.position(2),
+						     MPC_LAND_ALT2.get(), MPC_LAND_ALT1.get(),
+						     _land_speed.get(), _vel_max_down.get());
+
+		setpoint.vz = vel_limit_down;
 		setpoint.thrust[0] = setpoint.thrust[1] = 0.0f;
 		warn_rate_limited("Failsafe: Descend with land-speed.");
 
