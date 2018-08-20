@@ -17,10 +17,10 @@ usleep 50000
 batt_smbus -X write_flash 18571 2 1 0
 #echo "Wrote smart battery param - Power Config"
 # "Settings","Configuration","DA Configuration"
-batt_smbus -X write_flash 19069 2 27 0
+batt_smbus -X write_flash 19069 2 19 0
 #echo "Wrote smart battery param - DA Configuration"
 # "Settings","Configuration","IT Gauging Configuration"
-batt_smbus -X write_flash 18711 2 208 222
+batt_smbus -X write_flash 18711 2 222 208
 #echo "Wrote smart battery param - IT Gauging Configuration"
 
 # "Settings","Protection","Enabled Protections A"
