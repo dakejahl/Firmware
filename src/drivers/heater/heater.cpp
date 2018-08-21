@@ -405,7 +405,6 @@ The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, e
 	PRINT_MODULE_USAGE_COMMAND_DESCR("status", "Reports the current IMU temperature, temperature setpoint, and heater on/off status.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the IMU heater driver.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("temp", "Reports the current IMU temperature.");
-	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
 }
