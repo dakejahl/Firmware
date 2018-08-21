@@ -395,7 +395,7 @@ The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, e
 
 	PRINT_MODULE_USAGE_NAME("heater", "system");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("controller_period", "Reports the heater driver cycle period value, (us), and sets it if supplied an argument.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("duty_cycle", "Reports the heater duty cycle (%%).");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("duty_cycle", "Reports the heater duty cycle (%).");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("feed_forward", "Sets the feedforward value if supplied an argument and reports the current value.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("integrator", "Sets the integrator gain value if supplied an argument and reports the current value.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("proportional", "Sets the proportional gain value if supplied an argument and reports the current value.");
@@ -404,7 +404,7 @@ The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, e
 	PRINT_MODULE_USAGE_COMMAND_DESCR("start", "Starts the IMU heater driver as a background task");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("status", "Reports the current IMU temperature, temperature setpoint, and heater on/off status.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the IMU heater driver.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("temp", "Reports the current IMU temperature.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("temperature", "Reports the current IMU temperature.");
 
 	return 0;
 }
