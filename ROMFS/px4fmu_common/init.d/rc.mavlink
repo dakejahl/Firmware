@@ -14,7 +14,7 @@
 if ! ver hwcmp AEROFC_V1
 then
 	# Start MAVLink
-	mavlink start -r 800000 -d /dev/ttyACM0 -m config -x
+	mavlink start -r 800000 -d /dev/ttyACM0 -m config -x -b 921600
 fi
 
 if ver hwcmp NXPHLITE_V3

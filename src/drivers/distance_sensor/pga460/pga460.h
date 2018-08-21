@@ -48,7 +48,11 @@
 #include <drivers/drv_hrt.h>
 
 #include <uORB/topics/distance_sensor.h>
-#include <uORB/topics/parameter_update.h>
+
+#include <px4_module.h>
+#include <px4_module_params.h>
+#include <px4_tasks.h>
+
 
 #define PGA460_DEFAULT_PORT "/dev/ttyS6"
 #define MAX_DETECTABLE_DISTANCE        	3.0f
@@ -132,7 +136,7 @@
 #define	TVGAIN5	0x67	//reg addr	0x19
 #define	TVGAIN6	0xAC	//reg addr	0x1A
 #define	INIT_GAIN	0x40	//reg addr	0x1B
-#define FREQUENCY       (uint8_t)(5*(_params.resonant_frequency - 30.0f))       //reg addr      0x1C
+#define FREQUENCY       (uint8_t)(5*(_resonant_frequency.get() - 30.0f))       //reg addr      0x1C
 #define	DEADTIME	0xF0	//reg addr	0x1D
 #define	PULSE_P1	0x0C	//reg addr	0x1E
 #define	PULSE_P2	0x1F	//reg addr	0x1F
@@ -196,12 +200,7 @@
 #define	P2_THR_15	0x0	//reg addr	0x7E
 #define	THR_CRC	0x1D	//reg addr	0x7F
 
-
-bool    start();
-bool    stop();
-void    info();
-
-class PGA460
+class PGA460 : public ModuleBase<PGA460>, public ModuleParams
 {
 public:
 
@@ -209,19 +208,26 @@ public:
 
 	virtual ~PGA460();
 
-	virtual int init();
+	/** @see ModuleBase */
+	static int task_spawn(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static PGA460 *instantiate(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static int custom_command(int argc, char *argv[]);
+
+	/** @see ModuleBase */
+	static int print_usage(const char *reason = nullptr);
+
+
+	/** @see ModuleBase::run() */
+	void run() override;
 
 	/**
-	 * @brief Starts the pga460 driver
-	 * @return Returns true if the open was successful.
+	 * Diagnostics - print some basic information about the driver.
 	 */
-	int start();
-
-	/**
-	 * @brief Stops the pga460 driver
-	 * @return Returns OK when it completes.
-	 */
-	int stop();
+	int print_status() override;
 
 	/**
 	 * @brief Opens the serial port.
@@ -297,55 +303,12 @@ public:
 	 */
 	uint8_t find_resonant_frequency();
 
-	/**
-	 * @brief Gets the minimum distance.
-	 * @return Returns the minimum distance.
-	 */
-	float get_minimum_distance();
-
-	/**
-	 * @brief Sets the minimum distance.
-	 * @param dist The minimum distance to be set.
-	 */
-	void set_minimum_distance(const float dist);
-
-	/**
-	 * @brief Gets the maximum distance.
-	 * @return Returns the maximum distance.
-	 */
-	float get_maximum_distance();
-
-	/**
-	 * @brief Sets the maximum distance.
-	 * @param dist The maximum distance to be set.
-	 */
-	void set_maximum_distance(const float dist);
-
-	/**
-	 * @brief Suspends the measurement cycle but does not shut down the driver.
-	 */
-	void suspend();
-
-	/**
-	 * @brief Resumes the measurement cycle.
-	 */
-	void resume();
-
-
-
 private:
-	static void task_main_trampoline(int argc, char *argv[]);
-
-	/**
-	* @brief Main loop of the driver. Loops until _task_should_exit flag is set.
-	*/
-	void task_main();
-
 	/**
 	 * @brief Writes program defined threshold defaults to the register map and checks/writes the EEPROM.
 	 * @return Returns PX4_OK upon success or PX4_ERROR on fail.
 	 */
-	int init_pga460();
+	int initialize_device_settings();
 
 	/**
 	 * @brief Checks the measurement from last report and sets the range distance mode (long range , short range).
@@ -402,7 +365,7 @@ private:
 	 * @brief Writes the user defined paramaters to device register map.
 	 * @return Returns true if the thresholds were successfully written.
 	 */
-	bool init_thresholds();
+	bool initialize_thresholds();
 
 	/**
 	* @brief Calculates the checksum of the transmitted commmand + data.
@@ -411,15 +374,6 @@ private:
 	* @return Returns the single byte checksum.
 	*/
 	uint8_t calc_checksum(uint8_t *data, const uint8_t size);
-
-	/** @param _task_handle Handle for the task.  */
-	px4_task_t _task_handle;
-
-	/** @param _task_is_running Indicator flag for when the driver is running. */
-	bool _task_is_running;
-
-	/** @param _task_should_exit Indicator flag to stop the ultrasonic measurement process. */
-	bool _task_should_exit;
 
 	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
 	uint8_t _ranging_mode;
@@ -445,12 +399,6 @@ private:
 	/** @param _fd Returns the file descriptor from px4_open(). */
 	int _fd;
 
-	/** @param _min_distance Returns the set minimum distance. */
-	float _min_distance;
-
-	/** @param _max_distance Returns the set maximum distance. */
-	float _max_distance;
-
 	/** @param _port Stores the port name. */
 	char _port[20];
 
@@ -461,19 +409,9 @@ private:
 
 	struct distance_sensor_s _previous_valid_report = {};
 
-	/**
-	* @brief Handles for interesting parameters
-	**/
-	struct {
-		param_t resonant_frequency;
-
-	} _paramHandle{};
-
-
-	struct {
-		float resonant_frequency;
-
-	} _params{};
+	DEFINE_PARAMETERS(
+		(ParamFloat<px4::params::PGA460_RES_FREQ>) _resonant_frequency
+	)
 };
 
 #endif

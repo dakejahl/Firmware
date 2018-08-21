@@ -43,17 +43,11 @@
 
 extern "C" __EXPORT int pga460_main(int argc, char *argv[]);
 
-PGA460 *pga460_task;
-
 PGA460::PGA460(const char *port) :
-	_task_handle(-1),
-	_task_is_running(0),
-	_task_should_exit(0),
+	ModuleParams(nullptr),
 	_ranging_mode(MODE_SHORT_RANGE),
 	_orb_class_instance(-1),
 	_fd(-1),
-	_min_distance(MIN_DETECTABLE_DISTANCE),
-	_max_distance(MAX_DETECTABLE_DISTANCE),
 	_distance_sensor_topic(nullptr)
 {
 	// store port name
@@ -64,87 +58,40 @@ PGA460::PGA460(const char *port) :
 
 PGA460::~PGA460()
 {
-	if (_task_handle != -1) {
-		_task_should_exit = true;
-	}
-
 	orb_unadvertise(_distance_sensor_topic);
 }
 
-int PGA460::stop()
+int PGA460::task_spawn(int argc, char *argv[])
 {
-	_task_should_exit = true;
-
-	while (_task_is_running) {
-		usleep(10000); // sleep for a tenth of a measurement cycle
-	}
-
-	px4_task_delete(_task_handle);
-
-	return OK;
-}
-
-int PGA460::start()
-{
-	_task_should_exit = false;
-
-	_paramHandle.resonant_frequency = param_find("PGA460_RES_FREQ");
-	param_get(_paramHandle.resonant_frequency, &_params.resonant_frequency);
-
-	if (init() != OK) {
-		PX4_INFO("PGA460: Driver not started!");
-		return PX4_ERROR;
-	}
-
+	px4_main_t entry_point = (px4_main_t)&run_trampoline;
 	int priority = 50;
-	int stack_size = 1024;
+	int stack_size = 1240;
 
-	_task_handle = px4_task_spawn_cmd("pga460",
-					  SCHED_DEFAULT,
-					  priority,
-					  stack_size,
-					  (px4_main_t)&task_main_trampoline,
-					  nullptr);
+	int task_id = px4_task_spawn_cmd("pga460", SCHED_DEFAULT,
+					 priority, stack_size,
+					 entry_point, (char *const *)argv);
 
-	return OK;
-}
-
-int PGA460::init()
-{
-	if (init_pga460() != OK) {
-		return PX4_ERROR;
+	if (task_id < 0) {
+		task_id = -1;
+		return -errno;
 	}
 
-	struct distance_sensor_s ds_report = {};
+	_task_id = task_id;
 
-	ds_report.timestamp = hrt_absolute_time();
-
-	ds_report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
-
-	ds_report.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
-
-	ds_report.id = 0;
-
-	ds_report.current_distance = -1.0f;	// make evident that this range sample is invalid
-
-	ds_report.covariance = 0;
-
-	_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &ds_report,
-				 &_orb_class_instance, ORB_PRIO_HIGH);
-
-	if (_distance_sensor_topic == nullptr) {
-		PX4_WARN("Failed to create distance_sensor object. Did you start uOrb?");
-		return PX4_ERROR;
-	}
-
-	return OK;
+	return 0;
 }
 
-int PGA460::init_pga460()
+PGA460 *PGA460::instantiate(int argc, char *argv[])
 {
-	open_serial();
+	PGA460 *pga460 = new PGA460(PGA460_DEFAULT_PORT);
 
-	if (!init_thresholds()) {
+	return pga460;
+}
+
+int PGA460::initialize_device_settings()
+{
+
+	if (!initialize_thresholds()) {
 		PX4_WARN("Thresholds not initialized");
 		return PX4_ERROR;
 	}
@@ -164,13 +111,10 @@ int PGA460::init_pga460()
 		return PX4_ERROR;
 	}
 
-	close_serial();
-
-
 	return OK;
 }
 
-bool PGA460::init_thresholds()
+bool PGA460::initialize_thresholds()
 {
 	const uint8_t array_size = 35;
 	uint8_t settings_buf[array_size] = {SYNCBYTE, BC_THRBW,
@@ -199,44 +143,42 @@ bool PGA460::init_thresholds()
 	}
 }
 
-void PGA460::task_main_trampoline(int argc, char *argv[])
+void PGA460::run()
 {
-	pga460_task->task_main();
-}
+	ModuleParams::updateParams();
+	open_serial();
+	initialize_device_settings();
 
-void PGA460::task_main()
-{
-	while (1) {
-		open_serial();
+	struct distance_sensor_s report = {};
+	_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &report,
+				 &_orb_class_instance, ORB_PRIO_HIGH);
+
+	if (_distance_sensor_topic == nullptr) {
+		PX4_WARN("Failed to advertise distance_sensor topic. Did you start uORB?");
+		return;
+	}
+
+	_start_loop = hrt_absolute_time();
+
+	while (!should_exit()) {
+		// Check last report to determine if we need to switch range modes.
+		uint8_t mode = set_range_mode();
+
+		take_measurement(mode);
+
+		// Control rate
+		_loop_time = hrt_absolute_time() - _start_loop;
+		uint32_t sleep_time = (_loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - _loop_time;
+		usleep(sleep_time);
 		_start_loop = hrt_absolute_time();
 
-		while (!_task_should_exit) {
-			_task_is_running = true;
+		request_results();
 
-			// Check last report to determine if we need to switch range modes.
-			uint8_t mode = set_range_mode();
-
-			take_measurement(mode);
-
-			// Control rate
-			_loop_time = hrt_absolute_time() - _start_loop;
-			uint32_t sleep_time = (_loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - _loop_time;
-			usleep(sleep_time);
-			_start_loop = hrt_absolute_time();
-
-			request_results();
-
-			collect_results();
-		}
-
-		close_serial();
-
-		_task_is_running = false;
-
-		while (_task_should_exit) {
-			usleep(100000);
-		}
+		collect_results();
 	}
+
+	PX4_INFO("Exiting.");
+	close_serial();
 }
 
 uint8_t PGA460::set_range_mode()
@@ -327,15 +269,15 @@ void PGA460::uORB_publish_results(const float object_distance)
 	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_ULTRASOUND;
 	report.orientation = distance_sensor_s::ROTATION_DOWNWARD_FACING;
 	report.current_distance = object_distance;
-	report.min_distance = get_minimum_distance();
-	report.max_distance = get_maximum_distance();
+	report.min_distance = MIN_DETECTABLE_DISTANCE;
+	report.max_distance = MAX_DETECTABLE_DISTANCE;
 	report.signal_quality = 0;
 
 	bool data_is_valid = false;
 	static uint8_t good_data_counter = 0;
 
 	// If we are within our MIN and MAX thresholds, continue.
-	if (object_distance > get_minimum_distance() && object_distance < get_maximum_distance()) {
+	if (object_distance > MIN_DETECTABLE_DISTANCE && object_distance < MAX_DETECTABLE_DISTANCE) {
 
 		// Height cannot change by more than MAX_SAMPLE_DEVIATION between measurements.
 		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + MAX_SAMPLE_DEVIATION)
@@ -869,7 +811,7 @@ uint8_t PGA460::find_resonant_frequency()
 
 	// formula from data sheet pg70
 	float frequency = max_index * 0.2f + 30;
-	param_set(param_find("PGA460_RES_FREQ"), &(frequency));
+	_resonant_frequency.set(frequency);
 
 	return max_index;
 
@@ -916,40 +858,6 @@ uint16_t PGA460::get_system_diagnostics()
 	return sys_diag;
 }
 
-void PGA460::suspend()
-{
-	_task_should_exit = true;
-
-	while (_task_is_running) {
-		usleep(200000); // sleep for two measurement cycles
-	}
-}
-
-void PGA460::resume()
-{
-	_task_should_exit = false;
-}
-
-float PGA460::get_minimum_distance()
-{
-	return _min_distance;
-}
-
-void PGA460::set_minimum_distance(const float dist)
-{
-	_min_distance = dist;
-}
-
-float PGA460::get_maximum_distance()
-{
-	return _max_distance;
-}
-
-void PGA460::set_maximum_distance(const float dist)
-{
-	_max_distance = dist;
-}
-
 uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 {
 	uint8_t n = 0;
@@ -982,144 +890,59 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 
 
 // Local functions in support of the shell command
-
-bool start()
+int PGA460::print_status()
 {
-	if (pga460_task != nullptr) {
-		PX4_INFO("Driver already started.");
-		return 0;
+	print_message(_previous_valid_report);
+	return PX4_OK;
+}
+
+int PGA460::print_usage(const char *reason)
+{
+	if (reason) {
+		PX4_WARN("%s\n", reason);
 	}
 
-	pga460_task = new PGA460(PGA460_DEFAULT_PORT);
+	PRINT_MODULE_DESCRIPTION(
+		R"DESCR_STR(
+### Description
+Ultrasonic range finder driver that handles the communication with the device and publishes the distance via uORB.
 
-	if (pga460_task == nullptr) {
-		PX4_ERR("Failed to create instance of PGA460.");
-		return 1;
-	}
+### Implementation
+This driver is implented as a NuttX task. This Implementation was chosen due to the need for polling on a message via UART, which is not supported in the
+work_queue. This driver continuously takes range measurements while it is running. A simple algorithm to detect false readings is implemented at the driver level
+in an attemptto improve the quality of data that is being published. The driver will not publish data at all if it deems the sensor data to be invalid or unstable.
+)DESCR_STR");
 
-	if (OK != pga460_task->start()) {
-		PX4_ERR("Failed to start PGA460: could not reach device.");
-		delete pga460_task;
-		pga460_task = nullptr;
-		return 1;
-	}
+	PRINT_MODULE_USAGE_NAME("pga460", "driver");
+
+	PRINT_MODULE_USAGE_COMMAND("start <device_path>");
+	PRINT_MODULE_USAGE_ARG("device_path", "The device path. ie: /dev/ttyS6", true);
+
+	PRINT_MODULE_USAGE_COMMAND("stop");
+	PRINT_MODULE_USAGE_COMMAND("status");
+	PRINT_MODULE_USAGE_COMMAND("help");
+
+	PRINT_MODULE_USAGE_COMMAND("read_register <addr>");
+	PRINT_MODULE_USAGE_ARG("addr", "The register address to read from.", true);
+
+	PRINT_MODULE_USAGE_COMMAND("write_register <addr> <val>");
+	PRINT_MODULE_USAGE_ARG("addr", "The register address to write to.", true);
+	PRINT_MODULE_USAGE_ARG("val", "The value to be written.", true);
+
+	PRINT_MODULE_USAGE_COMMAND_DESCR("check_eeprom", "Checks to see if the EEPROM has firmware default values.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("write_eeprom", "Writes the firmware default values to the EEPROM.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("calibrate", "Sweeps from 35 - 45 kHz and sets drive frequency.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("diagnostics", "Compares the measured frequency to the saved value.");
 
 	return 0;
 }
 
-bool stop()
+int PGA460::custom_command(int argc, char *argv[])
 {
-	if (pga460_task != nullptr) {
-		pga460_task->stop();
-		delete pga460_task;
-		pga460_task = nullptr;
-
-	} else {
-		PX4_INFO("driver not running");
-	}
-
-	return 0;
-}
-
-void info()
-{
-	PX4_INFO("\n\tstart            	 	- Starts the PGA460 driver."
-		 "\n\tstop 				- Stops the PGA460 driver."
-		 "\n\tcheck_eeprom		- Checks to see if the EEPROM has firmware default values"
-		 "\n\twrite_eeprom		- Writes the firmware default values to the EEPROM"
-		 "\n\tread_register(reg)		- Read a register."
-		 "\n\twrite_register(reg, val)	- Writes a value to a register."
-		 "\n\tcalibrate			- Sweeps from 35 - 45 kHz and sets the system frequency"
-		 "\n\tdiagnostics		- Compares the measured frequency to the saved value"
-		 "\n\t"
-		 "\n\tAll arguments are in decimal"
-		 "\n\t");
-}
-
-
-//	MAIN
-
-int pga460_main(int argc, char *argv[])
-{
-	// Start/load the driver.
-	if (!strcmp(argv[1], "start")) {
-		start();
-		return 0;
-	}
-
-	// Stop the driver
-	if (!strcmp(argv[1], "stop")) {
-		stop();
-		return 0;
-	}
-
-	// Prints options
-	if (!strcmp(argv[1], "help") || !strcmp(argv[1], "info")) {
-		info();
-		return 0;
-	}
-
-	// Checks the eeprom an reports whether or not the settings match the defaults
-	if (!strcmp(argv[1], "check_eeprom")) {
-		pga460_task->suspend();
-
-		pga460_task->open_serial();
-
-		bool ret = pga460_task->check_eeprom();
-
-		if (ret) {
-			PX4_INFO("EEPROM has firmware default settings");
-
-		} else {
-			PX4_WARN("EEPROM does not have firmware default settings");
-		}
-
-		pga460_task->close_serial();
-
-		pga460_task->resume();
-		return 0;
-	}
-
-	// Flashes default settings to the EEPROM
-	if (!strcmp(argv[1], "write_eeprom")) {
-		pga460_task->suspend();
-
-		pga460_task->open_serial();
-
-		bool ret = pga460_task->write_eeprom();
-
-		if (ret) {
-			PX4_INFO("EEPROM successfully written to");
-
-		} else {
-			PX4_WARN("EEPROM was not successfully written to");
-		}
-
-		pga460_task->close_serial();
-
-		pga460_task->resume();
-		return 0;
-	}
-
-	// Read the diagnostic registers: Measured transducer frequency and transducer decay time
-	if (!strcmp(argv[1], "diagnostics")) {
-		pga460_task->suspend();
-		pga460_task->open_serial();
-		pga460_task->get_system_diagnostics();
-		pga460_task->close_serial();
-		pga460_task->resume();
-		return 0;
-	}
-
 	// Reads the (register)
-	if (!strcmp(argv[1], "read_register")) {
-		if (argv[2]) {
-			pga460_task->suspend();
-			usleep(100000);
-			pga460_task->open_serial();
-			uint8_t ret = pga460_task->read_register((uint8_t)atoi(argv[2]));
-			pga460_task->close_serial();
-			pga460_task->resume();
+	if (!strcmp(argv[0], "read_register")) {
+		if (argv[1]) {
+			uint8_t ret = get_instance()->read_register((uint8_t)atoi(argv[1]));
 			PX4_INFO("Register has value %d", ret);
 
 		} else {
@@ -1130,13 +953,9 @@ int pga460_main(int argc, char *argv[])
 	}
 
 	// Writes to the (register) the (value)
-	if (!strcmp(argv[1], "write_register")) {
-		if (argv[2] && argv[3]) {
-			pga460_task->suspend();
-			pga460_task->open_serial();
-			uint8_t ret = pga460_task->write_register((uint8_t)atoi(argv[2]), (uint8_t)atoi(argv[3]));
-			pga460_task->close_serial();
-			pga460_task->resume();
+	if (!strcmp(argv[0], "write_register")) {
+		if (argv[1] && argv[2]) {
+			uint8_t ret = get_instance()->write_register((uint8_t)atoi(argv[1]), (uint8_t)atoi(argv[2]));
 
 			if (ret) { PX4_INFO("Register successfully written to"); }
 
@@ -1147,19 +966,53 @@ int pga460_main(int argc, char *argv[])
 		return 0;
 	}
 
-	// Sweeps across a frequency range and sets the operating frequency to the resonant
-	if (!strcmp(argv[1], "calibrate")) {
-		pga460_task->suspend();
-		pga460_task->open_serial();
-		uint8_t freq = pga460_task->find_resonant_frequency();
-		pga460_task->close_serial();
-		pga460_task->resume();
+	// Checks the eeprom an reports whether or not the settings match the defaults
+	if (!strcmp(argv[0], "check_eeprom")) {
+		bool ret = get_instance()->check_eeprom();
 
+		if (ret) {
+			PX4_INFO("EEPROM has firmware default settings");
+
+		} else {
+			PX4_WARN("EEPROM does not have firmware default settings");
+		}
+
+		return 0;
+	}
+
+	// Flashes default settings to the EEPROM
+	if (!strcmp(argv[0], "write_eeprom")) {
+		bool ret = get_instance()->write_eeprom();
+
+		if (ret) {
+			PX4_INFO("EEPROM successfully written to");
+
+		} else {
+			PX4_WARN("EEPROM was not successfully written to");
+		}
+
+		return 0;
+	}
+
+	// Sweeps across a frequency range and sets the operating frequency to the resonant
+	if (!strcmp(argv[0], "calibrate")) {
+		uint8_t freq = get_instance()->find_resonant_frequency();
 		PX4_INFO("Resonant frequency detected as: %d", freq);
 		return 0;
 	}
 
+	// Read the diagnostic registers: Measured transducer frequency and transducer decay time
+	if (!strcmp(argv[0], "diagnostics")) {
+		get_instance()->get_system_diagnostics();
+		return 0;
+	}
 
-	PX4_INFO("Unrecognized arguments, try: start [device_name], stop, info ");
-	return 1;
+	return print_usage("Unrecognized command.");
+}
+
+
+//	MAIN
+int pga460_main(int argc, char *argv[])
+{
+	return PGA460::main(argc, argv);
 }
