@@ -44,9 +44,7 @@
 extern "C" __EXPORT int pga460_main(int argc, char *argv[]);
 
 PGA460::PGA460(const char *port) :
-	ModuleParams(nullptr),
 	_ranging_mode(MODE_SHORT_RANGE),
-	_orb_class_instance(-1),
 	_fd(-1),
 	_distance_sensor_topic(nullptr)
 {
@@ -64,11 +62,10 @@ PGA460::~PGA460()
 int PGA460::task_spawn(int argc, char *argv[])
 {
 	px4_main_t entry_point = (px4_main_t)&run_trampoline;
-	int priority = 50;
-	int stack_size = 1240;
+	int stack_size = 1256;
 
 	int task_id = px4_task_spawn_cmd("pga460", SCHED_DEFAULT,
-					 priority, stack_size,
+					 SCHED_PRIORITY_SLOW_DRIVER, stack_size,
 					 entry_point, (char *const *)argv);
 
 	if (task_id < 0) {
@@ -145,13 +142,11 @@ bool PGA460::initialize_thresholds()
 
 void PGA460::run()
 {
-	ModuleParams::updateParams();
 	open_serial();
 	initialize_device_settings();
 
 	struct distance_sensor_s report = {};
-	_distance_sensor_topic = orb_advertise_multi(ORB_ID(distance_sensor), &report,
-				 &_orb_class_instance, ORB_PRIO_HIGH);
+	_distance_sensor_topic = orb_advertise(ORB_ID(distance_sensor), &report);
 
 	if (_distance_sensor_topic == nullptr) {
 		PX4_WARN("Failed to advertise distance_sensor topic. Did you start uORB?");
@@ -163,19 +158,15 @@ void PGA460::run()
 	while (!should_exit()) {
 		// Check last report to determine if we need to switch range modes.
 		uint8_t mode = set_range_mode();
-
 		take_measurement(mode);
 
 		// Control rate
-		_loop_time = hrt_absolute_time() - _start_loop;
-		uint32_t sleep_time = (_loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - _loop_time;
-		task_unlock();
+		uint64_t loop_time = hrt_absolute_time() - _start_loop;
+		uint32_t sleep_time = (loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - loop_time;
 		usleep(sleep_time);
-		task_lock();
+
 		_start_loop = hrt_absolute_time();
-
 		request_results();
-
 		collect_results();
 	}
 
@@ -186,11 +177,10 @@ void PGA460::run()
 uint8_t PGA460::set_range_mode()
 {
 	// Set the ASICs settings depening on the distance read from our last report. If
-	// it has been longer than 1 second since a good reading, toggle the mode.
-	if (_previous_valid_report.current_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
+	if (_previous_valid_report_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
 		_ranging_mode = MODE_LONG_RANGE;
 
-	} else if (_previous_valid_report.current_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
+	} else if (_previous_valid_report_distance < (MODE_SET_THRESH - MODE_SET_HYST)) {
 		_ranging_mode = MODE_SHORT_RANGE;
 
 	}
@@ -282,8 +272,8 @@ void PGA460::uORB_publish_results(const float object_distance)
 	if (object_distance > MIN_DETECTABLE_DISTANCE && object_distance < MAX_DETECTABLE_DISTANCE) {
 
 		// Height cannot change by more than MAX_SAMPLE_DEVIATION between measurements.
-		bool sample_deviation_valid = (report.current_distance < _previous_valid_report.current_distance + MAX_SAMPLE_DEVIATION)
-					      && (report.current_distance > _previous_valid_report.current_distance - MAX_SAMPLE_DEVIATION);
+		bool sample_deviation_valid = (report.current_distance < _previous_valid_report_distance + MAX_SAMPLE_DEVIATION)
+					      && (report.current_distance > _previous_valid_report_distance - MAX_SAMPLE_DEVIATION);
 
 		// Must have NUM_SAMPLES_CONSISTENT valid samples to be publishing.
 		if (sample_deviation_valid) {
@@ -303,15 +293,15 @@ void PGA460::uORB_publish_results(const float object_distance)
 
 		} else {
 			// Reset our quality of data estimate after NUM_SAMPLES_CONSISTENT invalid samples.
-			_previous_valid_report = _previous_report;
+			_previous_valid_report_distance = _previous_report_distance;
 		}
 
-		_previous_report = report;
+		_previous_report_distance = report.current_distance;
 	}
 
 	if (data_is_valid) {
-		_previous_valid_report = report;
 		report.signal_quality = 1;
+		_previous_valid_report_distance = report.current_distance;
 		orb_publish(ORB_ID(distance_sensor), _distance_sensor_topic, &report);
 	}
 }
@@ -358,21 +348,6 @@ float PGA460::get_temperature()
 
 	return temperature;
 
-}
-
-void PGA460::task_lock()
-{
-	while (_task_is_locked) {
-		// Spin on the lock until it becomes available
-		usleep(100);
-	}
-
-	_task_is_locked = true;
-}
-
-void PGA460::task_unlock()
-{
-	_task_is_locked = false;
 }
 
 int PGA460::open_serial()
@@ -731,9 +706,6 @@ void PGA460::print_device_status()
 
 void PGA460::print_diagnostics(const uint8_t diagnostic_byte)
 {
-	// Stores the most recent diagnostic byte as a global
-	_diagnostic_byte = diagnostic_byte;
-
 	// check the diagnostics bit field
 	if (diagnostic_byte & 1 << 6) {
 		if (diagnostic_byte & 1 << 0) {
@@ -787,94 +759,6 @@ void PGA460::print_diagnostics(const uint8_t diagnostic_byte)
 	}
 }
 
-uint8_t PGA460::get_diagnostic_byte()
-{
-	return _diagnostic_byte;
-}
-
-uint8_t PGA460::find_resonant_frequency()
-{
-	// sweep from 25 to 75 == 35kHz to 45kHz
-	uint8_t amplitudes[50] = {0};
-	uint8_t maxval = 0;
-	uint8_t max_index = 0;
-
-	for (size_t frequency_index = 25; frequency_index < 74; frequency_index++) {
-		write_register(0x1C, frequency_index);
-		usleep(10000);
-
-		take_measurement(P1BL);
-
-		usleep(100000);
-		request_results();
-
-		usleep(10000);
-
-		uint32_t results = collect_results();
-		PX4_INFO("amplitude is: %d", results & 0xFF);
-
-		usleep(10000);
-
-		amplitudes[frequency_index - 25] = (results & 0xFF);
-
-		if ((amplitudes[frequency_index - 25] > maxval) && (amplitudes[frequency_index - 25] != 0xFF)) {
-			maxval = amplitudes[frequency_index - 25];
-			max_index = frequency_index;
-		}
-	}
-
-	write_register(0x1C, max_index);
-	usleep(10000);
-
-	// formula from data sheet pg70
-	float frequency = max_index * 0.2f + 30;
-	_resonant_frequency.set(frequency);
-
-	return max_index;
-
-}
-
-uint16_t PGA460::get_system_diagnostics()
-{
-	uint8_t buf_tx[2] = {SYNCBYTE, SD};
-
-	tcflush(_fd, TCIOFLUSH);
-
-	px4_write(_fd, &buf_tx[0], sizeof(buf_tx));
-
-	// @TODO: consider opportunity to refactor this
-	px4_pollfd_struct_t fds[1];
-	fds[0].fd = _fd;
-	fds[0].events = POLLIN;
-
-	int bytesread = 0;
-	int timeout = 100;
-	uint8_t buf_rx[4] = {0};
-
-	int ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), 100);
-
-	while (ret) {
-		if (fds[0].revents & POLLIN) {
-			bytesread += px4_read(_fd, buf_rx + bytesread, sizeof(buf_rx) - bytesread);
-
-		} else { break; }
-
-		ret = px4_poll(&fds[0], (sizeof(fds) / sizeof(fds[0])), timeout);
-	}
-
-	uint16_t sys_diag = (buf_rx[1] << 8) + buf_rx[2];
-
-	// if a diagnostic bit is set we will be warned
-	print_diagnostics(buf_rx[0]);
-	PX4_INFO("\nPGA460: The transducer frequency has been measured as %2.2f \n"
-		 "The decay period time has been measured as %d", 1000000 / ((double)buf_rx[1] * 500), buf_rx[2]);
-
-	uint8_t saved_freq = read_register(0x1C);
-	PX4_INFO("PGA460: \nThe transducer frequency is currently saved as %2.2f", (double)saved_freq * 0.2 + 30);
-
-	return sys_diag;
-}
-
 uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 {
 	uint8_t n = 0;
@@ -909,7 +793,7 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 // Local functions in support of the shell command
 int PGA460::print_status()
 {
-	print_message(_previous_valid_report);
+	PX4_INFO("Distance: %2.2f", (double)_previous_valid_report_distance);
 	return PX4_OK;
 }
 
@@ -956,82 +840,6 @@ in an attemptto improve the quality of data that is being published. The driver 
 
 int PGA460::custom_command(int argc, char *argv[])
 {
-	// Reads the (register)
-	if (!strcmp(argv[0], "read_register")) {
-		if (argv[1]) {
-			get_instance()->task_lock();
-			uint8_t ret = get_instance()->read_register((uint8_t)atoi(argv[1]));
-			get_instance()->task_unlock();
-			PX4_INFO("Register has value %d", ret);
-
-		} else {
-			PX4_INFO("Unrecognized arguments");
-		}
-		return 0;
-	}
-
-	// Writes to the (register) the (value)
-	if (!strcmp(argv[0], "write_register")) {
-		get_instance()->task_lock();
-		if (argv[1] && argv[2]) {
-			uint8_t ret = get_instance()->write_register((uint8_t)atoi(argv[1]), (uint8_t)atoi(argv[2]));
-
-			if (ret) { PX4_INFO("Register successfully written to"); }
-
-		} else {
-			PX4_INFO("Unrecognized arguments");
-		}
-		get_instance()->task_unlock();
-		return 0;
-	}
-
-	// Checks the eeprom an reports whether or not the settings match the defaults
-	if (!strcmp(argv[0], "check_eeprom")) {
-		get_instance()->task_lock();
-		bool ret = get_instance()->check_eeprom();
-
-		if (ret) {
-			PX4_INFO("EEPROM has firmware default settings");
-
-		} else {
-			PX4_WARN("EEPROM does not have firmware default settings");
-		}
-		get_instance()->task_unlock();
-		return 0;
-	}
-
-	// Flashes default settings to the EEPROM
-	if (!strcmp(argv[0], "write_eeprom")) {
-		get_instance()->task_lock();
-		bool ret = get_instance()->write_eeprom();
-
-		if (ret) {
-			PX4_INFO("EEPROM successfully written to");
-
-		} else {
-			PX4_WARN("EEPROM was not successfully written to");
-		}
-		get_instance()->task_unlock();
-		return 0;
-	}
-
-	// Sweeps across a frequency range and sets the operating frequency to the resonant
-	if (!strcmp(argv[0], "calibrate")) {
-		get_instance()->task_lock();
-		uint8_t freq = get_instance()->find_resonant_frequency();
-		PX4_INFO("Resonant frequency detected as: %d", freq);
-		get_instance()->task_unlock();
-		return 0;
-	}
-
-	// Read the diagnostic registers: Measured transducer frequency and transducer decay time
-	if (!strcmp(argv[0], "diagnostics")) {
-		get_instance()->task_lock();
-		get_instance()->get_system_diagnostics();
-		get_instance()->task_unlock();
-		return 0;
-	}
-
 	return print_usage("Unrecognized command.");
 }
 

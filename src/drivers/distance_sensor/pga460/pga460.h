@@ -63,7 +63,8 @@
 #define MODE_SET_HYST 	0.0f
 #define MAX_SAMPLE_DEVIATION 0.15f
 #define NUM_SAMPLES_CONSISTENT 5
-#define POLL_RATE_US 50000ULL
+// #define POLL_RATE_US 50000ULL
+#define POLL_RATE_US 0ULL
 
 #define MODE_SHORT_RANGE P1BL
 #define MODE_LONG_RANGE P2BL
@@ -107,36 +108,36 @@
 #define EE_UNLOCK_ST1   0x68
 #define EE_UNLOCK_ST2   0x69
 
-/* EEPROM */
-#define	USER_DATA1	0x0	//reg addr	0x0
-#define	USER_DATA2	0x0	//reg addr	0x1
-#define	USER_DATA3	0x0	//reg addr	0x2
-#define	USER_DATA4	0x0	//reg addr	0x3
-#define	USER_DATA5	0x0	//reg addr	0x4
-#define	USER_DATA6	0x0	//reg addr	0x5
-#define	USER_DATA7	0x0	//reg addr	0x6
-#define	USER_DATA8	0x0	//reg addr	0x7
-#define	USER_DATA9	0x0	//reg addr	0x8
-#define	USER_DATA10	0x0	//reg addr	0x9
-#define	USER_DATA11	0x0	//reg addr	0x0A
-#define	USER_DATA12	0x0	//reg addr	0x0B
-#define	USER_DATA13	0x0	//reg addr	0x0C
-#define	USER_DATA14	0x0	//reg addr	0x0D
-#define	USER_DATA15	0x0	//reg addr	0x0E
-#define	USER_DATA16	0x0	//reg addr	0x0F
-#define	USER_DATA17	0x0	//reg addr	0x10
-#define	USER_DATA18	0x0	//reg addr	0x11
-#define	USER_DATA19	0x0	//reg addr	0x12
-#define	USER_DATA20	0x0	//reg addr	0x13
-#define	TVGAIN0	0x9D	//reg addr	0x14
-#define	TVGAIN1	0xBD	//reg addr	0x15
-#define	TVGAIN2	0xEF	//reg addr	0x16
-#define	TVGAIN3	0x31	//reg addr	0x17
-#define	TVGAIN4	0x48	//reg addr	0x18
-#define	TVGAIN5	0x67	//reg addr	0x19
-#define	TVGAIN6	0xAC	//reg addr	0x1A
+// EEPROM -- non-volatile
+#define	USER_DATA1	0xAA	//reg addr	0x0
+#define	USER_DATA2	0x0		//reg addr	0x1
+#define	USER_DATA3	0x0		//reg addr	0x2
+#define	USER_DATA4	0x0		//reg addr	0x3
+#define	USER_DATA5	0x0		//reg addr	0x4
+#define	USER_DATA6	0x0		//reg addr	0x5
+#define	USER_DATA7	0x0		//reg addr	0x6
+#define	USER_DATA8	0x0		//reg addr	0x7
+#define	USER_DATA9	0x0		//reg addr	0x8
+#define	USER_DATA10	0x0		//reg addr	0x9
+#define	USER_DATA11	0x0		//reg addr	0x0A
+#define	USER_DATA12	0x0		//reg addr	0x0B
+#define	USER_DATA13	0x0		//reg addr	0x0C
+#define	USER_DATA14	0x0		//reg addr	0x0D
+#define	USER_DATA15	0x0		//reg addr	0x0E
+#define	USER_DATA16	0x0		//reg addr	0x0F
+#define	USER_DATA17	0x0		//reg addr	0x10
+#define	USER_DATA18	0x0		//reg addr	0x11
+#define	USER_DATA19	0x0		//reg addr	0x12
+#define	USER_DATA20	0x0		//reg addr	0x13
+#define	TVGAIN0	0x9D		//reg addr	0x14
+#define	TVGAIN1	0xBD		//reg addr	0x15
+#define	TVGAIN2	0xEF		//reg addr	0x16
+#define	TVGAIN3	0x31		//reg addr	0x17
+#define	TVGAIN4	0x48		//reg addr	0x18
+#define	TVGAIN5	0x67		//reg addr	0x19
+#define	TVGAIN6	0xAC		//reg addr	0x1A
 #define	INIT_GAIN	0x40	//reg addr	0x1B
-#define FREQUENCY       (uint8_t)(5*(_resonant_frequency.get() - 30.0f))       //reg addr      0x1C
+#define FREQUENCY   (uint8_t)(5*(_resonant_frequency - 30.0f))       //reg addr      0x1C
 #define	DEADTIME	0xF0	//reg addr	0x1D
 #define	PULSE_P1	0x0C	//reg addr	0x1E
 #define	PULSE_P2	0x1F	//reg addr	0x1F
@@ -144,33 +145,39 @@
 #define	CURR_LIM_P2	0x7F	//reg addr	0x21
 #define	REC_LENGTH	0x44	//reg addr	0x22
 #define	FREQ_DIAG	0x1B	//reg addr	0x23
-#define	SAT_FDIAG_TH	0x2C	//reg addr	0x24
+#define	SAT_FDIAG_TH	0x2C//reg addr	0x24
 #define	FVOLT_DEC	0x7C	//reg addr	0x25
 #define	DECPL_TEMP	0xDF	//reg addr	0x26
-#define	DSP_SCALE	0x0	//reg addr	0x27
-#define	TEMP_TRIM	0x0	//reg addr	0x28
+#define	DSP_SCALE	0x0		//reg addr	0x27
+#define	TEMP_TRIM	0x0		//reg addr	0x28
 #define	P1_GAIN_CTRL	0x0	//reg addr	0x29
 #define	P2_GAIN_CTRL	0x8	//reg addr	0x2A
-#define	EE_CRC	0x29	//reg addr	0x2B
-#define	EE_CNTRL	0x0	//reg addr	0x40
+#define	EE_CRC	0x29		//reg addr	0x2B
+
+// Register-based -- volatile
+#define	EE_CNTRL	0x0		//reg addr	0x40
+
 #define	BPF_A2_MSB	0x85	//reg addr	0x41
 #define	BPF_A2_LSB	0xEA	//reg addr	0x42
 #define	BPF_A3_MSB	0xF9	//reg addr	0x43
 #define	BPF_A3_LSB	0xA5	//reg addr	0x44
-#define	BPF_B1_MSB	0x3	//reg addr	0x45
+#define	BPF_B1_MSB	0x3		//reg addr	0x45
 #define	BPF_B1_LSB	0x2D	//reg addr	0x46
 #define	LPF_A2_MSB	0x7E	//reg addr	0x47
 #define	LPF_A2_LSB	0x67	//reg addr	0x48
-#define	LPF_B1_MSB	0x0	//reg addr	0x49
+#define	LPF_B1_MSB	0x0		//reg addr	0x49
 #define	LPF_B1_LSB	0xCD	//reg addr	0x4A
-#define	TEST_MUX	0x0	//reg addr	0x4B
+
+#define	TEST_MUX	0x0		//reg addr	0x4B
 #define	DEV_STAT0	0x80	//reg addr	0x4C
-#define	DEV_STAT1	0x0	//reg addr	0x4D
+#define	DEV_STAT1	0x0		//reg addr	0x4D
+
+// Register-based -- volatile
 #define	P1_THR_0	0x54	//reg addr	0x5F
 #define	P1_THR_1	0x5C	//reg addr	0x60
 #define	P1_THR_2	0xBD	//reg addr	0x61
 #define	P1_THR_3	0xE0	//reg addr	0x62
-#define	P1_THR_4	0x6	//reg addr	0x63
+#define	P1_THR_4	0x6		//reg addr	0x63
 #define	P1_THR_5	0xCF	//reg addr	0x64
 #define	P1_THR_6	0xEE	//reg addr	0x65
 #define	P1_THR_7	0x8E	//reg addr	0x66
@@ -181,7 +188,7 @@
 #define	P1_THR_12	0xFF	//reg addr	0x6B
 #define	P1_THR_13	0xFF	//reg addr	0x6C
 #define	P1_THR_14	0xFF	//reg addr	0x6D
-#define	P1_THR_15	0x0	//reg addr	0x6E
+#define	P1_THR_15	0x0		//reg addr	0x6E
 #define	P2_THR_0	0xBA	//reg addr	0x6F
 #define	P2_THR_1	0xCF	//reg addr	0x70
 #define	P2_THR_2	0xFF	//reg addr	0x71
@@ -197,10 +204,10 @@
 #define	P2_THR_12	0xFF	//reg addr	0x7B
 #define	P2_THR_13	0xFF	//reg addr	0x7C
 #define	P2_THR_14	0xFF	//reg addr	0x7D
-#define	P2_THR_15	0x0	//reg addr	0x7E
-#define	THR_CRC	0x1D	//reg addr	0x7F
+#define	P2_THR_15	0x0		//reg addr	0x7E
+#define	THR_CRC	0x1D		//reg addr	0x7F
 
-class PGA460 : public ModuleBase<PGA460>, public ModuleParams
+class PGA460 : public ModuleBase<PGA460>
 {
 public:
 
@@ -274,12 +281,6 @@ public:
 	 */
 	uint8_t read_register(const uint8_t reg);
 
-	/*
-	 * @brief Get the diagnostic byte from the most recent pga460 response.
-	 * @return Returns the diagnostic byte.
-	 */
-	uint8_t get_diagnostic_byte();
-
 	/**
 	 * @brief Reports the diagnostic data the diagnostic byte (first byte from slave).
 	 * @param diagnostic_byte The diagnostic byte that contains the bitflags.
@@ -290,18 +291,6 @@ public:
 	 * @brief Reports the diagnostic data from device status registers 1 and 2 if there is anything to report.
 	 */
 	void print_device_status();
-
-	/**
-	 * @brief Fills a u16 with system diagnostics bytes. Byte1 = Transducer frequency    Byte2 = Decay period time
-	 * @return Returns a u16 that holds the two diagnostic bytes.
-	 */
-	uint16_t get_system_diagnostics();
-
-	/**
-	 * @brief Sweeps from 30 - 50 kHz and returns the frequeny with the largest receieved amplitude (the resonant frequency).
-	 * @return Returns the value of the register to set the frequency according to equation: value*0.2 + 30 = frequency kHz
-	 */
-	uint8_t find_resonant_frequency();
 
 private:
 	/**
@@ -367,10 +356,6 @@ private:
 	 */
 	bool initialize_thresholds();
 
-	void task_lock();
-
-	void task_unlock();
-
 	/**
 	* @brief Calculates the checksum of the transmitted commmand + data.
 	* @param data Pointer to the data a checksum will be calculated for.
@@ -382,23 +367,8 @@ private:
 	/** @param _mode_long_range Flag for long range mode. If false, sensor is in short range mode. */
 	uint8_t _ranging_mode;
 
-	/** @param _transducer_freq Value of the calibrated (from factory) transducer frequency. */
-	uint8_t _transducer_freq;
-
-	/** @param _diagnostic_byte Holds the diagnostic byte from the most recent pga460 response. */
-	uint8_t _diagnostic_byte;
-
-	/** @param _loop_time The loop time of the main loop. */
-	uint64_t _loop_time = 0;
-
 	/** @param _start_loop The starting value for the loop time of the main loop. */
 	uint64_t _start_loop = 0;
-
-	/** @param _class_instance Instance value returned from registering the class of device type. */
-	int _class_instance;
-
-	/** @param _orb_class_instance This is an output parameter and will be set to the newly created instance. */
-	int _orb_class_instance;
 
 	/** @param _fd Returns the file descriptor from px4_open(). */
 	int _fd;
@@ -406,18 +376,15 @@ private:
 	/** @param _port Stores the port name. */
 	char _port[20];
 
-	bool _task_is_locked = false;
-
 	/** @orb_advert_t orb_advert_t uORB advertisement topic. */
 	orb_advert_t _distance_sensor_topic;
 
-	struct distance_sensor_s _previous_report = {};
+	float _previous_report_distance = 0;
 
-	struct distance_sensor_s _previous_valid_report = {};
+	float _previous_valid_report_distance = 0;
 
-	DEFINE_PARAMETERS(
-		(ParamFloat<px4::params::PGA460_RES_FREQ>) _resonant_frequency
-	)
+	float _resonant_frequency = 41.0f;
+
 };
 
 #endif
