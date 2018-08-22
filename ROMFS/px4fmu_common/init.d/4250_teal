@@ -164,6 +164,7 @@ then
 
 	# sensors
 	param set SENS_EN_PGA460 1
+	param set SENS_EN_THERMAL 1
 
 	# system
 	param set SYS_COMPANION 1921600

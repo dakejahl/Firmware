@@ -446,6 +446,12 @@ then
 	mb12xx start -a
 fi
 
+# Heater driver for temperature regulated IMUs.
+if param compare SENS_EN_THERMAL 1
+then
+	heater start
+fi
+
 # Teraranger one tof sensor
 if param greater SENS_EN_TRANGER 0
 then
@@ -509,4 +515,3 @@ fi
 # Wait 20 ms for sensors (because we need to wait for the HRT and work queue callbacks to fire)
 usleep 20000
 sensors start
-heater start
