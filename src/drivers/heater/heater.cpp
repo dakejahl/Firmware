@@ -311,7 +311,7 @@ bool Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffe
 int Heater::print_status()
 {
 	PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
-		 (double)this->sensor_temperature(),
+		 (double)_sensor_temperature,
 		 (double)_p_temperature_setpoint.get(),
 		 _heater_on ? "On" : "Off");
 
