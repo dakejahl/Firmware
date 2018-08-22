@@ -85,30 +85,13 @@ Heater::~Heater()
 	}
 }
 
-int Heater::controller_period()
-{
-	return _controller_period_usec;
-}
-
 int Heater::controller_period(char *argv[])
 {
-	int controller_period_usec = 0;
-
-	if (argv[2]) {
-		controller_period_usec = atoi(argv[2]);
-		controller_period_usec = this->controller_period(controller_period_usec);
-
-	} else {
-		controller_period_usec = this->controller_period();
+	if (argv[1]) {
+		_controller_period_usec = atoi(argv[1]);
 	}
 
-	PX4_INFO("Controller period (usec):  %2.5f", (double)controller_period_usec);
-	return controller_period_usec;
-}
-
-int Heater::controller_period(int controller_period_usec)
-{
-	_controller_period_usec = controller_period_usec;
+	PX4_INFO("controller period (usec):  %i", _controller_period_usec);
 	return _controller_period_usec;
 }
 
@@ -158,7 +141,7 @@ int Heater::custom_command(int argc, char *argv[])
 	}
 
 	// Displays the IMU reported temperature.
-	if (strcmp(arg_v, "temperature") == 0) {
+	if (strcmp(arg_v, "temp") == 0) {
 		return get_instance()->sensor_temperature();
 	}
 
@@ -233,7 +216,6 @@ void Heater::cycle()
 void Heater::cycle_trampoline(void *arg)
 {
 	Heater *obj = reinterpret_cast<Heater *>(arg);
-
 	obj->cycle();
 }
 
@@ -243,36 +225,15 @@ float Heater::duty_cycle()
 	return _duty_cycle;
 }
 
-float Heater::feed_forward()
-{
-	return _p_feed_forward_value.get();
-}
-
 float Heater::feed_forward(char *argv[])
 {
-	float feed_forward_value = 0.f;
+	if (argv[1]) {
+		_p_feed_forward_value.set(atof(argv[1]));
 
-	if (argv[2]) {
-		feed_forward_value = atof(argv[2]);
-		feed_forward_value = this->feed_forward(feed_forward_value);
-
-	} else {
-		feed_forward_value = this->feed_forward();
 	}
 
-	PX4_INFO("Feed Forward Value:  %2.5f", (double)feed_forward_value);
-	return feed_forward_value;
-}
-
-float Heater::feed_forward(const float feed_forward_value)
-{
-	_p_feed_forward_value.set(feed_forward_value);
+	PX4_INFO("feedforward value:  %2.5f", (double)_p_feed_forward_value.get());
 	return _p_feed_forward_value.get();
-}
-
-bool Heater::get_state()
-{
-	return _heater_on;
 }
 
 void Heater::initialize_topics()
@@ -317,31 +278,13 @@ void Heater::initialize_trampoline(void *arg)
 	_object = heater;
 }
 
-float Heater::integrator()
-{
-	return _p_integrator_gain.get();
-}
-
 float Heater::integrator(char *argv[])
 {
-
-	float integrator_gain = 0.f;
-
-	if (argv[2]) {
-		integrator_gain = atof(argv[2]);
-		integrator_gain = this->integrator(integrator_gain);
-
-	} else {
-		integrator_gain = this->integrator();
+	if (argv[1]) {
+		_p_integrator_gain.set(atof(argv[1]));
 	}
 
-	PX4_INFO("Integrator Gain:  %2.5f", (double)integrator_gain);
-	return integrator_gain;
-}
-
-float Heater::integrator(const float integrator_gain)
-{
-	_p_integrator_gain.set(integrator_gain);
+	PX4_INFO("integrator gain:  %2.5f", (double)_p_integrator_gain.get());
 	return _p_integrator_gain.get();
 }
 
@@ -367,14 +310,10 @@ bool Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffe
 
 int Heater::print_status()
 {
-	float sensor_temperature = this->sensor_temperature();
-	float temperature_setpoint = this->temperature_setpoint();
-	bool heater_state = this->get_state();
-
 	PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
-		 (double)sensor_temperature,
-		 (double)temperature_setpoint,
-		 heater_state ? "On" : "Off");
+		 (double)this->sensor_temperature(),
+		 (double)_p_temperature_setpoint.get(),
+		 _heater_on ? "On" : "Off");
 
 	return PX4_OK;
 }
@@ -404,42 +343,24 @@ The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, e
 	PRINT_MODULE_USAGE_COMMAND_DESCR("start", "Starts the IMU heater driver as a background task");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("status", "Reports the current IMU temperature, temperature setpoint, and heater on/off status.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the IMU heater driver.");
-	PRINT_MODULE_USAGE_COMMAND_DESCR("temperature", "Reports the current IMU temperature.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("temp", "Reports the current IMU temperature.");
 
 	return 0;
 }
 
-float Heater::proportional()
-{
-	return _p_proportional_gain.get();
-}
-
 float Heater::proportional(char *argv[])
 {
-	float proportional_gain = 0.f;
-
-	if (argv[2]) {
-		proportional_gain = atof(argv[2]);
-		proportional_gain = this->proportional(proportional_gain);
-
-	} else {
-		proportional_gain = this->proportional();
+	if (argv[1]) {
+		_p_proportional_gain.set(atof(argv[1]));
 	}
 
-	PX4_INFO("Proportional Gain:  %2.5f", (double)proportional_gain);
-	return proportional_gain;
-}
-
-float Heater::proportional(const float proportional_gain)
-{
-	_p_proportional_gain.set(proportional_gain);
+	PX4_INFO("Proportional Gain:  %2.5f", (double)_p_proportional_gain.get());
 	return _p_proportional_gain.get();
 }
 
 uint32_t Heater::sensor_id()
 {
-	uint32_t id = this->sensor_id();
-	PX4_INFO("Sensor ID:  %d", id);
+	PX4_INFO("Sensor ID:  %d", _sensor_accel.device_id);
 	return _sensor_accel.device_id;
 }
 
@@ -485,31 +406,13 @@ int Heater::task_spawn(int argc, char *argv[])
 	return 0;
 }
 
-float Heater::temperature_setpoint()
-{
-	return _p_temperature_setpoint.get();
-}
-
 float Heater::temperature_setpoint(char *argv[])
 {
-	float target_temp = 0.f;
-
-	if (argv[2]) {
-		target_temp = atof(argv[2]);
-		target_temp = this->temperature_setpoint(target_temp);
-
-	} else {
-
-		target_temp = this->temperature_setpoint();
+	if (argv[1]) {
+		_p_temperature_setpoint.set(atof(argv[1]));
 	}
 
-	PX4_INFO("Target Temp:  %3.3f", (double)target_temp);
-	return target_temp;
-}
-
-float Heater::temperature_setpoint(const float temperature_setpoint)
-{
-	_p_temperature_setpoint.set(temperature_setpoint);
+	PX4_INFO("Target Temp:  %3.3f", (double)_p_temperature_setpoint.get());
 	return _p_temperature_setpoint.get();
 }
 

@@ -107,9 +107,6 @@ public:
 	 */
 	float feed_forward(char *argv[]);
 
-
-	bool get_state();
-
 	/**
 	 * @brief Sets and/or reports the heater controller integrator gain value.
 	 * @return Returns the heater integrator gain value iff successful, 0.0f otherwise.
@@ -162,23 +159,10 @@ public:
 	static int task_spawn(int argc, char *argv[]);
 
 	/**
-	 * @brief Reports the heater target temperature.
-	 * @return Returns the heater target temperature
-	 */
-	float temperature_setpoint();
-
-	/**
 	 * @brief Sets and/or reports the heater target temperature.
 	 * @return Returns the heater target temperature value iff successful, -1.0f otherwise.
 	 */
 	float temperature_setpoint(char *argv[]);
-
-	/**
-	 * @brief Sets the heater target temperature.
-	 * @param target_temperature The target setpoint temperature of the heater driver.
-	 * @return Returns the heater target temperature.
-	 */
-	float temperature_setpoint(float target_temperature);
 
 protected:
 
@@ -194,58 +178,6 @@ protected:
 	static void initialize_trampoline(void *arg);
 
 private:
-
-	/**
-	 * @brief Reports the heater cycle period value in microseconds.
-	 * @return Returns the heater cycle period value in microseconds.
-	 */
-	int controller_period();
-
-	/**
-	 * @brief Sets the heater cycle period value in microseconds.
-	 * @param controller_period_usec The heater driver cycle period in microseconds.
-	 * @return Returns the heater cycle period value in microseconds.
-	 */
-	int controller_period(int controller_period_usec);
-
-	/**
-	 * @brief Reports the heater feed forward value.
-	 * @return Returns the heater feed forward value.
-	 */
-	float feed_forward();
-
-	/**
-	 * @brief Reports the heater feed forward value.
-	 * @param feed_forward The closed loop feedback feed forward value.
-	 * @return Returns the heater feed forward value.
-	 */
-	float feed_forward(float feed_forward);
-
-	/**
-	 * @brief Reports the heater integrator gain value.
-	 * @return Returns the heater integrator gain value.
-	 */
-	float integrator();
-
-	/**
-	 * @brief Sets the heater integrator gain value.
-	 * @param integrator_gain The closed loop feedback integral gain value.
-	 * @return Returns the heater integrator gain value.
-	 */
-	float integrator(float integrator_gain);
-
-	/**
-	 * @brief Reports the heater proportional gain value.
-	 * @return Returns the heater proportional gain value.
-	 */
-	float proportional();
-
-	/**
-	 * @brief Sets the heater proportional gain value.
-	 * @param proportional_gain The closed loop feedback proportional gain value.
-	 * @return Returns the heater proportional gain value.
-	 */
-	float proportional(float proportional_gain);
 
 	/**
 	 * @brief Checks for new commands and processes them.
@@ -277,7 +209,7 @@ private:
 	 * @brief Updates and checks for updated uORB parameters.
 	 * @param force Boolean to determine if an update check should be forced.
 	 */
-	void update_params(const bool force);
+	void update_params(const bool force = true);
 
 	/** @param _command_ack_pub The command ackowledgement topic. */
 	orb_advert_t _command_ack_pub = nullptr;
@@ -320,9 +252,6 @@ private:
 
 	/** @note Initilize local parameters using defined parameters here. */
 	DEFINE_PARAMETERS(
-		/** @param _p_sensor_id The ID of sensor to control temperature. */
-		(ParamInt<px4::params::SENS_TEMP_ID>) _p_sensor_id,
-
 		/** @param _feed_forward The heater controller feedforward value. */
 		(ParamFloat<px4::params::SENS_IMU_TEMP_FF>)  _p_feed_forward_value,
 
@@ -331,6 +260,9 @@ private:
 
 		/** @param _proportional_gain The heater controller proportional gain value. */
 		(ParamFloat<px4::params::SENS_IMU_TEMP_P>)  _p_proportional_gain,
+
+		/** @param _p_sensor_id The ID of sensor to control temperature. */
+		(ParamInt<px4::params::SENS_TEMP_ID>) _p_sensor_id,
 
 		/** @param _p_temperature_setpoint The heater controller temperature setpoint parameter. */
 		(ParamFloat<px4::params::SENS_IMU_TEMP>) _p_temperature_setpoint
