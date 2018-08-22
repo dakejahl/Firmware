@@ -169,7 +169,9 @@ void PGA460::run()
 		// Control rate
 		_loop_time = hrt_absolute_time() - _start_loop;
 		uint32_t sleep_time = (_loop_time > POLL_RATE_US) ? 0 : POLL_RATE_US - _loop_time;
+		task_unlock();
 		usleep(sleep_time);
+		task_lock();
 		_start_loop = hrt_absolute_time();
 
 		request_results();
@@ -356,6 +358,21 @@ float PGA460::get_temperature()
 
 	return temperature;
 
+}
+
+void PGA460::task_lock()
+{
+	while (_task_is_locked) {
+		// Spin on the lock until it becomes available
+		usleep(100);
+	}
+
+	_task_is_locked = true;
+}
+
+void PGA460::task_unlock()
+{
+	_task_is_locked = false;
 }
 
 int PGA460::open_serial()
@@ -942,18 +959,20 @@ int PGA460::custom_command(int argc, char *argv[])
 	// Reads the (register)
 	if (!strcmp(argv[0], "read_register")) {
 		if (argv[1]) {
+			get_instance()->task_lock();
 			uint8_t ret = get_instance()->read_register((uint8_t)atoi(argv[1]));
+			get_instance()->task_unlock();
 			PX4_INFO("Register has value %d", ret);
 
 		} else {
 			PX4_INFO("Unrecognized arguments");
 		}
-
 		return 0;
 	}
 
 	// Writes to the (register) the (value)
 	if (!strcmp(argv[0], "write_register")) {
+		get_instance()->task_lock();
 		if (argv[1] && argv[2]) {
 			uint8_t ret = get_instance()->write_register((uint8_t)atoi(argv[1]), (uint8_t)atoi(argv[2]));
 
@@ -962,12 +981,13 @@ int PGA460::custom_command(int argc, char *argv[])
 		} else {
 			PX4_INFO("Unrecognized arguments");
 		}
-
+		get_instance()->task_unlock();
 		return 0;
 	}
 
 	// Checks the eeprom an reports whether or not the settings match the defaults
 	if (!strcmp(argv[0], "check_eeprom")) {
+		get_instance()->task_lock();
 		bool ret = get_instance()->check_eeprom();
 
 		if (ret) {
@@ -976,12 +996,13 @@ int PGA460::custom_command(int argc, char *argv[])
 		} else {
 			PX4_WARN("EEPROM does not have firmware default settings");
 		}
-
+		get_instance()->task_unlock();
 		return 0;
 	}
 
 	// Flashes default settings to the EEPROM
 	if (!strcmp(argv[0], "write_eeprom")) {
+		get_instance()->task_lock();
 		bool ret = get_instance()->write_eeprom();
 
 		if (ret) {
@@ -990,20 +1011,24 @@ int PGA460::custom_command(int argc, char *argv[])
 		} else {
 			PX4_WARN("EEPROM was not successfully written to");
 		}
-
+		get_instance()->task_unlock();
 		return 0;
 	}
 
 	// Sweeps across a frequency range and sets the operating frequency to the resonant
 	if (!strcmp(argv[0], "calibrate")) {
+		get_instance()->task_lock();
 		uint8_t freq = get_instance()->find_resonant_frequency();
 		PX4_INFO("Resonant frequency detected as: %d", freq);
+		get_instance()->task_unlock();
 		return 0;
 	}
 
 	// Read the diagnostic registers: Measured transducer frequency and transducer decay time
 	if (!strcmp(argv[0], "diagnostics")) {
+		get_instance()->task_lock();
 		get_instance()->get_system_diagnostics();
+		get_instance()->task_unlock();
 		return 0;
 	}
 

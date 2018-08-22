@@ -63,7 +63,7 @@
 #define MODE_SET_HYST 	0.0f
 #define MAX_SAMPLE_DEVIATION 0.15f
 #define NUM_SAMPLES_CONSISTENT 5
-#define POLL_RATE_US 0ULL
+#define POLL_RATE_US 50000ULL
 
 #define MODE_SHORT_RANGE P1BL
 #define MODE_LONG_RANGE P2BL
@@ -367,6 +367,10 @@ private:
 	 */
 	bool initialize_thresholds();
 
+	void task_lock();
+
+	void task_unlock();
+
 	/**
 	* @brief Calculates the checksum of the transmitted commmand + data.
 	* @param data Pointer to the data a checksum will be calculated for.
@@ -401,6 +405,8 @@ private:
 
 	/** @param _port Stores the port name. */
 	char _port[20];
+
+	bool _task_is_locked = false;
 
 	/** @orb_advert_t orb_advert_t uORB advertisement topic. */
 	orb_advert_t _distance_sensor_topic;
