@@ -176,7 +176,7 @@ void PGA460::run()
 
 uint8_t PGA460::set_range_mode()
 {
-	// Set the ASICs settings depening on the distance read from our last report. If
+	// Set the ASICs settings depening on the distance read from our last report.
 	if (_previous_valid_report_distance > (MODE_SET_THRESH + MODE_SET_HYST)) {
 		_ranging_mode = MODE_LONG_RANGE;
 
@@ -789,8 +789,6 @@ uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 	return carry;
 }
 
-
-// Local functions in support of the shell command
 int PGA460::print_status()
 {
 	PX4_INFO("Distance: %2.2f", (double)_previous_valid_report_distance);
@@ -843,8 +841,6 @@ int PGA460::custom_command(int argc, char *argv[])
 	return print_usage("Unrecognized command.");
 }
 
-
-//	MAIN
 int pga460_main(int argc, char *argv[])
 {
 	return PGA460::main(argc, argv);
