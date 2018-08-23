@@ -2207,6 +2207,7 @@ Commander::run()
 		if (status.rc_signal_lost &&
 		    rc_loss_loiter_timeout > 0.0f &&
 		    (uint64_t)rc_loss_loiter_timeout <= (hrt_elapsed_time(&rc_signal_lost_timestamp) / 1000000ULL) &&
+		    _battery_warning != battery_status_s::BATTERY_WARNING_EMERGENCY &&
 		    internal_state.main_state != commander_state_s::MAIN_STATE_AUTO_RTL && armed.armed) {
 
 			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
