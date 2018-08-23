@@ -82,18 +82,35 @@ public:
 	virtual ~Heater();
 
 	/**
+	 * @see ModuleBase::custom_command().
+	 * @brief main Main entry point to the module that should be
+	 *        called directly from the module's main method.
+	 * @param argc The input argument count.
+	 * @param argv Pointer to the input argument array.
+	 * @return Returns 0 iff successful, -1 otherwise.
+	 */
+	static int custom_command(int argc, char *argv[]);
+
+	/**
+	 * @see ModuleBase::print_usage().
+	 * @brief Prints the module usage to the nuttshell console.
+	 * @param reason The requested reason for printing to console.
+	 */
+	static int print_usage(const char *reason = nullptr);
+
+	/**
+	 * @see ModuleBase::task_spawn().
+	 * @brief Initializes the class in the same context as the work queue
+	 *        and starts the background listener.
+	 * @return Returns 0 iff successful, -1 otherwise.
+	 */
+	static int task_spawn(int argc, char *argv[]);
+
+	/**
 	 * @brief Sets and/or reports the heater controller time period value in microseconds.
 	 * @return Returns 0 iff successful, -1 otherwise.
 	 */
 	int controller_period(char *argv[]);
-
-	/**
-	 * @brief main Main entry point to the module that should be
-	 *        called directly from the module's main method.
-	 * @note See ModuleBase for class inheritance.
-	 * @return Returns 0 iff successful, -1 otherwise.
-	 */
-	static int custom_command(int argc, char *argv[]);
 
 	/**
 	 * @brief Reports the average heater on duty cycle as a percent.
@@ -103,25 +120,21 @@ public:
 
 	/**
 	 * @brief Sets and/or reports the heater controller feed fordward value.
+	 * @param argv Pointer to the input argument array.
 	 * @return Returns the heater feed forward value iff successful, 0.0f otherwise.
 	 */
 	float feed_forward(char *argv[]);
 
 	/**
 	 * @brief Sets and/or reports the heater controller integrator gain value.
+	 * @param argv Pointer to the input argument array.
 	 * @return Returns the heater integrator gain value iff successful, 0.0f otherwise.
 	 */
 	float integrator(char *argv[]);
 
 	/**
-	 * @brief Prints the module usage to the nuttshell console.
-	 * @note See ModuleBase for class inheritance.
-	 * @param reason
-	 */
-	static int print_usage(const char *reason = nullptr);
-
-	/**
 	 * @brief Sets and/or reports the heater controller proportional gain value.
+	 * @param argv Pointer to the input argument array.
 	 * @return Returns the heater proportional gain value iff successful, 0.0f otherwise.
 	 */
 	float proportional(char *argv[]);
@@ -152,13 +165,6 @@ public:
 	float sensor_temperature();
 
 	/**
-	 * @brief Initializes the class in the same context as the work queue
-	 *        and starts the background listener.
-	 * @return Returns 0 iff successful, -1 otherwise.
-	 */
-	static int task_spawn(int argc, char *argv[]);
-
-	/**
 	 * @brief Sets and/or reports the heater target temperature.
 	 * @return Returns the heater target temperature value iff successful, -1.0f otherwise.
 	 */
@@ -172,6 +178,7 @@ protected:
 	void initialize_topics();
 
 	/**
+	 * @see ModuleBase::initialize_trampoline().
 	 * @brief Trampoline initialization.
 	 * @param arg Pointer to the task startup arguments.
 	 */
@@ -250,7 +257,7 @@ private:
 	/** @struct _work Work Queue struct for the RTOS scheduler. */
 	static struct work_s _work;
 
-	/** @note Initilize local parameters using defined parameters here. */
+	/** @note Declare local parameters using defined parameters. */
 	DEFINE_PARAMETERS(
 		/** @param _feed_forward The heater controller feedforward value. */
 		(ParamFloat<px4::params::SENS_IMU_TEMP_FF>)  _p_feed_forward_value,
