@@ -32,51 +32,26 @@
  ****************************************************************************/
 
 /**
- * @file FlightTaskManual.hpp
- *
- * Linear and exponential map from stick inputs to range -1 and 1.
+ * @file FlightTaskFailsafe.hpp
  *
  */
 
 #pragma once
 
 #include "FlightTask.hpp"
-#include <uORB/topics/manual_control_setpoint.h>
 
-class FlightTaskManual : public FlightTask
+class FlightTaskFailsafe : public FlightTask
 {
 public:
-	FlightTaskManual() = default;
+	FlightTaskFailsafe() = default;
 
-	virtual ~FlightTaskManual() = default;
-
-	bool initializeSubscriptions(SubscriptionArray &subscription_array) override;
-	bool applyCommandParameters(const vehicle_command_s &command) override { return FlightTask::applyCommandParameters(command); };
-	bool updateInitialize() override;
-
-protected:
-
-	bool _sticks_data_required = true; /**< let inherited task-class define if it depends on stick data */
-	matrix::Vector<float, 4> _sticks; /**< unmodified manual stick inputs */
-	matrix::Vector<float, 4> _sticks_expo; /**< modified manual sticks using expo function*/
-
-	float stickDeadzone() const { return _stick_dz.get(); }
+	virtual ~FlightTaskFailsafe() = default;
+	bool update() override;
+	bool activate() override;
 
 private:
-
-	bool _evaluateSticks(); /**< checks and sets stick inputs */
-	void _applyGearSwitch(uint8_t gswitch); /**< Sets gears according to switch */
-
-	uORB::Subscription<manual_control_setpoint_s> *_sub_manual_control_setpoint{nullptr};
-
 	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTask,
-					(ParamFloat<px4::params::MPC_HOLD_DZ>) _stick_dz, /**< 0-deadzone around the center for the sticks */
-					(ParamFloat<px4::params::MPC_XY_MAN_EXPO>)
-					_xy_vel_man_expo, /**< ratio of exponential curve for stick input in xy direction */
-					(ParamFloat<px4::params::MPC_Z_MAN_EXPO>)
-					_z_vel_man_expo, /**< ratio of exponential curve for stick input in z direction */
-					(ParamFloat<px4::params::MPC_YAW_EXPO>)
-					_yaw_expo, /**< ratio of exponential curve for stick input in yaw for modes except acro */
-					(ParamFloat<px4::params::COM_RC_LOSS_T>) COM_RC_LOSS_T /**< time at which commander considers RC lost */
+					(ParamFloat<px4::params::MPC_LAND_SPEED>) MPC_LAND_SPEED,
+					(ParamFloat<px4::params::MPC_THR_HOVER>) MPC_THR_HOVER /**< throttle value at which vehicle is at hover equilibrium */
 				       )
 };
