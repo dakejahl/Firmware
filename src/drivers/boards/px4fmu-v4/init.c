@@ -240,9 +240,9 @@ stm32_boardinitialize(void)
 
 	stm32_spiinitialize(PX4_SPI_BUS_RAMTRON | PX4_SPI_BUS_SENSORS);
 
-	/* configure heater GPIO */
-
-	stm32_configgpio(GPIO_HEATER);
+	// Configure heater GPIO.
+	stm32_configgpio(GPIO_HEATER_INPUT);
+	stm32_configgpio(GPIO_HEATER_OUTPUT);
 
 }
 
@@ -469,11 +469,12 @@ __EXPORT int board_app_initialize(uintptr_t arg)
 	led_off(LED_BLUE);
 
 	// Power up the sensors.
-
 	stm32_gpiowrite(GPIO_VDD_3V3_SENSORS_EN, 1);
 
-	// Configure SPI-based devices.
+	// Power down the heater.
+	stm32_gpiowrite(GPIO_HEATER_OUTPUT, 0);
 
+	// Configure SPI-based devices.
 	spi1 = stm32_spibus_initialize(1);
 
 	if (!spi1) {

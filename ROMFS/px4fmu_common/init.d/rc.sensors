@@ -428,6 +428,18 @@ then
 	ll40ls start i2c
 fi
 
+# mb12xx sonar sensor
+if param greater SENS_EN_MB12XX 0
+then
+	mb12xx start -a
+fi
+
+# pga460 sonar sensor
+if param greater SENS_EN_PGA460 0
+then
+	pga460 start
+fi
+
 # Lightware serial lidar sensor
 if param greater SENS_EN_SF0X 0
 then
@@ -440,22 +452,16 @@ then
 	sf1xx start -a
 fi
 
-# mb12xx sonar sensor
-if param greater SENS_EN_MB12XX 0
+# Heater driver for temperature regulated IMUs.
+if param compare SENS_EN_THERMAL 1
 then
-	mb12xx start -a
+	heater start
 fi
 
 # Teraranger one tof sensor
 if param greater SENS_EN_TRANGER 0
 then
 	teraranger start -a
-fi
-
-# pga460 sonar sensor
-if param greater SENS_EN_PGA460 0
-then
-	pga460 start
 fi
 
 # Benewake TFMini
@@ -509,4 +515,3 @@ fi
 # Wait 20 ms for sensors (because we need to wait for the HRT and work queue callbacks to fire)
 usleep 20000
 sensors start
-heater start

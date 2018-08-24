@@ -146,7 +146,6 @@ then
 
 	# navigator
 	param set NAV_ACC_RAD 2.5
-	param set NAV_DLL_ACT 1
 	param set NAV_RCL_ACT 1
 
 	# pwm control
@@ -164,6 +163,7 @@ then
 
 	# sensors
 	param set SENS_EN_PGA460 1
+	param set SENS_EN_THERMAL 1
 
 	# system
 	param set SYS_COMPANION 1921600
