@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2016 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,14 +30,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-px4_add_module(
-	MODULE drivers__heater
-	MAIN heater
-	STACK_MAIN 1024
-	COMPILE_FLAGS
-	SRCS
-		heater.cpp
-	DEPENDS
-		platforms__common
-		modules__uORB
-	)
+
+px4_add_library(FlightTaskFailsafe
+	FlightTaskFailsafe.cpp
+)
+
+target_link_libraries(FlightTaskFailsafe PUBLIC FlightTask)
+target_include_directories(FlightTaskFailsafe PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

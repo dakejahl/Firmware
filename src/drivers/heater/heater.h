@@ -41,14 +41,34 @@
 
 #pragma once
 
-#include <px4_workqueue.h>
+#include <string.h>
+#include <getopt.h>
 #include <parameters/param.h>
+
+#include <px4_workqueue.h>
+#include <px4_module.h>
+#include <px4_module_params.h>
+
+#include <px4_config.h>
+#include <px4_log.h>
+#include <px4_getopt.h>
+
 #include <uORB/uORB.h>
+#include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_accel.h>
 
-namespace heater
-{
-class Heater
+#include <mathlib/mathlib.h>
+
+#define CONTROLLER_PERIOD_DEFAULT 100000
+
+/**
+ * @brief IMU Heater Controller driver used to maintain consistent
+ *        temparature at the IMU.
+ */
+extern "C" __EXPORT int heater_main(int argc, char *argv[]);
+
+
+class Heater : public ModuleBase<Heater>, public ModuleParams
 {
 public:
 	/**
@@ -62,113 +82,95 @@ public:
 	virtual ~Heater();
 
 	/**
-	 * @brief Returns true iff the heater driver is currently running.
-	 * @return Returns true iff the heater driver is currently running.
+	 * @see ModuleBase::custom_command().
+	 * @brief main Main entry point to the module that should be
+	 *        called directly from the module's main method.
+	 * @param argc The input argument count.
+	 * @param argv Pointer to the input argument array.
+	 * @return Returns 0 iff successful, -1 otherwise.
 	 */
-	bool is_running();
+	static int custom_command(int argc, char *argv[]);
 
 	/**
-	 * @brief Stops the task and exits.
+	 * @see ModuleBase::print_usage().
+	 * @brief Prints the module usage to the nuttshell console.
+	 * @param reason The requested reason for printing to console.
 	 */
-	void stop();
+	static int print_usage(const char *reason = nullptr);
 
 	/**
-	 * @brief Initiates the heater driver work queue.
-	 * return Returns 1 iff start was successful.
+	 * @see ModuleBase::task_spawn().
+	 * @brief Initializes the class in the same context as the work queue
+	 *        and starts the background listener.
+	 * @return Returns 0 iff successful, -1 otherwise.
+	 */
+	static int task_spawn(int argc, char *argv[]);
+
+	/**
+	 * @brief Sets and/or reports the heater controller time period value in microseconds.
+	 * @return Returns 0 iff successful, -1 otherwise.
+	 */
+	int controller_period(char *argv[]);
+
+	/**
+	 * @brief Reports the average heater on duty cycle as a percent.
+	 * @return Returns the average heater on cycle duty cycle as a percent.
+	 */
+	float duty_cycle();
+
+	/**
+	 * @brief Sets and/or reports the heater controller feed fordward value.
+	 * @param argv Pointer to the input argument array.
+	 * @return Returns the heater feed forward value iff successful, 0.0f otherwise.
+	 */
+	float feed_forward(char *argv[]);
+
+	/**
+	 * @brief Sets and/or reports the heater controller integrator gain value.
+	 * @param argv Pointer to the input argument array.
+	 * @return Returns the heater integrator gain value iff successful, 0.0f otherwise.
+	 */
+	float integrator(char *argv[]);
+
+	/**
+	 * @brief Sets and/or reports the heater controller proportional gain value.
+	 * @param argv Pointer to the input argument array.
+	 * @return Returns the heater proportional gain value iff successful, 0.0f otherwise.
+	 */
+	float proportional(char *argv[]);
+
+	/**
+	 * @brief Reports the heater target sensor.
+	 * @return Returns the id of the target sensor
+	 */
+	uint32_t sensor_id();
+
+	/**
+	 * @brief Initiates the heater driver work queue, starts a new background task,
+	 *        and fails if it is already running.
+	 * @return Returns 1 iff start was successful.
 	 */
 	int start();
 
 	/**
-	 * @brief Gets the heater driver state.
-	 * @return Returns the heater driver state.
+	 * @brief Reports curent status and diagnostic information about the heater driver.
+	 * @return Returns 0 iff successful, -1 otherwise.
 	 */
-	bool get_state();
+	int print_status();
 
 	/**
-	 * @brief Gets the accelerometer current temperature.
-	 * @return Returns the accelerometer current temperature.
+	 * @brief Reports the current heater temperature.
+	 * @return Returns the current heater temperature value iff successful, -1.0f otherwise.
 	 */
-	float get_current_temperature();
+	float sensor_temperature();
 
 	/**
-	 * @brief Gets the heater target temperature.
-	 * @return Returns the heater target temperature
+	 * @brief Sets and/or reports the heater target temperature.
+	 * @return Returns the heater target temperature value iff successful, -1.0f otherwise.
 	 */
-	float get_target_temperature();
-
-	/**
-	 * @brief Gets the heater target sensor.
-	 * @return Returns the id of the target sensor
-	 */
-	uint32_t get_target_id();
-
-	/**
-	 * @brief Sets the heater target temperature.
-	 * @return Returns the heater target temperature.
-	 */
-	float set_target_temperature(float target_temperature);
-
-	/**
-	 * @brief Sets the heater proportional gain value.
-	 * @return Returns the heater proportional gain value.
-	 */
-	float set_proportional(float proportional_gain);
-
-	/**
-	 * @brief Gets the heater proportional gain value.
-	 * @return Returns the heater proportional gain value.
-	 */
-	float get_proportional();
-
-	/**
-	 * @brief Sets the heater integrator gain value.
-	 * @return Returns the heater integrator gain value.
-	 */
-	float set_integrator(float integrator_gain);
-
-	/**
-	 * @brief Gets the heater integrator gain value.
-	 * @return Returns the heater integrator gain value.
-	 */
-	float get_integrator();
-
-	/**
-	 * @brief Sets the heater feed forward value.
-	 * @return Returns the heater feed forward value.
-	 */
-	float set_feed_forward(float feed_forward_gain);
-
-	/**
-	 * @brief Gets the heater feed forward value.
-	 * @return Returns the heater feed forward value.
-	 */
-	float get_feed_forward();
-
-	/**
-	 * @brief Sets the heater cycle period value in microseconds.
-	 * @return Returns the heater cycle period value in microseconds.
-	 */
-	int set_controller_period(int controller_period_usec);
-
-	/**
-	 * @brief Gets the heater cycle period value in microseconds.
-	 * @return Returns the heater cycle period value in microseconds.
-	 */
-	int get_controller_period();
-
-	/**
-	 * @brief Gets the average heater on duty cycle as a percent.
-	 * @return Returns the average heater on cycle duty cycle as a percent.
-	 */
-	float get_duty_cycle();
+	float temperature_setpoint(char *argv[]);
 
 protected:
-
-	/**
-	 * @brief Updates the uORB topics for local subscribers.
-	 * @return Returns true iff update was successful.
-	 */
-	static bool orb_update(const struct orb_metadata *meta, int handle, void *buffer);
 
 	/**
 	 * @brief Called once to initialize uORB topics.
@@ -176,65 +178,48 @@ protected:
 	void initialize_topics();
 
 	/**
-	 * @brief Updates uORB subscription topics.
+	 * @see ModuleBase::initialize_trampoline().
+	 * @brief Trampoline initialization.
+	 * @param arg Pointer to the task startup arguments.
 	 */
-	void update_topics();
-
-	/** @param Local member variable to store the parameter subscriptions. */
-	int _parameter_sub;
+	static void initialize_trampoline(void *arg);
 
 private:
 
-	static void heater_controller_trampoline(void *arg);
+	/**
+	 * @brief Checks for new commands and processes them.
+	 */
+	void process_commands();
 
 	/**
-	 * @brief
+	 * @brief Trampoline for the work queue.
 	 */
-	void heater_controller();
+	static void cycle_trampoline(void *arg);
 
 	/**
-	 * @brief Checks
+	 * @brief Calculates the heater element on/off time, carries out
+	 *        closed loop feedback and feedforward temperature control,
+	 *        and schedules the next cycle.
 	 */
-	void check_params(const bool force);
+	void cycle();
 
-	/** @param _task_should_exit Indicator flag to stop the heater driver process. */
-	bool _task_should_exit;
+	/**
+	 * @brief Updates the uORB topics for local subscribers.
+	 * @param meta The uORB metadata to copy.
+	 * @param handle The uORB handle to obtain data from.
+	 * @param buffer The data buffer to copy data into.
+	 * @return Returns true iff update was successful.
+	 */
+	bool orb_update(const struct orb_metadata *meta, int handle, void *buffer);
 
-	/** @param _task_is_running Indicator flag for when the driver is running. */
-	bool _task_is_running;
+	/**
+	 * @brief Updates and checks for updated uORB parameters.
+	 * @param force Boolean to determine if an update check should be forced.
+	 */
+	void update_params(const bool force = true);
 
-	/** @param _p_target_temp The heater controller temperature setpoint target parameter. */
-	param_t _p_target_temp;
-
-	/** @param _p_sensor_id The ID of sensor to control parameter. */
-	param_t _p_sensor_id;
-
-	/** @param _current_temp The accelerometer measured current temperature. */
-	float _current_temp;
-
-	/** @param _error_temp The error between current and target temperatures. */
-	float _error_temp;
-
-	/** @param _target_temp The heater controller temperature setpoint target. */
-	float _target_temp;
-
-	/** @param _proportional_gain The heater controller proportional gain value. */
-	float _proportional_gain;
-
-	/** @param _integrator_gain The heater controller integrator gain value. */
-	float _integrator_gain;
-
-	/** @param _proportional_value The heater controller proportional value. */
-	float _proportional_value;
-
-	/** @param _integrator_value The heater controller integrator value. */
-	float _integrator_value;
-
-	/** @param _feed_forward The heater controller feedforward value. */
-	float _feed_forward;
-
-	/** @param _duty_cycle The heater on duty cycle value. */
-	float _duty_cycle;
+	/** @param _command_ack_pub The command ackowledgement topic. */
+	orb_advert_t _command_ack_pub = nullptr;
 
 	/** @param _controller_period_usec The heater controller time period in microseconds.*/
 	int _controller_period_usec;
@@ -242,17 +227,51 @@ private:
 	/** @param _controller_time_on_usec The heater time on in microseconds.*/
 	int _controller_time_on_usec;
 
+	/** @param _duty_cycle The heater on duty cycle value. */
+	float _duty_cycle;
+
 	/** @param _heater_on Indicator for the heater on/off status. */
 	bool _heater_on;
 
-	/** @param _sensor_accel_sub The accelerometer subtopic subscribed to.*/
-	int _sensor_accel_sub;
+	/** @param _integrator_value The heater controller integrator value. */
+	float _integrator_value;
+
+	/** @param Local member variable to store the parameter subscriptions. */
+	int _parameter_subscription;
+
+	/** @param _proportional_value The heater controller proportional value. */
+	float _proportional_value;
 
 	/** @struct _sensor_accel Accelerometer struct to receive uORB accelerometer data. */
 	struct sensor_accel_s _sensor_accel;
 
-	/** @struct _work Work Queue struct for the RTOS scheduler. */
-	struct work_s _work;
-};
+	/** @param _sensor_accel_sub The accelerometer subtopic subscribed to.*/
+	int _sensor_accel_subscription;
 
-} // namespace heater
+	/** @param _sensor_temperature The sensor's reported temperature. */
+	float _sensor_temperature;
+
+	/** @param _temperature_setpoint The heater controller temperature setpoint target. */
+	float _temperature_setpoint;
+
+	/** @struct _work Work Queue struct for the RTOS scheduler. */
+	static struct work_s _work;
+
+	/** @note Declare local parameters using defined parameters. */
+	DEFINE_PARAMETERS(
+		/** @param _feed_forward The heater controller feedforward value. */
+		(ParamFloat<px4::params::SENS_IMU_TEMP_FF>)  _p_feed_forward_value,
+
+		/** @param _integrator_gain The heater controller integrator gain value. */
+		(ParamFloat<px4::params::SENS_IMU_TEMP_I>)  _p_integrator_gain,
+
+		/** @param _proportional_gain The heater controller proportional gain value. */
+		(ParamFloat<px4::params::SENS_IMU_TEMP_P>)  _p_proportional_gain,
+
+		/** @param _p_sensor_id The ID of sensor to control temperature. */
+		(ParamInt<px4::params::SENS_TEMP_ID>) _p_sensor_id,
+
+		/** @param _p_temperature_setpoint The heater controller temperature setpoint parameter. */
+		(ParamFloat<px4::params::SENS_IMU_TEMP>) _p_temperature_setpoint
+	)
+};

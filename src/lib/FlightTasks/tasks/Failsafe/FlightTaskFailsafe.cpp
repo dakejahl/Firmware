@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2014-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,64 +30,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
 /**
- * @file heater_params.c
- * Heater parameters.
- *
- * @author Khoi Tran <khoi@tealdrones.com>
- * @author Mark Sauder <mcsauder@gmail.com>
- * @author Alex Klimaj <alexklimaj@gmail.com>
+ * @file FlightTaskFailsafe.cpp
  */
 
-/**
- * Target IMU device ID to regulate temperature.
- *
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_TEMP_ID, 1442826);
+#include "FlightTaskFailsafe.hpp"
 
-/**
- * Target IMU temperature.
- *
- * @group Sensors
- * @unit C
- * @min 0
- * @max 85.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP, 55.0f);
+bool FlightTaskFailsafe::activate()
+{
+	bool ret = FlightTask::activate();
+	_position_setpoint = _position;
+	_velocity_setpoint *= 0.0f;
+	_thrust_setpoint = matrix::Vector3f(0.0f, 0.0f, -MPC_THR_HOVER.get() * 0.6f);
+	_yaw_setpoint = _yaw;
+	_yawspeed_setpoint = 0.0f;
+	return ret;
+}
 
-/**
- * IMU heater controller feedforward value.
- *
- * @group Sensors
- * @unit microseconds
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_FF, 0.5f);
+bool FlightTaskFailsafe::update()
+{
+	if (PX4_ISFINITE(_position(0)) && PX4_ISFINITE(_position(1))) {
+		// stay at current position setpoint
+		_velocity_setpoint(0) = _velocity_setpoint(1) = 0.0f;
+		_thrust_setpoint(0) = _thrust_setpoint(1) = 0.0f;
 
-/**
- * IMU heater controller integrator gain value.
- *
- * @group Sensors
- * @unit microseconds/C
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_I, 0.025f);
+	} else if (PX4_ISFINITE(_velocity(0)) && PX4_ISFINITE(_velocity(1))) {
+		// don't move along xy
+		_position_setpoint(0) = _position_setpoint(1) = NAN;
+		_thrust_setpoint(0) = _thrust_setpoint(1) = NAN;
+	}
 
+	if (PX4_ISFINITE(_position(2))) {
+		// stay at current altitude setpoint
+		_velocity_setpoint(2) = 0.0f;
+		_thrust_setpoint(2) = NAN;
 
-/**
- * IMU heater controller proportional gain value.
- *
- * @group Sensors
- * @unit microseconds/C
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_P, 0.25f);
+	} else if (PX4_ISFINITE(_velocity(2))) {
+		// land with landspeed
+		_velocity_setpoint(2) = MPC_LAND_SPEED.get();
+		_position_setpoint(2) = NAN;
+		_thrust_setpoint(2) = NAN;
+	}
+
+	return true;
+
+}

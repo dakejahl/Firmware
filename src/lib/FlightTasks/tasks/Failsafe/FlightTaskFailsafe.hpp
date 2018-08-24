@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2014-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,62 +32,26 @@
  ****************************************************************************/
 
 /**
- * @file heater_params.c
- * Heater parameters.
+ * @file FlightTaskFailsafe.hpp
  *
- * @author Khoi Tran <khoi@tealdrones.com>
- * @author Mark Sauder <mcsauder@gmail.com>
- * @author Alex Klimaj <alexklimaj@gmail.com>
  */
 
-/**
- * Target IMU device ID to regulate temperature.
- *
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_TEMP_ID, 1442826);
+#pragma once
 
-/**
- * Target IMU temperature.
- *
- * @group Sensors
- * @unit C
- * @min 0
- * @max 85.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP, 55.0f);
+#include "FlightTask.hpp"
 
-/**
- * IMU heater controller feedforward value.
- *
- * @group Sensors
- * @unit microseconds
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_FF, 0.5f);
+class FlightTaskFailsafe : public FlightTask
+{
+public:
+	FlightTaskFailsafe() = default;
 
-/**
- * IMU heater controller integrator gain value.
- *
- * @group Sensors
- * @unit microseconds/C
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_I, 0.025f);
+	virtual ~FlightTaskFailsafe() = default;
+	bool update() override;
+	bool activate() override;
 
-
-/**
- * IMU heater controller proportional gain value.
- *
- * @group Sensors
- * @unit microseconds/C
- * @min 0
- * @max 1.0
- * @decimal 3
- */
-PARAM_DEFINE_FLOAT(SENS_IMU_TEMP_P, 0.25f);
+private:
+	DEFINE_PARAMETERS_CUSTOM_PARENT(FlightTask,
+					(ParamFloat<px4::params::MPC_LAND_SPEED>) MPC_LAND_SPEED,
+					(ParamFloat<px4::params::MPC_THR_HOVER>) MPC_THR_HOVER /**< throttle value at which vehicle is at hover equilibrium */
+				       )
+};
