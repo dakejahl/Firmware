@@ -43,7 +43,6 @@
  * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
-
 #include <px4_config.h>
 #include <px4_workqueue.h>
 
@@ -52,7 +51,7 @@
 #include <string.h>
 #include <ecl/geo/geo.h>
 
-#include <drivers/device/CDev.hpp>
+#include <lib/cdev/CDev.hpp>
 #include <drivers/device/Device.hpp>
 #include <drivers/device/i2c.h>
 #include <drivers/drv_device.h>
@@ -136,7 +135,7 @@ int serial_number();
 extern device::Device *BATT_SMBUS_I2C_interface(int bus);
 typedef device::Device *(*BATT_SMBUS_constructor)(int);
 
-class BATT_SMBUS : public device::CDev
+class BATT_SMBUS : public cdev::CDev
 {
 public:
 
@@ -309,7 +308,7 @@ public:
 	int write_flash(uint16_t address, uint8_t *tx_buf, const unsigned length);
 
 protected:
-	Device *_interface;
+	device::Device *_interface;
 
 private:
 
@@ -365,7 +364,7 @@ private:
 	/** @param _cell_undervoltage_protection_status 0 if protection disabled, 1 if enabled */
 	uint8_t _cell_undervoltage_protection_status;
 
-	/* Do not allow copy construction or move assignment of this class. */
+	/** Do not allow copy construction or move assignment of this class. */
 	BATT_SMBUS(const BATT_SMBUS &);
 	BATT_SMBUS operator=(const BATT_SMBUS &);
 };
