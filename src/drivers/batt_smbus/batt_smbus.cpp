@@ -757,11 +757,24 @@ void BATT_SMBUS::stop()
 
 int BATT_SMBUS::unseal()
 {
-	// See pg85 of bq40z50 technical reference.
+	// See pg95 of bq40z50 technical reference.
 	uint16_t keys[2] = {0x0414, 0x3672};
 
 	if (PX4_OK != manufacturer_write(keys[0], &keys[1], 2)) {
 		PX4_INFO("Failed to unseal device.");
+		return PX4_ERROR;
+	}
+
+	return PX4_OK;
+}
+
+int BATT_SMBUS::seal()
+{
+	// See pg95 of bq40z50 technical reference.
+	uint16_t seal = BATT_SMBUS_SEAL;
+
+	if (PX4_OK != manufacturer_write(seal, 0, 0)) {
+		PX4_INFO("Failed to seal battery.");
 		return PX4_ERROR;
 	}
 

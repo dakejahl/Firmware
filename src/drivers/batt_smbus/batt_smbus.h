@@ -101,6 +101,7 @@
 #define BATT_SMBUS_LIFETIME_FLUSH                       0x002E
 #define BATT_SMBUS_LIFETIME_BLOCK_ONE                   0x0060
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS        0x4938
+#define BATT_SMBUS_SEAL                                 0x0030
 
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT		0xcf
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED	0xce
@@ -279,6 +280,12 @@ public:
 	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
 	int unseal();
+
+	/**
+	 * @brief Seals the battery to disallow writing to restricted flash.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int seal();
 
 	/**
 	 * @brief This command flushes the RAM Lifetime Data to data flash to help streamline evaluation testing.

@@ -36,7 +36,7 @@ batt_smbus -X write_flash 18747 1 15
 batt_smbus -X write_flash 19072 1 115
 #echo "Wrote smart battery param - AFE Protection Control"
 # "Settings","Manufacturing","Mfg Status init"
-batt_smbus -X write_flash 17920 2 56 2
+batt_smbus -X write_flash 17920 2 48 2
 #echo "Wrote smart battery param - Mfg Status init"
 
 
@@ -49,7 +49,7 @@ batt_smbus -X write_flash 18607 2 255 255
 
 
 # "SBS Configuration","Data","Specification Information"
-batt_smbus -X write_flash 18642 2 53 0
+batt_smbus -X write_flash 18642 2 54 0
 #echo "Wrote smart battery param - Specification Information"
 
 
@@ -152,10 +152,10 @@ batt_smbus -X write_flash 18451 1 4
 batt_smbus -X write_flash 18724 2 150 0
 #echo "Wrote smart battery param - Reserve Cap-mAh"
 # "Gas Gauging","IT Cfg","Load Select"
-batt_smbus -X write_flash 18717 1 3
+batt_smbus -X write_flash 18717 1 1
 #echo "Wrote smart battery param - Load Select"
 # "Gas Gauging","IT Cfg","Fast Scale Load Select"
-batt_smbus -X write_flash 18718 1 3
+batt_smbus -X write_flash 18718 1 1
 #echo "Wrote smart battery param - Fast Scale Load Select"
 # "Gas Gauging","Current Thresholds","Chg Current Threshold"
 batt_smbus -X write_flash 19083 2 44 1
@@ -163,5 +163,11 @@ batt_smbus -X write_flash 19083 2 44 1
 # "Gas Gauging","SOH","SOH Load Rate"
 batt_smbus -X write_flash 18553 1 2
 #echo "Wrote smart battery param - SOH Load Rate"
+
+usleep 100000
+
+batt_smbus -X seal
+
+usleep 100000
 
 batt_smbus -X resume
