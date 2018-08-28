@@ -651,7 +651,7 @@ void PGA460::run()
 
 	if(ret != PX4_OK) {
 		close_serial();
-		PX4_INFO("Could not initialize devie settings. Exiting.");
+		PX4_INFO("Could not initialize device settings. Exiting.");
 		return;
 	}
 
