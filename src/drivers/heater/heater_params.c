@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2014-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,9 +35,9 @@
  * @file heater_params.c
  * Heater parameters.
  *
- * @author Khoi Tran <khoi@tealdrones.com>
  * @author Mark Sauder <mcsauder@gmail.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
+ * @author Jake Dahl <dahl.jacob@gmail.com>
  */
 
 /**
