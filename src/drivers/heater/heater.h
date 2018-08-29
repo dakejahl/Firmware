@@ -36,7 +36,7 @@
  *
  * @author Mark Sauder <mcsauder@gmail.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
- * @author Jake Dahl <dahl.jacob@gmail.com>
+ * @author Jake Dahl <dahl.jakejacob@gmail.com>
  */
 
 #pragma once
