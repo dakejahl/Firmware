@@ -148,7 +148,6 @@ int Heater::custom_command(int argc, char *argv[])
 void Heater::cycle()
 {
 	if (should_exit()) {
-		exit_and_cleanup();
 		return;
 	}
 
@@ -241,7 +240,7 @@ void Heater::initialize_topics()
 	for (size_t x = 0; x < number_of_imus; x++) {
 		_sensor_accel_subscription = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
-		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_subscription, &_sensor_accel) == PX4_OK) {
+		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_subscription, &_sensor_accel) != PX4_OK) {
 			usleep(200000);
 		}
 
@@ -270,8 +269,8 @@ void Heater::initialize_trampoline(void *arg)
 		return;
 	}
 
-	heater->start();
 	_object = heater;
+	heater->start();
 }
 
 float Heater::integrator(char *argv[])
