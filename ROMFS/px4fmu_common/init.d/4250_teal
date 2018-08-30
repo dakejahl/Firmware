@@ -88,9 +88,9 @@ then
 	param set GF_ACTION 1
 
 	# land detector
-	param set LNDMC_THR_RANGE 0.35
-	param set LNDMC_XY_VEL_MAX 2.0
-	param set LNDMC_ROT_MAX 25.0
+	param set LNDMC_THR_RANGE 0.1
+	param set LNDMC_XY_VEL_MAX 0.5
+	param set LNDMC_ROT_MAX 40.0
 
 	# mc_att_control
 	param set MC_ACRO_P_MAX 540.0
