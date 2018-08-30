@@ -231,7 +231,7 @@ private:
 	float _integrator_value;
 
 	/** @param Local member variable to store the parameter subscriptions. */
-	int _parameter_subscription;
+	int _params_sub;
 
 	/** @param _proportional_value The heater controller proportional value. */
 	float _proportional_value;

@@ -58,7 +58,6 @@ Heater::Heater() :
 	_duty_cycle(0.0f),
 	_heater_on(false),
 	_integrator_value(0.0f),
-	_parameter_subscription(0),
 	_proportional_value(0.0f),
 	_sensor_accel(sensor_accel_s{}),
 	_sensor_accel_subscription(-1),
@@ -66,6 +65,7 @@ Heater::Heater() :
 {
 	px4_arch_configgpio(GPIO_HEATER_OUTPUT);
 	px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 0);
+	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 }
 
 Heater::~Heater()
@@ -372,7 +372,7 @@ int Heater::start()
 		PX4_INFO("Heater driver already running");
 		return PX4_ERROR;
 	}
-
+	PX4_INFO("Do we get here?");
 	update_params(true);
 	initialize_topics();
 
@@ -417,11 +417,11 @@ void Heater::update_params(const bool force)
 	bool updated;
 	parameter_update_s param_update;
 
-	orb_check(_parameter_subscription, &updated);
+	orb_check(_params_sub, &updated);
 
 	if (updated || force) {
-		orb_copy(ORB_ID(parameter_update), _parameter_subscription, &param_update);
 		ModuleParams::updateParams();
+		orb_copy(ORB_ID(parameter_update), _params_sub, &param_update);
 	}
 }
 
