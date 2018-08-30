@@ -119,8 +119,8 @@ then
 	param set MPC_ACC_HOR 6.5
 	param set MPC_ACC_UP_MAX 2.5
 	param set MPC_JERK_MAX 7.5
-	param set MPC_LAND_ALT1 10.0
-	param set MPC_LAND_ALT2 6.0
+	param set MPC_LAND_ALT1 8.0
+	param set MPC_LAND_ALT2 5.0
 	param set MPC_MANTHR_MAX 0.85
 	param set MPC_MANTHR_MIN 0.15
 	param set MPC_MAN_TILT_MAX 45.0
