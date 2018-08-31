@@ -77,8 +77,8 @@ then
 	param set EKF2_GPS_POS_X -0.04
 	param set EKF2_IMU_POS_X -0.06
 	param set EKF2_MIN_RNG 0.07
-	param set EKF2_PCOEF_XN 0.0
-    param set EKF2_PCOEF_XP 0.0
+	param set EKF2_PCOEF_XN 0.1
+	param set EKF2_PCOEF_XP -0.5
 	param set EKF2_RNG_AID 1
 	param set EKF2_RNG_A_VMAX 20.0
 	param set EKF2_RNG_NOISE 0.2
