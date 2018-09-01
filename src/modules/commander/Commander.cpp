@@ -2200,6 +2200,15 @@ Commander::run()
 			}
 		}
 
+		if (_battery_warning == battery_status_s::BATTERY_WARNING_EMERGENCY && armed.armed &&
+			 internal_state.main_state != commander_state_s::MAIN_STATE_AUTO_LAND) {
+
+			if (TRANSITION_DENIED != main_state_transition(status, commander_state_s::MAIN_STATE_AUTO_RTL, status_flags, &internal_state)) {
+				warning_action_on = true;
+				mavlink_log_emergency(&mavlink_log_pub, "EMERGENCY BATTERY, LANDING NOW");
+			}
+		}
+
 		/* check if we are disarmed and there is a better mode to wait in */
 		if (!armed.armed) {
 
