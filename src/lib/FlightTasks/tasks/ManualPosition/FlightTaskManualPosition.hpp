@@ -60,14 +60,7 @@ protected:
 					(ParamFloat<px4::params::MPC_VEL_MANUAL>) MPC_VEL_MANUAL,
 					(ParamFloat<px4::params::MPC_ACC_HOR_MAX>) MPC_ACC_HOR_MAX,
 					(ParamFloat<px4::params::MPC_HOLD_MAX_XY>) MPC_HOLD_MAX_XY,
-					(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) MPC_ACC_HOR_ESTM,
-					(ParamFloat<px4::params::MPC_LAND_ALT1>) MPC_LAND_ALT1, // altitude at which speed limit downwards reaches maximum speed
-					(ParamFloat<px4::params::MPC_LAND_ALT2>)
-					MPC_LAND_ALT2,  // altitude at which speed limit downwards reached minimum speed
-					(ParamFloat<px4::params::MPC_LAND_SPEED>) MPC_LAND_SPEED,
-					(ParamFloat<px4::params::MPC_Z_VEL_MAX_UP>) MPC_Z_VEL_MAX_UP,
-					(ParamFloat<px4::params::MPC_Z_VEL_MAX_DN>) MPC_Z_VEL_MAX_DN
-
+					(ParamFloat<px4::params::MPC_ACC_HOR_ESTM>) MPC_ACC_HOR_ESTM
 				       )
 private:
 	float _velocity_scale{0.0f}; //scales the stick input to velocity

@@ -120,6 +120,7 @@ private:
 	int _task_failure_count{0};         /**< counter for task failures */
 
 	float _takeoff_speed = -1.f; /**< For flighttask interface used only. It can be thrust or velocity setpoints */
+	float _takeoff_reference_z; /**< Z-position when takeoff was initiated */
 
 	vehicle_status_s 			_vehicle_status{}; 	/**< vehicle status */
 	vehicle_land_detected_s 			_vehicle_land_detected{};	/**< vehicle land detected */
@@ -128,9 +129,8 @@ private:
 	vehicle_local_position_s			_local_pos{};		/**< vehicle local position */
 	vehicle_local_position_setpoint_s	_local_pos_sp{};		/**< vehicle local position setpoint */
 	home_position_s				_home_pos{}; 				/**< home position */
-	vehicle_trajectory_waypoint_s		_traj_wp_avoidance; /**< trajectory waypoint */
-	vehicle_trajectory_waypoint_s
-	_traj_wp_avoidance_desired; /**< desired waypoints, inputs to an obstacle avoidance module */
+	vehicle_trajectory_waypoint_s		_traj_wp_avoidance{}; /**< trajectory waypoint */
+	vehicle_trajectory_waypoint_s		_traj_wp_avoidance_desired{}; /**< desired waypoints, inputs to an obstacle avoidance module */
 
 	DEFINE_PARAMETERS(
 		(ParamFloat<px4::params::MPC_TKO_RAMP_T>) _takeoff_ramp_time, /**< time constant for smooth takeoff ramp */
@@ -161,7 +161,7 @@ private:
 	static constexpr uint64_t TRAJECTORY_STREAM_TIMEOUT_US = 500000;
 	/**< number of tries before switching to a failsafe flight task */
 	static constexpr int NUM_FAILURE_TRIES = 10;
-	/**< If Flighttask fails, keep 1s the current setpoint before going into failsafe land */
+	/**< If Flighttask fails, keep 0.2 seconds the current setpoint before going into failsafe land */
 	static constexpr uint64_t LOITER_TIME_BEFORE_DESCEND = 200000;
 
 
@@ -275,7 +275,6 @@ private:
 	 * Publish desired vehicle_trajectory_waypoint
 	 */
 	void publish_avoidance_desired_waypoint();
-
 
 	/**
 	 * Shim for calling task_main from task_create.
@@ -740,8 +739,6 @@ MulticopterPositionControl::task_main()
 			// they might conflict with each other such as in offboard attitude control.
 			publish_attitude();
 
-			publish_avoidance_desired_waypoint();
-
 		} else {
 			// no flighttask is active: set attitude setpoint to idle
 			_att_sp.roll_body = _att_sp.pitch_body = 0.0f;
@@ -882,19 +879,15 @@ MulticopterPositionControl::start_flight_task()
 
 	// check task failure
 	if (task_failure) {
-
 		// for some reason no flighttask was able to start.
 		// go into failsafe flighttask
 		int error = _flight_tasks.switchTask(FlightTaskIndex::Failsafe);
-		task_failure = false;
 
 		if (error != 0) {
 			// No task was activated.
 			_flight_tasks.switchTask(FlightTaskIndex::None);
-
 		}
 	}
-
 }
 
 void
@@ -916,6 +909,7 @@ MulticopterPositionControl::check_for_smooth_takeoff(const float &z_sp, const fl
 			// takeoff speed. Enable smooth takeoff.
 			_in_smooth_takeoff = true;
 			_takeoff_speed = -0.5f;
+			_takeoff_reference_z = _states.position(2);
 
 		} else {
 			// Default
@@ -944,7 +938,7 @@ MulticopterPositionControl::update_smooth_takeoff(const float &z_sp, const float
 
 		// Smooth takeoff is achieved once desired altitude/velocity setpoint is reached.
 		if (PX4_ISFINITE(z_sp)) {
-			_in_smooth_takeoff = _states.position(2) - 0.2f > math::max(z_sp, -MPC_LAND_ALT2.get());
+			_in_smooth_takeoff = _states.position(2) - 0.2f > math::max(z_sp, _takeoff_reference_z - MPC_LAND_ALT2.get());
 
 		} else  {
 			_in_smooth_takeoff = _takeoff_speed < -vz_sp;
@@ -987,6 +981,7 @@ MulticopterPositionControl::failsafe(vehicle_local_position_setpoint_s &setpoint
 	if (!_failsafe_land_hysteresis.get_state() && !force) {
 		// just keep current setpoint and don't do anything.
 
+
 	} else {
 		setpoint.x = setpoint.y = setpoint.z = NAN;
 		setpoint.vx = setpoint.vy = setpoint.vz = NAN;
@@ -1010,17 +1005,24 @@ MulticopterPositionControl::failsafe(vehicle_local_position_setpoint_s &setpoint
 void
 MulticopterPositionControl::update_avoidance_waypoint_desired(PositionControlStates &states)
 {
-	_traj_wp_avoidance_desired = _flight_tasks.getAvoidanceWaypoint();
+	if (MPC_OBS_AVOID.get()) {
+		const vehicle_trajectory_waypoint_s traj_wp_desired_new = _flight_tasks.getAvoidanceWaypoint();
 
-	_traj_wp_avoidance_desired.timestamp = hrt_absolute_time();
-	_traj_wp_avoidance_desired.type = vehicle_trajectory_waypoint_s::MAV_TRAJECTORY_REPRESENTATION_WAYPOINTS;
+		if (traj_wp_desired_new.timestamp > _traj_wp_avoidance_desired.timestamp) {
+			_traj_wp_avoidance_desired = traj_wp_desired_new;
+			_traj_wp_avoidance_desired.timestamp = hrt_absolute_time();
+			_traj_wp_avoidance_desired.type = vehicle_trajectory_waypoint_s::MAV_TRAJECTORY_REPRESENTATION_WAYPOINTS;
 
-	states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].position);
-	states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].velocity);
-	states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].acceleration);
-	_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].yaw = states.yaw;
-	_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].yaw_speed = NAN;
-	_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].point_valid = true;
+			states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].position);
+			states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].velocity);
+			states.position.copyTo(_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].acceleration);
+			_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].yaw = states.yaw;
+			_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].yaw_speed = NAN;
+			_traj_wp_avoidance_desired.waypoints[vehicle_trajectory_waypoint_s::POINT_0].point_valid = true;
+
+			publish_avoidance_desired_waypoint();
+		}
+	}
 }
 
 void
@@ -1058,7 +1060,7 @@ MulticopterPositionControl::use_obstacle_avoidance()
 void
 MulticopterPositionControl::publish_avoidance_desired_waypoint()
 {
-	/* publish desired waypoint*/
+	// publish desired waypoint
 	if (_traj_wp_avoidance_desired_pub != nullptr) {
 		orb_publish(ORB_ID(vehicle_trajectory_waypoint_desired), _traj_wp_avoidance_desired_pub, &_traj_wp_avoidance_desired);
 
@@ -1066,16 +1068,11 @@ MulticopterPositionControl::publish_avoidance_desired_waypoint()
 		_traj_wp_avoidance_desired_pub = orb_advertise(ORB_ID(vehicle_trajectory_waypoint_desired),
 						 &_traj_wp_avoidance_desired);
 	}
-
-	//reset avoidance waypoint desired
-	_traj_wp_avoidance_desired = _flight_tasks.getEmptyAvoidanceWaypoint();
 }
-
 
 void
 MulticopterPositionControl::publish_attitude()
 {
-
 	_att_sp.timestamp = hrt_absolute_time();
 
 	if (_att_sp_pub != nullptr) {
@@ -1089,7 +1086,6 @@ MulticopterPositionControl::publish_attitude()
 void
 MulticopterPositionControl::publish_local_pos_sp()
 {
-
 	_local_pos_sp.timestamp = hrt_absolute_time();
 
 	// publish local position setpoint

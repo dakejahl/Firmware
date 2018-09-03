@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,12 @@
  *
  ****************************************************************************/
 
-/*
+/**
  * @file heater.cpp
  *
- * @author Khoi Tran <khoi@tealdrones.com>
  * @author Mark Sauder <mcsauder@gmail.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
+ * @author Jake Dahl <dahl.jakejacob@gmail.com>
  */
 
 #include "heater.h"
@@ -58,22 +58,18 @@ Heater::Heater() :
 	_duty_cycle(0.0f),
 	_heater_on(false),
 	_integrator_value(0.0f),
-	_parameter_subscription(0),
 	_proportional_value(0.0f),
 	_sensor_accel(sensor_accel_s{}),
-	_sensor_accel_subscription(-1),
+	_sensor_accel_sub(-1),
 	_sensor_temperature(0.0f)
 {
 	px4_arch_configgpio(GPIO_HEATER_OUTPUT);
 	px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 0);
+	_params_sub = orb_subscribe(ORB_ID(parameter_update));
 }
 
 Heater::~Heater()
 {
-	// Tell the work queue to exit.
-	request_stop();
-	work_cancel(LPWORK, &_work);
-
 	// Drive the heater GPIO pin low.
 	px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 0);
 
@@ -153,6 +149,9 @@ void Heater::cycle()
 {
 	if (should_exit()) {
 		exit_and_cleanup();
+		orb_unsubscribe(_params_sub);
+		orb_unsubscribe(_sensor_accel_sub);
+		PX4_INFO("Exiting.");
 		return;
 	}
 
@@ -171,7 +170,7 @@ void Heater::cycle()
 	} else {
 		update_params(false);
 
-		orb_update(ORB_ID(sensor_accel), _sensor_accel_subscription, &_sensor_accel);
+		orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel);
 
 		// Obtain the current IMU sensor temperature.
 		_sensor_temperature = _sensor_accel.temperature;
@@ -243,13 +242,13 @@ void Heater::initialize_topics()
 
 	// Check each instance for the correct ID.
 	for (size_t x = 0; x < number_of_imus; x++) {
-		_sensor_accel_subscription = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
+		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
-		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_subscription, &_sensor_accel) != true) {
+		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != PX4_OK) {
 			usleep(200000);
 		}
 
-		// If the correct ID is found, exit the for-loop with _sensor_accel_subscription pointing to the correct instance.
+		// If the correct ID is found, exit the for-loop with _sensor_accel_sub pointing to the correct instance.
 		if (_sensor_accel.device_id == (uint32_t)_p_sensor_id.get()) {
 			PX4_INFO("Found Sensor to Temp Compensate");
 			break;
@@ -274,8 +273,8 @@ void Heater::initialize_trampoline(void *arg)
 		return;
 	}
 
-	heater->start();
 	_object = heater;
+	heater->start();
 }
 
 float Heater::integrator(char *argv[])
@@ -288,24 +287,24 @@ float Heater::integrator(char *argv[])
 	return _p_integrator_gain.get();
 }
 
-bool Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffer)
+int Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffer)
 {
 	bool newData = false;
 
 	// Check if there is new data to obtain.
 	if (orb_check(handle, &newData) != OK) {
-		return false;
+		return PX4_ERROR;
 	}
 
 	if (!newData) {
-		return false;
+		return PX4_ERROR;
 	}
 
 	if (orb_copy(meta, handle, buffer) != OK) {
-		return false;
+		return PX4_ERROR;
 	}
 
-	return true;
+	return PX4_OK;
 }
 
 int Heater::print_status()
@@ -329,7 +328,7 @@ int Heater::print_usage(const char *reason)
 ### Description
 Background process running periodically on the LP work queue to regulate IMU temperature at a setpoint.
 
-The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, etc.).
+This task can be started at boot from the startup scripts by setting SENS_EN_THERMAL or via CLI.
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("heater", "system");
@@ -344,6 +343,7 @@ The tasks can be started via CLI or uORB topics (vehicle_command from MAVLink, e
 	PRINT_MODULE_USAGE_COMMAND_DESCR("status", "Reports the current IMU temperature, temperature setpoint, and heater on/off status.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("stop", "Stops the IMU heater driver.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("temp", "Reports the current IMU temperature.");
+	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 
 	return 0;
 }
@@ -421,19 +421,11 @@ void Heater::update_params(const bool force)
 	bool updated;
 	parameter_update_s param_update;
 
-	orb_check(_parameter_subscription, &updated);
-
-	if (updated) {
-		orb_copy(ORB_ID(parameter_update), _parameter_subscription, &param_update);
-	}
+	orb_check(_params_sub, &updated);
 
 	if (updated || force) {
 		ModuleParams::updateParams();
-		_p_sensor_id.get();
-		_p_feed_forward_value.get();
-		_p_integrator_gain.get();
-		_p_proportional_gain.get();
-		_p_temperature_setpoint.get();
+		orb_copy(ORB_ID(parameter_update), _params_sub, &param_update);
 	}
 }
 

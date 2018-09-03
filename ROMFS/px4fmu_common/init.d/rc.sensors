@@ -231,43 +231,42 @@ fi
 if ver hwcmp PX4FMU_V4
 then
 	# External I2C bus
-	#hmc5883 -C -T -X start
-	#lis3mdl -X -R 6 start
-	#bmp280 -I start
+#	hmc5883 -C -T -X start
+#	lis3mdl -X start
+#	bmp280 -I start
 
 	# expansion i2c used for BMM150 rotated by 90deg
-#       bmm150 -R 2 start
-#
-#       # hmc5883 internal SPI bus is rotated 90 deg yaw
-#       if ! hmc5883 -C -T -S -R 2 start
-#       then
-#               # lis3mdl internal SPI bus is rotated 90 deg yaw
-#               if ! lis3mdl start
-#               then
-#                       # BMI055 gyro internal SPI bus
-#                       bmi055 -G start
-#               fi
-#       fi
+#	bmm150 -R 2 start
+
+#	# hmc5883 internal SPI bus is rotated 90 deg yaw
+#	if ! hmc5883 -C -T -S -R 2 start
+#	then
+#		# lis3mdl internal SPI bus is rotated 90 deg yaw
+#		if ! lis3mdl start
+#		then
+#			# BMI055 gyro internal SPI bus
+#			bmi055 -G start
+#		fi
+#	fi
 
 	# Start either ICM2060X or BMI055. They are both connected to the same SPI bus and use the same
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
 
-#       # ICM20602 internal SPI bus ICM-20608-G is rotated 90 deg yaw
-#       if ! mpu6000 -R 2 -T 20602 start
-#       then
-#               # ICM20608 internal SPI bus ICM-20602-G is rotated 90 deg yaw
-#               if ! mpu6000 -R 2 -T 20608 start
-#               then
-#                       # BMI055 accel internal SPI bus
-#                       bmi055 -A start
-#               fi
-#       fi
+#	# ICM20602 internal SPI bus ICM-20608-G is rotated 90 deg yaw
+#	if ! mpu6000 -R 2 -T 20602 start
+#	then
+#		# ICM20608 internal SPI bus ICM-20602-G is rotated 90 deg yaw
+#		if ! mpu6000 -R 2 -T 20608 start
+#		then
+#			# BMI055 accel internal SPI bus
+#			bmi055 -A start
+#		fi
+#	fi
 
 	# Start either MPU9250 or BMI160. They are both connected to the same SPI bus and use the same
 	# chip select pin. There are different boards with either one of them and the WHO_AM_I register
 	# will prevent the incorrect driver from a successful initialization.
-
 	# mpu9250 on the internal SPI bus
 	if ! mpu9250 -s -R 8 start
 	then
@@ -303,7 +302,6 @@ then
 		else
 		fi
 	fi
-
 fi
 
 if ver hwcmp MINDPX_V2
@@ -352,6 +350,9 @@ then
 
 	# Possible external compasses
 	hmc5883 -C -T -X start
+
+	#RM3100
+	rm3100 start
 fi
 
 if ver hwcmp PX4FMU_V5
@@ -413,6 +414,12 @@ then
 	fi
 fi
 
+# Heater driver for temperature regulated IMUs.
+if param compare SENS_EN_THERMAL 1
+then
+	heater start
+fi
+
 # Sensors on the PWM interface bank
 if param compare SENS_EN_LL40LS 1
 then
@@ -426,12 +433,6 @@ fi
 if param compare SENS_EN_LL40LS 2
 then
 	ll40ls start i2c
-fi
-
-# mb12xx sonar sensor
-if param greater SENS_EN_MB12XX 0
-then
-	mb12xx start -a
 fi
 
 # pga460 sonar sensor
@@ -452,10 +453,10 @@ then
 	sf1xx start -a
 fi
 
-# Heater driver for temperature regulated IMUs.
-if param compare SENS_EN_THERMAL 1
+# mb12xx sonar sensor
+if param greater SENS_EN_MB12XX 0
 then
-	heater start
+	mb12xx start -a
 fi
 
 # Teraranger one tof sensor
@@ -511,6 +512,7 @@ fi
 #                            End Optional drivers                             #
 ###############################################################################
 
+unset BOARD_FMUV3
 
 # Wait 20 ms for sensors (because we need to wait for the HRT and work queue callbacks to fire)
 usleep 20000

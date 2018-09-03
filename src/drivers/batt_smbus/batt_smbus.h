@@ -43,7 +43,6 @@
  * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
-
 #include <px4_config.h>
 #include <px4_workqueue.h>
 
@@ -52,7 +51,7 @@
 #include <string.h>
 #include <ecl/geo/geo.h>
 
-#include <drivers/device/CDev.hpp>
+#include <lib/cdev/CDev.hpp>
 #include <drivers/device/Device.hpp>
 #include <drivers/device/i2c.h>
 #include <drivers/drv_device.h>
@@ -101,6 +100,7 @@
 #define BATT_SMBUS_LIFETIME_FLUSH                       0x002E
 #define BATT_SMBUS_LIFETIME_BLOCK_ONE                   0x0060
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS        0x4938
+#define BATT_SMBUS_SEAL                                 0x0030
 
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT		0xcf
 #define BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED	0xce
@@ -135,7 +135,7 @@ int serial_number();
 extern device::Device *BATT_SMBUS_I2C_interface(int bus);
 typedef device::Device *(*BATT_SMBUS_constructor)(int);
 
-class BATT_SMBUS : public device::CDev
+class BATT_SMBUS : public cdev::CDev
 {
 public:
 
@@ -281,6 +281,12 @@ public:
 	int unseal();
 
 	/**
+	 * @brief Seals the battery to disallow writing to restricted flash.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int seal();
+
+	/**
 	 * @brief This command flushes the RAM Lifetime Data to data flash to help streamline evaluation testing.
 	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
 	 */
@@ -302,7 +308,7 @@ public:
 	int write_flash(uint16_t address, uint8_t *tx_buf, const unsigned length);
 
 protected:
-	Device *_interface;
+	device::Device *_interface;
 
 private:
 
@@ -358,7 +364,7 @@ private:
 	/** @param _cell_undervoltage_protection_status 0 if protection disabled, 1 if enabled */
 	uint8_t _cell_undervoltage_protection_status;
 
-	/* Do not allow copy construction or move assignment of this class. */
+	/** Do not allow copy construction or move assignment of this class. */
 	BATT_SMBUS(const BATT_SMBUS &);
 	BATT_SMBUS operator=(const BATT_SMBUS &);
 };

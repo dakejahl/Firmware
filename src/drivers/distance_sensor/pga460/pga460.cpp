@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2012-2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,7 +58,7 @@ PGA460::~PGA460()
 
 uint8_t PGA460::calc_checksum(uint8_t *data, const uint8_t size)
 {
-	uint8_t checksum_input[size] = {0};
+	uint8_t checksum_input[size];
 
 	for (size_t i = 0; i < size; i++) {
 		checksum_input[i] = *data;
@@ -109,7 +109,7 @@ PGA460 *PGA460::instantiate(int argc, char *argv[])
 int PGA460::initialize_device_settings()
 {
 	if (initialize_thresholds() != PX4_OK) {
-		PX4_WARN("PGA460 thresholds not initialized");
+		PX4_WARN("Thresholds not initialized");
 		return PX4_ERROR;
 	}
 
@@ -460,9 +460,17 @@ int PGA460::print_usage(const char *reason)
 Ultrasonic range finder driver that handles the communication with the device and publishes the distance via uORB.
 
 ### Implementation
+<<<<<<< HEAD
 This driver is implented as a NuttX task. This Implementation was chosen due to the need for polling on a message via UART, which is not supported in the
 work_queue. This driver continuously takes range measurements while it is running. A simple algorithm to detect false readings is implemented at the driver level
 in an attemptto improve the quality of data that is being published. The driver will not publish data at all if it deems the sensor data to be invalid or unstable.
+=======
+This driver is implented as a NuttX task. This Implementation was chosen due to the need for polling on a message
+via UART, which is not supported in the work_queue. This driver continuously takes range measurements while it is
+running. A simple algorithm to detect false readings is implemented at the driver levelin an attemptto improve
+the quality of data that is being published. The driver will not publish data at all if it deems the sensor data
+to be invalid or unstable.
+>>>>>>> upstream/master
 )DESCR_STR");
 
 	PRINT_MODULE_USAGE_NAME("pga460", "driver");
@@ -647,7 +655,13 @@ void PGA460::request_results()
 void PGA460::run()
 {
 	open_serial();
-	initialize_device_settings();
+	int ret = initialize_device_settings();
+
+	if(ret != PX4_OK) {
+		close_serial();
+		PX4_INFO("Could not initialize device settings. Exiting.");
+		return;
+	}
 
 	struct distance_sensor_s report = {};
 	_distance_sensor_topic = orb_advertise(ORB_ID(distance_sensor), &report);

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,9 +34,9 @@
 /**
  * @file heater.h
  *
- * @author Khoi Tran <khoi@tealdrones.com>
  * @author Mark Sauder <mcsauder@gmail.com>
  * @author Alex Klimaj <alexklimaj@gmail.com>
+ * @author Jake Dahl <dahl.jakejacob@gmail.com>
  */
 
 #pragma once
@@ -71,14 +71,8 @@ extern "C" __EXPORT int heater_main(int argc, char *argv[]);
 class Heater : public ModuleBase<Heater>, public ModuleParams
 {
 public:
-	/**
-	 * @brief Default Constructor.
-	 */
 	Heater();
 
-	/**
-	 * @brief Default Destructor.
-	 */
 	virtual ~Heater();
 
 	/**
@@ -210,7 +204,7 @@ private:
 	 * @param buffer The data buffer to copy data into.
 	 * @return Returns true iff update was successful.
 	 */
-	bool orb_update(const struct orb_metadata *meta, int handle, void *buffer);
+	int orb_update(const struct orb_metadata *meta, int handle, void *buffer);
 
 	/**
 	 * @brief Updates and checks for updated uORB parameters.
@@ -237,7 +231,7 @@ private:
 	float _integrator_value;
 
 	/** @param Local member variable to store the parameter subscriptions. */
-	int _parameter_subscription;
+	int _params_sub;
 
 	/** @param _proportional_value The heater controller proportional value. */
 	float _proportional_value;
@@ -246,7 +240,7 @@ private:
 	struct sensor_accel_s _sensor_accel;
 
 	/** @param _sensor_accel_sub The accelerometer subtopic subscribed to.*/
-	int _sensor_accel_subscription;
+	int _sensor_accel_sub;
 
 	/** @param _sensor_temperature The sensor's reported temperature. */
 	float _sensor_temperature;

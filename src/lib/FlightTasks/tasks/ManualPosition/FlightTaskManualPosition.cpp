@@ -148,14 +148,5 @@ void FlightTaskManualPosition::_updateSetpoints()
 {
 	FlightTaskManualAltitude::_updateSetpoints(); // needed to get yaw and setpoints in z-direction
 	_thrust_setpoint *= NAN; // don't require any thrust setpoints
-
-	// limit vertical downwards speed (positive z) close to ground
-	// for now we use the altitude above home and assume that we want to land at same height as we took off
-	float vel_limit_down = math::gradual(-_position(2),
-					     MPC_LAND_ALT2.get(), MPC_LAND_ALT1.get(),
-					     MPC_LAND_SPEED.get(), MPC_Z_VEL_MAX_DN.get());
-
-	_velocity_setpoint(2) = math::constrain(_velocity_setpoint(2), -1.0f * MPC_Z_VEL_MAX_UP.get(), vel_limit_down);
-
 	_updateXYlock(); // check for position lock
 }
