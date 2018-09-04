@@ -854,7 +854,7 @@ Navigator::get_acceptance_radius()
 }
 
 float
-Navigator::get_altitude_acceptance_radius()
+Navigator::get_default_altitude_acceptance_radius()
 {
 	if (!get_vstatus()->is_rotary_wing) {
 		return _param_fw_alt_acceptance_radius.get();
@@ -862,6 +862,21 @@ Navigator::get_altitude_acceptance_radius()
 	} else {
 		return _param_mc_alt_acceptance_radius.get();
 	}
+}
+
+float
+Navigator::get_altitude_acceptance_radius()
+{
+	if (!get_vstatus()->is_rotary_wing) {
+		const position_setpoint_s &next_sp = get_position_setpoint_triplet()->next;
+
+		if (next_sp.type == position_setpoint_s::SETPOINT_TYPE_LAND && next_sp.valid) {
+			// Use separate (tighter) altitude acceptance for clean altitude starting point before landing
+			return _param_fw_alt_lnd_acceptance_radius.get();
+		}
+	}
+
+	return get_default_altitude_acceptance_radius();
 }
 
 float
@@ -967,7 +982,7 @@ void Navigator::fake_traffic(const char *callsign, float distance, float directi
 
 	transponder_report_s tr = {};
 	tr.timestamp = hrt_absolute_time();
-	tr.ICAO_address = 1234;
+	tr.icao_address = 1234;
 	tr.lat = lat; // Latitude, expressed as degrees
 	tr.lon = lon; // Longitude, expressed as degrees
 	tr.altitude_type = 0;

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,14 +40,3 @@
  * @group Sensors
  */
 PARAM_DEFINE_INT32(SENS_EN_PGA460, 0);
-
-/**
- * PGA460 transducer resonant frequeny -- calibrate this from NSH 'pga460 calibrate'
- *
- *
- * @unit hz
- * @decimal 1
- *
- * @group Sensors
- */
-PARAM_DEFINE_FLOAT(PGA460_RES_FREQ, 41.0f);

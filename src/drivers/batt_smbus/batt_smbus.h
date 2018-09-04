@@ -43,7 +43,6 @@
  * @author Jacob Dahl <dahl.jakejacob@gmail.com>
  */
 
-
 #include <px4_config.h>
 #include <px4_workqueue.h>
 
@@ -52,7 +51,7 @@
 #include <string.h>
 #include <ecl/geo/geo.h>
 
-#include <drivers/device/CDev.hpp>
+#include <lib/cdev/CDev.hpp>
 #include <drivers/device/Device.hpp>
 #include <drivers/device/i2c.h>
 #include <drivers/drv_device.h>
@@ -61,7 +60,13 @@
 
 #include <uORB/topics/battery_status.h>
 
-#define DATA_BUFFER_SIZE				32
+#define DATA_BUFFER_SIZE				                32
+
+#define BATT_CELL_VOLTAGE_THRESHOLD_RTL                 0.5f                    ///< Threshold in volts to RTL if cells are imbalanced
+#define BATT_CELL_VOLTAGE_THRESHOLD_FAILED              1.5f                    ///< Threshold in volts to Land if cells are imbalanced
+
+#define BATT_CURRENT_UNDERVOLTAGE_THRESHOLD             5.0f                    ///< Threshold in amps to disable undervoltage protection
+#define BATT_VOLTAGE_UNDERVOLTAGE_THRESHOLD             3.4f                    ///< Threshold in volts to re-enable undervoltage protection
 
 #define BATT_SMBUS_I2C_BUS                              PX4_I2C_BUS_EXPANSION
 #define BATT_SMBUS_CURRENT                              0x0A                    ///< current register
@@ -83,11 +88,22 @@
 #define BATT_SMBUS_MANUFACTURE_DATE                     0x1B                    ///< manufacture date register
 #define BATT_SMBUS_SERIAL_NUMBER                        0x1C                    ///< serial number register
 #define BATT_SMBUS_MEASUREMENT_INTERVAL_US              100000                  ///< time in microseconds, measure at 10Hz
-#define BATT_SMBUS_TIMEOUT_US                           1000000                ///< timeout looking for battery 10seconds after startup
+#define BATT_SMBUS_TIMEOUT_US                           1000000                 ///< timeout looking for battery 10seconds after startup
 #define BATT_SMBUS_MANUFACTURER_ACCESS                  0x00
-#define BATT_SMBUS_MANUFACTURER_DATA			0x23
+#define BATT_SMBUS_MANUFACTURER_DATA			        0x23
 #define BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS            0x44
-#define BATT_SMBUS_SECURITY_KEYS			0x0035
+#define BATT_SMBUS_SECURITY_KEYS			            0x0035
+#define BATT_SMBUS_CELL_1_VOLTAGE                       0x3F
+#define BATT_SMBUS_CELL_2_VOLTAGE                       0x3E
+#define BATT_SMBUS_CELL_3_VOLTAGE                       0x3D
+#define BATT_SMBUS_CELL_4_VOLTAGE                       0x3C
+#define BATT_SMBUS_LIFETIME_FLUSH                       0x002E
+#define BATT_SMBUS_LIFETIME_BLOCK_ONE                   0x0060
+#define BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS        0x4938
+#define BATT_SMBUS_SEAL                                 0x0030
+
+#define BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT		0xcf
+#define BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED	0xce
 
 #ifndef CONFIG_SCHED_WORKQUEUE
 # error This requires CONFIG_SCHED_WORKQUEUE.
@@ -119,7 +135,7 @@ int serial_number();
 extern device::Device *BATT_SMBUS_I2C_interface(int bus);
 typedef device::Device *(*BATT_SMBUS_constructor)(int);
 
-class BATT_SMBUS : public device::CDev
+class BATT_SMBUS : public cdev::CDev
 {
 public:
 
@@ -264,9 +280,35 @@ public:
 	 */
 	int unseal();
 
+	/**
+	 * @brief Seals the battery to disallow writing to restricted flash.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int seal();
+
+	/**
+	 * @brief This command flushes the RAM Lifetime Data to data flash to help streamline evaluation testing.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int lifetime_data_flush();
+
+	/**
+	 * @brief Reads the lifetime data from block 1.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int lifetime_read_block_one();
+
+	/**
+	 * @brief Reads the lifetime data from block 1.
+	 * @param address Address of the register to write
+	 * @param tx_buf The sent data.
+	 * @param length The number of bytes being written.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
+	int write_flash(uint16_t address, uint8_t *tx_buf, const unsigned length);
 
 protected:
-	Device *_interface;
+	device::Device *_interface;
 
 private:
 
@@ -316,7 +358,13 @@ private:
 	/** @param _manufacturer_name Name of the battery manufacturer. */
 	char *_manufacturer_name;
 
-	/* Do not allow copy construction or move assignment of this class. */
+	/** @param _lifetime_max_delta_cell_voltage Max lifetime delta of the battery cells */
+	float _lifetime_max_delta_cell_voltage;
+
+	/** @param _cell_undervoltage_protection_status 0 if protection disabled, 1 if enabled */
+	uint8_t _cell_undervoltage_protection_status;
+
+	/** Do not allow copy construction or move assignment of this class. */
 	BATT_SMBUS(const BATT_SMBUS &);
 	BATT_SMBUS operator=(const BATT_SMBUS &);
 };

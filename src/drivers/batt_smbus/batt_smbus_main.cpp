@@ -240,7 +240,7 @@ void usage(const char *reason)
 Smart battery driver for the BQ40Z50 fuel gauge IC.
 
 ### Examples
-To write to flash to set parameters. In this example 19069 is the address, 2 is the number of bytes to send, 27 is the first byte and 0 is the second byte.
+To write to flash to set parameters. address, number_of_bytes, byte0, ... , byteN
 $ batt_smbus -X write_flash 19069 2 27 0
 
 )DESCR_STR");
@@ -259,6 +259,7 @@ $ batt_smbus -X write_flash 19069 2 27 0
 	PRINT_MODULE_USAGE_COMMAND_DESCR("sbs_info", "Prints the manufacturer name, date, and serial number.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("info",  "Prints the last report.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("unseal", "Unseals the devices flash memory to enable write_flash commands.");
+	PRINT_MODULE_USAGE_COMMAND_DESCR("seal", "Seals the devices flash memory to disbale write_flash commands.");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("read_word", "Uses the SMbus read-word command.");
 	PRINT_MODULE_USAGE_ARG("command code", "The SMbus command .", true);
 	PRINT_MODULE_USAGE_COMMAND_DESCR("man_read", "Uses the SMbus block-read with ManufacturerAccess().");
@@ -369,6 +370,12 @@ batt_smbus_main(int argc, char *argv[])
 		bus.dev->unseal();
 		return 0;
 	}
+
+	if (!strcmp(input, "seal")) {
+		bus.dev->seal();
+		return 0;
+	}
+
 
 
 
