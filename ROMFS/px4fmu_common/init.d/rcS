@@ -260,6 +260,7 @@ else
 	# Enforce the default airframe as a Teal One
 	#
 	echo "Enforcing Teal One airframe and parameter defaults."
+	param reset CAL_*
 	param set SYS_AUTOSTART 4250
 	set AUTOCNF yes
 
