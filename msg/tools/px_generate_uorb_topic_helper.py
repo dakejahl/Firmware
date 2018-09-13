@@ -77,8 +77,8 @@ type_printf_map = {
     'uint16': '%u',
     'uint32': '%" PRIu32 "',
     'uint64': '%" PRIu64 "',
-    'float32': '%.3f',
-    'float64': '%.3f',
+    'float32': '%.4f',
+    'float64': '%.6f',
     'bool': '%u',
     'char': '%c',
 }
@@ -250,6 +250,10 @@ def print_field(field):
         print("if (message.timestamp != 0) {\n\t\tPX4_INFO_RAW(\"\\t" + field.name + \
             ": " + c_type + "  (%.6f seconds ago)\\n\", " + field_name + \
             ", hrt_elapsed_time(&message.timestamp) / 1e6);\n\t} else {\n\t\tPX4_INFO_RAW(\"\\n\");\n\t}" )
+    elif field.name == 'device_id':
+        print("char device_id_buffer[80];")
+        print("device::Device::device_id_print_buffer(device_id_buffer, sizeof(device_id_buffer), message.device_id);")
+        print("PX4_INFO_RAW(\"\\tdevice_id: %d (%s) \\n\", message.device_id, device_id_buffer);" )
     else:
         print("PX4_INFO_RAW(\"\\t" + field.name + ": " + c_type + "\\n\", " + field_name + ");" )
 
