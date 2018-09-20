@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,49 +31,52 @@
  *
  ****************************************************************************/
 
-#ifndef _DRV_UORB_H
-#define _DRV_UORB_H
-
 /**
- * @file drv_orb_dev.h
+ * @file WeatherVane.hpp
+ * @author Ivo Drescher
+ * @author Roman Bapst <roman@auterion.com>
  *
- * uORB published object driver.
+ * Weathervane controller.
+ *
  */
 
-#include <px4_defines.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <stdint.h>
+#pragma once
 
-#define _ORBIOCBASE		(0x2600)
-#define _ORBIOC(_n)		(_PX4_IOC(_ORBIOCBASE, _n))
+#include <px4_module_params.h>
+#include <matrix/matrix/math.hpp>
 
-/*
- * IOCTLs for individual topics.
- */
+class WeatherVane : public ModuleParams
+{
+public:
+	WeatherVane();
 
-/** Fetch the time at which the topic was last updated into *(uint64_t *)arg */
-#define ORBIOCLASTUPDATE	_ORBIOC(10)
+	~WeatherVane() = default;
 
-/** Check whether the topic has been updated since it was last read, sets *(bool *)arg */
-#define ORBIOCUPDATED		_ORBIOC(11)
+	void activate() {_is_active = true;}
 
-/** Set the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCSETINTERVAL	_ORBIOC(12)
+	void deactivate() {_is_active = false;}
 
-/** Get the global advertiser handle for the topic */
-#define ORBIOCGADVERTISER	_ORBIOC(13)
+	bool is_active() {return _is_active;}
 
-/** Get the priority for the topic */
-#define ORBIOCGPRIORITY		_ORBIOC(14)
+	bool weathervane_enabled() { return _wv_enabled.get(); }
 
-/** Set the queue size of the topic */
-#define ORBIOCSETQUEUESIZE	_ORBIOC(15)
+	void update(const matrix::Quatf &q_sp_prev, float yaw);
 
-/** Get the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCGETINTERVAL	_ORBIOC(16)
+	float get_weathervane_yawrate();
 
-/** Check whether the topic is published, sets *(unsigned long *)arg to 1 if published, 0 otherwise */
-#define ORBIOCISPUBLISHED	_ORBIOC(17)
+	void update_parameters() { ModuleParams::updateParams(); }
 
-#endif /* _DRV_UORB_H */
+private:
+	matrix::Dcmf _R_sp_prev;	// previous attitude setpoint rotation matrix
+	float _yaw = 0.0f;			// current yaw angle
+
+	bool _is_active = true;
+
+	DEFINE_PARAMETERS(
+		(ParamBool<px4::params::WV_EN>) _wv_enabled,
+		(ParamFloat<px4::params::WV_ROLL_MIN>) _wv_min_roll,
+		(ParamFloat<px4::params::WV_GAIN>) _wv_gain,
+		(ParamFloat<px4::params::WV_YRATE_MAX>) _wv_max_yaw_rate
+	)
+
+};

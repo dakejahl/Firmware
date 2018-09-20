@@ -67,6 +67,7 @@
 #include <controllib/blocks.hpp>
 
 #include <lib/FlightTasks/FlightTasks.hpp>
+#include <lib/WeatherVane/WeatherVane.hpp>
 #include "PositionControl.hpp"
 #include "Utility/ControlMath.hpp"
 
@@ -173,6 +174,8 @@ private:
 	systemlib::Hysteresis _arm_hysteresis{false}; /**< becomes true once vehicle is armed for MPC_IDLE_TKO seconds */
 
 	systemlib::Hysteresis _failsafe_land_hysteresis{false}; /**< becomes true if task did not update correctly for LOITER_TIME_BEFORE_DESCEND */
+
+	WeatherVane *_wv_controller{nullptr};
 
 	/**
 	 * Update our local parameter cache.
@@ -316,6 +319,10 @@ MulticopterPositionControl::MulticopterPositionControl() :
 
 MulticopterPositionControl::~MulticopterPositionControl()
 {
+	if (_wv_controller != nullptr) {
+		delete _wv_controller;
+	}
+
 	if (_control_task != -1) {
 		// task wakes up every 100ms or so at the longest
 		_task_should_exit = true;
@@ -373,6 +380,10 @@ MulticopterPositionControl::parameters_update(bool force)
 
 		// set trigger time for arm hysteresis
 		_arm_hysteresis.set_hysteresis_time_from(false, (int)(MPC_IDLE_TKO.get() * 1000000.0f));
+
+		if (_wv_controller != nullptr) {
+			_wv_controller->update_parameters();
+		}
 	}
 
 	return OK;
@@ -396,6 +407,11 @@ MulticopterPositionControl::poll_subscriptions()
 			} else {
 				_attitude_setpoint_id = ORB_ID(vehicle_attitude_setpoint);
 			}
+		}
+
+		// if vehicle is a VTOL we want to enable weathervane capabilities
+		if (_wv_controller == nullptr && _vehicle_status.is_vtol) {
+			_wv_controller = new WeatherVane();
 		}
 	}
 
@@ -589,6 +605,22 @@ MulticopterPositionControl::task_main()
 		// set dt for control blocks
 		setDt(dt);
 
+		// activate the weathervane controller if required. If activated a flighttask can use it to implement a yaw-rate control strategy
+		// that turns the nose of the vehicle into the wind
+		if (_wv_controller != nullptr) {
+
+			// in manual mode we just want to use weathervane if position is controlled as well
+			if (_wv_controller->weathervane_enabled() && !(_control_mode.flag_control_manual_enabled
+					&& !_control_mode.flag_control_position_enabled)) {
+				_wv_controller->activate();
+
+			} else {
+				_wv_controller->deactivate();
+			}
+
+			_wv_controller->update(matrix::Quatf(_att_sp.q_d), _local_pos.yaw);
+		}
+
 		if (_control_mode.flag_armed) {
 			// as soon vehicle is armed check for flighttask
 			start_flight_task();
@@ -608,6 +640,8 @@ MulticopterPositionControl::task_main()
 
 			// setpoints from flighttask
 			vehicle_local_position_setpoint_s setpoint;
+
+			_flight_tasks.setYawHandler(_wv_controller);
 
 			// update task
 			if (!_flight_tasks.update()) {
@@ -720,7 +754,6 @@ MulticopterPositionControl::task_main()
 			_att_sp = ControlMath::thrustToAttitude(thr_sp, _control.getYawSetpoint());
 			_att_sp.yaw_sp_move_rate = _control.getYawspeedSetpoint();
 			_att_sp.fw_control_yaw = false;
-			_att_sp.disable_mc_yaw_control = false;
 			_att_sp.apply_flaps = false;
 
 			if (!constraints.landing_gear) {
@@ -746,7 +779,6 @@ MulticopterPositionControl::task_main()
 			_att_sp.yaw_body = _local_pos.yaw;
 			_att_sp.yaw_sp_move_rate = 0.0f;
 			_att_sp.fw_control_yaw = false;
-			_att_sp.disable_mc_yaw_control = false;
 			_att_sp.apply_flaps = false;
 			matrix::Quatf q_sp = matrix::Eulerf(_att_sp.roll_body, _att_sp.pitch_body, _att_sp.yaw_body);
 			q_sp.copyTo(_att_sp.q_d);

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,49 +31,52 @@
  *
  ****************************************************************************/
 
-#ifndef _DRV_UORB_H
-#define _DRV_UORB_H
+/**
+ * @file weathervane_params.c
+ *
+ * Parameters defined by the weathervane lib.
+ *
+ * @author Roman Bapst <roman@auterion.com>
+ */
 
 /**
- * @file drv_orb_dev.h
+ * Enable weathervane.
  *
- * uORB published object driver.
+ * @boolean
+ * @group Multicopter Position Control
  */
+PARAM_DEFINE_INT32(WV_EN, 0);
 
-#include <px4_defines.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <stdint.h>
-
-#define _ORBIOCBASE		(0x2600)
-#define _ORBIOC(_n)		(_PX4_IOC(_ORBIOCBASE, _n))
-
-/*
- * IOCTLs for individual topics.
+/**
+ * Weather-vane roll angle to yawrate.
+ *
+ * The desired gain to convert roll sp into yaw rate sp.
+ *
+ * @min 0.0
+ * @max 3.0
+ * @unit 1/s
+ * @increment 0.01
+ * @decimal 3
+ * @group VTOL Attitude Control
  */
+PARAM_DEFINE_FLOAT(WV_GAIN, 1.0f);
 
-/** Fetch the time at which the topic was last updated into *(uint64_t *)arg */
-#define ORBIOCLASTUPDATE	_ORBIOC(10)
+/**
+ * Minimum roll angle setpoint for weathervane controller to demand a yaw-rate.
+ *
+ * @min 0
+ * @max 5
+ * @unit deg
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(WV_ROLL_MIN, 1.0f);
 
-/** Check whether the topic has been updated since it was last read, sets *(bool *)arg */
-#define ORBIOCUPDATED		_ORBIOC(11)
-
-/** Set the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCSETINTERVAL	_ORBIOC(12)
-
-/** Get the global advertiser handle for the topic */
-#define ORBIOCGADVERTISER	_ORBIOC(13)
-
-/** Get the priority for the topic */
-#define ORBIOCGPRIORITY		_ORBIOC(14)
-
-/** Set the queue size of the topic */
-#define ORBIOCSETQUEUESIZE	_ORBIOC(15)
-
-/** Get the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCGETINTERVAL	_ORBIOC(16)
-
-/** Check whether the topic is published, sets *(unsigned long *)arg to 1 if published, 0 otherwise */
-#define ORBIOCISPUBLISHED	_ORBIOC(17)
-
-#endif /* _DRV_UORB_H */
+/**
+ * Maximum yawrate the weathervane controller is allowed to demand.
+ *
+ * @min 0
+ * @max 120
+ * @unit deg/s
+ * @group Multicopter Position Control
+ */
+PARAM_DEFINE_FLOAT(WV_YRATE_MAX, 90.0f);

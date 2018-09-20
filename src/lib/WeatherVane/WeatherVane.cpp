@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,49 +31,52 @@
  *
  ****************************************************************************/
 
-#ifndef _DRV_UORB_H
-#define _DRV_UORB_H
-
 /**
- * @file drv_orb_dev.h
+ * @file WeatherVane.cpp
+ * Weathervane controller.
  *
- * uORB published object driver.
  */
 
-#include <px4_defines.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <stdint.h>
+#include "WeatherVane.hpp"
+#include <mathlib/mathlib.h>
 
-#define _ORBIOCBASE		(0x2600)
-#define _ORBIOC(_n)		(_PX4_IOC(_ORBIOCBASE, _n))
 
-/*
- * IOCTLs for individual topics.
- */
+WeatherVane::WeatherVane() :
+	ModuleParams(nullptr)
+{
+	_R_sp_prev = matrix::Dcmf();
+}
 
-/** Fetch the time at which the topic was last updated into *(uint64_t *)arg */
-#define ORBIOCLASTUPDATE	_ORBIOC(10)
+void WeatherVane::update(const matrix::Quatf &q_sp_prev, float yaw)
+{
+	_R_sp_prev = matrix::Dcmf(q_sp_prev);
+	_yaw = yaw;
+}
 
-/** Check whether the topic has been updated since it was last read, sets *(bool *)arg */
-#define ORBIOCUPDATED		_ORBIOC(11)
+float WeatherVane::get_weathervane_yawrate()
+{
+	// direction of desired body z axis represented in earth frame
+	matrix::Vector3f body_z_sp(_R_sp_prev(0, 2), _R_sp_prev(1, 2), _R_sp_prev(2, 2));
 
-/** Set the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCSETINTERVAL	_ORBIOC(12)
+	// rotate desired body z axis into new frame which is rotated in z by the current
+	// heading of the vehicle. we refer to this as the heading frame.
+	matrix::Dcmf R_yaw = matrix::Eulerf(0.0f, 0.0f, -_yaw);
+	body_z_sp = R_yaw * body_z_sp;
+	body_z_sp.normalize();
 
-/** Get the global advertiser handle for the topic */
-#define ORBIOCGADVERTISER	_ORBIOC(13)
+	float roll_sp = -asinf(body_z_sp(1));
 
-/** Get the priority for the topic */
-#define ORBIOCGPRIORITY		_ORBIOC(14)
+	float roll_exceeding_treshold = 0.0f;
+	float min_roll_rad = math::radians(_wv_min_roll.get());
 
-/** Set the queue size of the topic */
-#define ORBIOCSETQUEUESIZE	_ORBIOC(15)
+	if (roll_sp > min_roll_rad) {
+		roll_exceeding_treshold = roll_sp - min_roll_rad;
 
-/** Get the minimum interval at which the topic can be seen to be updated for this subscription */
-#define ORBIOCGETINTERVAL	_ORBIOC(16)
+	} else if (roll_sp < -min_roll_rad) {
+		roll_exceeding_treshold = roll_sp + min_roll_rad;
 
-/** Check whether the topic is published, sets *(unsigned long *)arg to 1 if published, 0 otherwise */
-#define ORBIOCISPUBLISHED	_ORBIOC(17)
+	}
 
-#endif /* _DRV_UORB_H */
+	return math::constrain(roll_exceeding_treshold * _wv_gain.get(), -math::radians(_wv_max_yaw_rate.get()),
+			       math::radians(_wv_max_yaw_rate.get()));
+}
