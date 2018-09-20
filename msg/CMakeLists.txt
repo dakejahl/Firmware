@@ -38,7 +38,6 @@ set(msg_files
 	actuator_outputs.msg
 	adc_report.msg
 	airspeed.msg
-	att_pos_mocap.msg
 	battery_status.msg
 	camera_capture.msg
 	camera_trigger.msg
@@ -131,6 +130,7 @@ set(msg_files
 	vehicle_local_position.msg
 	vehicle_local_position_setpoint.msg
 	vehicle_magnetometer.msg
+	vehicle_odometry.msg
 	vehicle_rates_setpoint.msg
 	vehicle_roi.msg
 	vehicle_status.msg
