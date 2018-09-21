@@ -146,7 +146,7 @@ then
 	param set MPC_TILTMAX_LND 18.0
 
 	param set MPC_Z_VEL_D 0.02
-	param set MPC_Z_VEL_MAX_DN 4.0
+	param set MPC_Z_VEL_MAX_DN 2.5
 	param set MPC_Z_VEL_MAX_UP 6.0
 
 	# navigator
