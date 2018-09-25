@@ -3,7 +3,7 @@
 BASEDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 SRC_DIR="$BASEDIR/../"
 
-if [ -z ${BEBOP_IP+x} ]; then
+if [ -z ${BEBOP_IP+x} ]; then 
   ip=192.168.42.1
   echo "\$BEBOP_IP is not set (use default: $ip)"
 else
