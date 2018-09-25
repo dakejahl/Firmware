@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,12 +31,54 @@
  *
  ****************************************************************************/
 
-/**
- * Benewake TFmini laser rangefinder
- *
- * @reboot_required true
- *
- * @boolean
- * @group Sensors
- */
-PARAM_DEFINE_INT32(SENS_EN_TFMINI, 0);
+#include <parameters/param.h>
+#include <px4_cli.h>
+#include <px4_log.h>
+
+#include <cstring>
+#include <errno.h>
+#include <cstdlib>
+
+int px4_get_parameter_value(const char *option, int &value)
+{
+	value = 0;
+
+	/* check if this is a param name */
+	if (strncmp("p:", option, 2) == 0) {
+
+		const char *param_name = option + 2;
+
+		/* user wants to use a param name */
+		param_t param_handle = param_find(param_name);
+
+		if (param_handle != PARAM_INVALID) {
+
+			if (param_type(param_handle) != PARAM_TYPE_INT32) {
+				return -EINVAL;
+			}
+
+			int32_t pwm_parm;
+			int ret = param_get(param_handle, &pwm_parm);
+
+			if (ret != 0) {
+				return ret;
+			}
+
+			value = pwm_parm;
+
+		} else {
+			PX4_ERR("param name '%s' not found", param_name);
+			return -ENXIO;
+		}
+
+	} else {
+		char *ep;
+		value = strtol(option, &ep, 0);
+
+		if (*ep != '\0') {
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}

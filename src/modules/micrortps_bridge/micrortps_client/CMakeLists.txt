@@ -84,8 +84,8 @@ if (NOT "${config_rtps_send_topics}" STREQUAL "" OR NOT "${config_rtps_receive_t
 			--mkdir-build
 			--generate-cmakelists
 			--topic-msg-dir ${PX4_SOURCE_DIR}/msg
-			--uorb-templates-dir "templates/uorb_microcdr"
-			--urtps-templates-dir "templates/urtps"
+			--uorb-templates-dir templates/uorb_microcdr
+			--urtps-templates-dir templates/urtps
 			--agent-outdir ${CMAKE_CURRENT_BINARY_DIR}/micrortps_agent
 			--client-outdir ${CMAKE_CURRENT_BINARY_DIR}/micrortps_client
 			--idl-dir ${CMAKE_CURRENT_BINARY_DIR}/micrortps_agent/idl
@@ -106,6 +106,8 @@ if (NOT "${config_rtps_send_topics}" STREQUAL "" OR NOT "${config_rtps_receive_t
 			microRTPS_client_main.cpp
 			${msg_out_path}/micrortps_client/microRTPS_client.cpp
 			${msg_out_path}/micrortps_client/microRTPS_transport.cpp
+		MODULE_CONFIG
+			module.yaml
 		DEPENDS
 			topic_bridge_files
 	)
