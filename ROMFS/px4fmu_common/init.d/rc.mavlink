@@ -14,7 +14,7 @@ fi
 if ver hwcmp PX4FMU_V4
 then
 	# Pixracer: start MAVLink on Wifi (ESP8266 port)
-	mavlink start -r 20000 -b 921600 -d /dev/ttyS0
+	#mavlink start -r 20000 -b 921600 -d /dev/ttyS0
 fi
 
 
