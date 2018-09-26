@@ -17,12 +17,13 @@ set +e
 #
 # UART mapping on FMUv2/3/4:
 #
-# UART1         /dev/ttyS0      IO debug (except v4, there ttyS0 is the wifi)
+# UART1         /dev/ttyS0      IO debug (except v4, there ttyS0 is the wifi,
+#                                         v4pro: TELEM3)
 # USART2        /dev/ttyS1      TELEM1 (flow control)
 # USART3        /dev/ttyS2      TELEM2 (flow control)
 # UART4
 # UART7                         CONSOLE
-# UART8                         SERIAL4
+# UART8         /dev/ttyS6      SERIAL4/TELEM4
 #
 #------------------------------------------------------------------------------
 #
@@ -41,8 +42,9 @@ set +e
 # UART mapping on OMNIBUSF4SD:
 #
 # USART1        /dev/ttyS0      SerialRX
-# USART4        /dev/ttyS1      TELEM1
-# USART6        /dev/ttyS2      GPS
+# (USART3                       configured as I2C)
+# USART4        /dev/ttyS1      TELEM2 (TX=RSSI, RX=PWM out 5)
+# USART6        /dev/ttyS2      URT6
 #
 
 #------------------------------------------------------------------------------
@@ -72,8 +74,6 @@ set FMU_MODE pwm
 set IOFW "/etc/extras/px4io-v2.bin"
 set IO_PRESENT no
 set LOG_FILE /fs/microsd/bootlog.txt
-set MAVLINK_F default
-set MAVLINK_COMPANION_DEVICE /dev/ttyS2
 set MAV_TYPE none
 set MIXER none
 set MIXER_AUX none
@@ -129,7 +129,8 @@ tone_alarm start
 #tune_control play -t 1
 #tune_control play -m MNT150L16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
 #tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
-tune_control play -m MNT150L4O2BBL8BG+L4>EP64
+#tune_control play -m MNT150L4O2BBL8BG+L4>EP64
+tune_control play -m MNT150L4O3CL8C<BBAAL4BDDDP64
 
 #
 # Try to mount the microSD card.
@@ -459,13 +460,9 @@ else
 		set OUTPUT_MODE hil
 		sensors start -h
 		commander start --hil
+		# disable GPS
+		param set GPS_1_CONFIG 0
 	else
-		if ver hwcmp PX4_SAME70XPLAINED_V1
-		then
-			gps start -d /dev/ttyS2
-		else
-			gps start
-		fi
 		sh /etc/init.d/rc.sensors
 		commander start
 	fi
@@ -521,9 +518,15 @@ else
 	fi
 
 	#
-	# Start mavlink streams.
+	# Start mavlink streams that are not configurable (e.g. on USB).
 	#
 	sh /etc/init.d/rc.mavlink
+
+	#
+	# Start UART/Serial device drivers.
+	# Note: rc.serial is auto-generated from Tools/serial/generate_config.py
+	#
+	sh /etc/init.d/rc.serial
 
 	#
 	# Configure vehicle type specific parameters.
@@ -600,15 +603,12 @@ unset FMU_MODE
 unset IOFW
 unset IO_PRESENT
 unset LOG_FILE
-unset MAVLINK_F
-unset MAVLINK_COMPANION_DEVICE
 unset MAV_TYPE
 unset MIXER
 unset MIXER_AUX
 unset MIXER_FILE
 unset MK_MODE
 unset MKBLCTRL_ARG
-unset OUTPUT_DEV
 unset OUTPUT_MODE
 unset PARAM_FILE
 unset PWM_AUX_DISARMED
