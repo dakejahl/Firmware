@@ -3,9 +3,12 @@ stages:
     - tests
     - firmware
 
+variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+
 check_format:
     stage: check_format
-    image: px4io/px4-dev-nuttx:2017-06-01
+    image: px4io/px4-dev-nuttx:2018-09-28
     tags:
         - docker
     script:
@@ -14,18 +17,21 @@ check_format:
 tests:
     stage: tests
     allow_failure: true
-    image: px4io/px4-dev-simulation:2017-06-01
+    image: px4io/px4-dev-simulation:2018-09-28
     tags:
         - docker
     script:
-        - git submodule update --init --recursive
         - make tests
 
 firmware:
     stage: firmware
     allow_failure: true
-    image: px4io/px4-dev-nuttx:2017-06-01
+    image: px4io/px4-dev-nuttx:2018-09-28
     tags:
         - docker
     script:
         - make px4fmu-v4_default
+    artifacts:
+        expire_in: 1 week
+        paths:
+            ./*.px4
