@@ -34,4 +34,4 @@ firmware:
     artifacts:
         expire_in: 1 week
         paths:
-            ./*.px4
+            - ./*.px4
