@@ -32,4 +32,4 @@ firmware:
     artifacts:
         expire_in: 1 week
         paths:
-            - ./builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/*.px4
+            - ./builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4
