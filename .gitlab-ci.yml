@@ -16,7 +16,6 @@ check_format:
 
 tests:
     stage: tests
-    allow_failure: true
     image: px4io/px4-dev-simulation:2018-09-28
     tags:
         - docker
@@ -25,7 +24,6 @@ tests:
 
 firmware:
     stage: firmware
-    allow_failure: true
     image: px4io/px4-dev-nuttx:2018-09-28
     tags:
         - docker
@@ -34,4 +32,4 @@ firmware:
     artifacts:
         expire_in: 1 week
         paths:
-            - ./*.px4
+            - ./builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/*.px4
