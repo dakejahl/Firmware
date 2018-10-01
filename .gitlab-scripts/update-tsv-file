@@ -1,0 +1,65 @@
+#!/usr/bin/python3
+#
+# @author Darin Stoker
+# @date 8/15/18
+
+import sys
+import json
+import hashlib
+import requests
+
+INSTALL_PRIORITY = 300
+# Needs to match definition in softwareversionfile.py in TealSoftwareVersionFileManager
+SECRET_HEADER_KEY = "X-TealSVFMAuthKey"
+# Needs to match definition in softwareversionfile.py in TealSoftwareVersionFileManager
+SECRET_HEADER_VALUE = "8dn94rg8endjf83xv93hq2"
+
+if(len(sys.argv) != 7):
+    print("Usage: {} <url of version file> <name of asset> <md5 of asset> <version of asset> <url of asset> <requirements in json form>".format(sys.argv[0]))
+    exit(2)
+
+print("")
+print("<===== REQUEST =====>")
+versionFileURL = str(sys.argv[1])
+print("versionFileURL: {}".format(versionFileURL))
+assetName = str(sys.argv[2])
+print("assetName: {}".format(assetName))
+md5 = str(sys.argv[3])
+print("assetMD5: {}".format(md5))
+version = str(sys.argv[4])
+print("assetVersion: {}".format(version))
+assetURL = str(sys.argv[5])
+print("assetURL: {}".format(assetURL))
+
+# Setting a requirement is optional
+requirements = sys.argv[6]
+if(requirements == None or requirements == ""):
+    requirements = None
+print("requirements: {}".format(requirements))
+
+# Send the HTTP request over
+headers = {
+    "Content-Type": "application/json",
+    "{}".format(SECRET_HEADER_KEY): "{}".format(SECRET_HEADER_VALUE),
+    "X-Software-Object-Type": "SoftwareVersion",
+    "X-Component-Name": "Teal-Utilities",
+    # "X-Component-Version": ""
+}
+payload = {
+    "Version": "{}".format(version),
+    "URL": "{}".format(assetURL),
+    "MD5": "{}".format(md5),
+    "Priority": "{}".format(INSTALL_PRIORITY)
+}
+
+# Add requirements if they exist.
+if(requirements == None):
+    payload['Requirements'] = [requirements]
+
+# Send the post request.
+response = requests.post(versionFileURL, headers=headers, json=payload)
+print("")
+print("<===== RESPONSE =====>")
+print("Response History: {}".format(str(response.history)))
+print("Response Status Code: {}".format(str(response.status_code)))
+print("Response: {}".format(str(response.text)))
