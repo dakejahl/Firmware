@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# @author Darin Stoker
+# @date 4/24/18
+
+export LOG_NAME="/var/log/teal/px4-update-tse.log"
+
+# Everything from here on will be logged.
+(
+    # Stop tealflightd service
+    systemctl stop tealflightd
+
+    echo "Running Task: Update PX4."
+    echo "~ Task: 1 ~ Progress: 0.0 ~"
+    ./teal_update_px4.sh *.px4 || exit $? # Progress updates here as Task 1.
+    echo "Task Complete: Update PX4."
+    echo
+
+    # Start tealflightd service
+    systemctl start tealflightd
+
+    # Wait until all processes are finished and files are sync'd
+    wait
+    sync
+
+    echo "~ Task: 1 ~ Progress: 1.0 ~"
+) 2>&1 | tee $LOG_NAME
+
+exit ${PIPESTATUS[0]}

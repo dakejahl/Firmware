@@ -1,0 +1,10 @@
+#!/bin/bash
+current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+
+# Generate the px4 binary
+make px4fmu-v4_default
+
+# Add the px4 binary to the payload directory
+px4_bin_path="/builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4"
+rsync -aPvz $px4_bin_path $current_dir/payload/
+
