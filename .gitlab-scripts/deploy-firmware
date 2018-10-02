@@ -23,8 +23,8 @@ cd TealSEI
 .gitlab-scripts/generate-tse-file $project_root Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
 
 # Deploy the TSE file.
-.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.tse.jsq || exit 1
+.gitlab-scripts/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 $CI_COMMIT_REF_NAME || exit 1
 
 # Deploy the .px4 file.
-.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.px4 || exit 1
+.gitlab-scripts/deploy-artifact-to-s3 $(ls *.px4) TealPX4 $CI_COMMIT_REF_NAME || exit 1
 cd project_root
