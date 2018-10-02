@@ -59,7 +59,6 @@ update-teal-software-verison-file:
     only:
         - dev
         - test
-        - ci_fixes
     tags:
         - deploy
     script:
