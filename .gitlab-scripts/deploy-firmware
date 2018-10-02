@@ -18,9 +18,9 @@ px4_bin_path="/builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_
 rsync -aPvz $px4_bin_path $project_root/payload/v${version}.px4 || exit 1
 
 # Generate TSE file.
-# TealSEI/.gitlab-scripts/generate-tse-file payload Teal-PX4-"${version}".tse.jsq || exit 1
 cd TealSEI
-.gitlab-scripts/generate-tse-file ./ Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
+# TealSEI/.gitlab-scripts/generate-tse-file payload Teal-PX4-"${version}".tse.jsq || exit 1
+.gitlab-scripts/generate-tse-file $version_file_path/.gitlab-scripts Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
 
 # Deploy the TSE file.
 .gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.tse.jsq || exit 1
