@@ -60,4 +60,4 @@
 	branch = master
 [submodule "TealSEI"]
 	path = TealSEI
-	url = git@git.tealoffice:Teal/TealSEI.git
+	url = ../TealSEI.git
