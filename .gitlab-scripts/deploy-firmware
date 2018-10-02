@@ -1,12 +1,12 @@
 #!/bin/bash
-current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+project_root="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 # Get version from version file.
-version_file_path="$current_dir/version"
+version_file_path="$project_root/version"
 if [ -f "$version_file_path" ]; then
     version=$(cat $version_file_path)
 else
-    echo "Could not read version file at $current_dir/version."
+    echo "Could not read version file at $project_root/version."
     exit 1
 fi
 
@@ -15,14 +15,16 @@ fi
 
 # Add (and rename) the px4 binary to the payload directory.
 px4_bin_path="/builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4"
-rsync -aPvz $px4_bin_path $current_dir/payload/v${version}.px4 || exit 1
+rsync -aPvz $px4_bin_path $project_root/payload/v${version}.px4 || exit 1
 
 # Generate TSE file.
 # TealSEI/.gitlab-scripts/generate-tse-file payload Teal-PX4-"${version}".tse.jsq || exit 1
-TealSEI/.gitlab-scripts/generate-tse-file payload Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
+cd TealSEI
+.gitlab-scripts/generate-tse-file payload Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
 
 # Deploy the TSE file.
-TealSEI/.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.tse.jsq || exit 1
+.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.tse.jsq || exit 1
 
 # Deploy the .px4 file.
-TealSEI/.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.px4 || exit 1
+.gitlab-scripts/deploy-artifact-to-s3 TealPX4 *.px4 || exit 1
+cd project_root
