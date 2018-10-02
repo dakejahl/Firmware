@@ -50,7 +50,7 @@ create-and-deploy-px4-tse:
     artifacts:
         expire_in: 1 week
         paths:
-            - *.tse.jsq
+            - "*.tse.jsq"
 
 update-teal-software-verison-file:
     image: tealdrones/teal-software-version-file-manager
