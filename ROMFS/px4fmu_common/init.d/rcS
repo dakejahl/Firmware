@@ -177,11 +177,11 @@ else
 	#
 	# Play the startup tone.
 	#
-	#tune_control play -t 1
-	#tune_control play -m MNT150L16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
-	#tune_control play -m MNT150L4O2BBL8BG+L4>EP64
+	# mario power up
 	#tune_control play -m MNT150L64O3C<G>CEG>C<G<G+>CD+G+D+G+>CD+G+D+O2A+>DFA+FA+>DFA+F
-	tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
+	# starwars
+	#tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
+	tune_control play -t 1
 
 
 	#
