@@ -134,7 +134,7 @@ then
 	param set MPC_TKO_RAMP_T 0.75
 	param set MPC_TKO_SPEED 0.75
 	param set MPC_VEL_MANUAL 26.5
-	param set MPC_XY_CRUISE 26.5
+	param set MPC_XY_CRUISE 15.0
 	param set MPC_XY_P 1.15
 	param set MPC_XY_VEL_P 0.14
 	param set MPC_XY_VEL_I 0.014
