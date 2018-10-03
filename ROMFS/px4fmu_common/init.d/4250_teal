@@ -124,9 +124,9 @@ then
 	# mc_pos_control
 	param set MPC_ACC_DOWN_MAX 10.0
 	param set MPC_ACC_HOR 10.0
-	param set MPC_ACC_HOR_MAX 10.0
+	param set MPC_ACC_HOR_MAX 15.0
 	param set MPC_ACC_UP_MAX 10.0
-	param set MPC_JERK_MAX 7.5
+	param set MPC_JERK_MAX 5.0
 	param set MPC_LAND_ALT1 8.0
 	param set MPC_LAND_ALT2 5.0
 	param set MPC_MANTHR_MAX 0.85
