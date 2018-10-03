@@ -52,16 +52,7 @@
 struct work_s Heater::_work = {};
 
 Heater::Heater() :
-	ModuleParams(nullptr),
-	_controller_period_usec(CONTROLLER_PERIOD_DEFAULT),
-	_controller_time_on_usec(0),
-	_duty_cycle(0.0f),
-	_heater_on(false),
-	_integrator_value(0.0f),
-	_proportional_value(0.0f),
-	_sensor_accel(sensor_accel_s{}),
-	_sensor_accel_sub(-1),
-	_sensor_temperature(0.0f)
+	ModuleParams(nullptr)
 {
 	px4_arch_configgpio(GPIO_HEATER_OUTPUT);
 	px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 0);
@@ -78,6 +69,13 @@ Heater::~Heater()
 		px4_arch_configgpio(GPIO_HEATER_INPUT);
 		px4_arch_configgpio(GPIO_HEATER_OUTPUT);
 		px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 0);
+	}
+
+	// Unsubscribe from uORB topics.
+	orb_unsubscribe(_params_sub);
+
+	if (_sensor_accel_sub >= 0) {
+		orb_unsubscribe(_sensor_accel_sub);
 	}
 }
 
@@ -149,11 +147,10 @@ void Heater::cycle()
 {
 	if (should_exit()) {
 		exit_and_cleanup();
-		orb_unsubscribe(_params_sub);
-		orb_unsubscribe(_sensor_accel_sub);
-		PX4_INFO("Exiting.");
 		return;
 	}
+
+	int _controller_time_on_usec = 0;
 
 	if (_heater_on) {
 		// Turn the heater off.
@@ -212,9 +209,9 @@ void Heater::cycle()
 	}
 }
 
-void Heater::cycle_trampoline(void *arg)
+void Heater::cycle_trampoline(void *argv)
 {
-	Heater *obj = reinterpret_cast<Heater *>(arg);
+	Heater *obj = reinterpret_cast<Heater *>(argv);
 	obj->cycle();
 }
 
@@ -231,7 +228,7 @@ float Heater::feed_forward(char *argv[])
 
 	}
 
-	PX4_INFO("feedforward value:  %2.5f", (double)_p_feed_forward_value.get());
+	PX4_INFO("Feed forward value:  %2.5f", (double)_p_feed_forward_value.get());
 	return _p_feed_forward_value.get();
 }
 
@@ -244,15 +241,21 @@ void Heater::initialize_topics()
 	for (size_t x = 0; x < number_of_imus; x++) {
 		_sensor_accel_sub = orb_subscribe_multi(ORB_ID(sensor_accel), (int)x);
 
+		if (_sensor_accel_sub < 0) {
+			continue;
+		}
+
 		while (orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel) != PX4_OK) {
 			usleep(200000);
 		}
 
 		// If the correct ID is found, exit the for-loop with _sensor_accel_sub pointing to the correct instance.
 		if (_sensor_accel.device_id == (uint32_t)_p_sensor_id.get()) {
-			PX4_INFO("Found Sensor to Temp Compensate");
+			PX4_INFO("IMU sensor identified.");
 			break;
 		}
+
+		orb_unsubscribe(_sensor_accel_sub);
 	}
 
 	PX4_INFO("Device ID:  %d", _sensor_accel.device_id);
@@ -260,16 +263,16 @@ void Heater::initialize_topics()
 	// Exit the driver if the sensor ID does not match the desired sensor.
 	if (_sensor_accel.device_id != (uint32_t)_p_sensor_id.get()) {
 		request_stop();
-		PX4_INFO("Could not find sensor to control temperature");
+		PX4_ERR("Could not identify IMU sensor.");
 	}
 }
 
-void Heater::initialize_trampoline(void *arg)
+void Heater::initialize_trampoline(void *argv)
 {
 	Heater *heater = new Heater();
 
 	if (!heater) {
-		PX4_ERR("Heater driver alloc failed");
+		PX4_ERR("driver allocation failed");
 		return;
 	}
 
@@ -283,7 +286,7 @@ float Heater::integrator(char *argv[])
 		_p_integrator_gain.set(atof(argv[1]));
 	}
 
-	PX4_INFO("integrator gain:  %2.5f", (double)_p_integrator_gain.get());
+	PX4_INFO("Integrator gain:  %2.5f", (double)_p_integrator_gain.get());
 	return _p_integrator_gain.get();
 }
 
@@ -309,7 +312,7 @@ int Heater::orb_update(const struct orb_metadata *meta, int handle, void *buffer
 
 int Heater::print_status()
 {
-	PX4_INFO("Temp: %3.3f - Target Temp: %3.2f - Heater State: %s",
+	PX4_INFO("Temperature: %3.3fC - Setpoint: %3.2fC - Heater State: %s",
 		 (double)_sensor_temperature,
 		 (double)_p_temperature_setpoint.get(),
 		 _heater_on ? "On" : "Off");
@@ -354,7 +357,7 @@ float Heater::proportional(char *argv[])
 		_p_proportional_gain.set(atof(argv[1]));
 	}
 
-	PX4_INFO("Proportional Gain:  %2.5f", (double)_p_proportional_gain.get());
+	PX4_INFO("Proportional gain:  %2.5f", (double)_p_proportional_gain.get());
 	return _p_proportional_gain.get();
 }
 
@@ -366,14 +369,14 @@ uint32_t Heater::sensor_id()
 
 float Heater::sensor_temperature()
 {
-	PX4_INFO("Current Temp:  %3.3f", (double)_sensor_temperature);
+	PX4_INFO("IMU temp:  %3.3f", (double)_sensor_temperature);
 	return _sensor_temperature;
 }
 
 int Heater::start()
 {
 	if (is_running()) {
-		PX4_INFO("Heater driver already running");
+		PX4_INFO("Driver already running.");
 		return PX4_ERROR;
 	}
 
@@ -383,7 +386,7 @@ int Heater::start()
 	// Kick off the cycling. We can call it directly because we're already in the work queue context
 	cycle();
 
-	PX4_INFO("Heater driver started successfully.");
+	PX4_INFO("Driver started successfully.");
 
 	return PX4_OK;
 }
@@ -412,7 +415,7 @@ float Heater::temperature_setpoint(char *argv[])
 		_p_temperature_setpoint.set(atof(argv[1]));
 	}
 
-	PX4_INFO("Target Temp:  %3.3f", (double)_p_temperature_setpoint.get());
+	PX4_INFO("Target temp:  %3.3f", (double)_p_temperature_setpoint.get());
 	return _p_temperature_setpoint.get();
 }
 

@@ -38,7 +38,6 @@ set(msg_files
 	actuator_outputs.msg
 	adc_report.msg
 	airspeed.msg
-	att_pos_mocap.msg
 	battery_status.msg
 	camera_capture.msg
 	camera_trigger.msg
@@ -58,7 +57,6 @@ set(msg_files
 	esc_status.msg
 	estimator_status.msg
 	follow_target.msg
-	fw_pos_ctrl_status.msg
 	geofence_result.msg
 	gps_dump.msg
 	gps_inject_data.msg
@@ -81,6 +79,8 @@ set(msg_files
 	optical_flow.msg
 	parameter_update.msg
 	ping.msg
+	position_controller_landing_status.msg
+	position_controller_status.msg
 	position_setpoint.msg
 	position_setpoint_triplet.msg
 	power_button_state.msg
@@ -130,6 +130,7 @@ set(msg_files
 	vehicle_local_position.msg
 	vehicle_local_position_setpoint.msg
 	vehicle_magnetometer.msg
+	vehicle_odometry.msg
 	vehicle_rates_setpoint.msg
 	vehicle_roi.msg
 	vehicle_status.msg

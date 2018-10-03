@@ -215,14 +215,9 @@ TFMINI::~TFMINI()
 int
 TFMINI::init()
 {
-	int32_t hw_model;
-	param_get(param_find("SENS_EN_TFMINI"), &hw_model);
+	int32_t hw_model = 1; // only one model so far...
 
 	switch (hw_model) {
-	case 0:
-		PX4_WARN("disabled.");
-		return 0;
-
 	case 1: /* TFMINI (12m, 100 Hz)*/
 		_min_distance = 0.3f;
 		_max_distance = 12.0f;
@@ -734,7 +729,7 @@ start(const char *port, uint8_t rotation)
 	fd = px4_open(RANGE_FINDER0_DEVICE_PATH, O_RDONLY);
 
 	if (fd < 0) {
-		PX4_ERR("Opening device '%s' failed");
+		PX4_ERR("Opening device '%s' failed", port);
 		goto fail;
 	}
 

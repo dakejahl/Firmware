@@ -2,30 +2,64 @@ stages:
     - check_format
     - tests
     - firmware
+    - deploy
+    - update-tsvf
+
+variables:
+    GIT_SUBMODULE_STRATEGY: recursive
 
 check_format:
     stage: check_format
-    image: px4io/px4-dev-nuttx:2017-06-01
+    image: px4io/px4-dev-nuttx:2018-09-28
     tags:
         - docker
     script:
         - make check_format
 
-tests:
+test:
     stage: tests
-    allow_failure: true
-    image: px4io/px4-dev-simulation:2017-06-01
+    image: px4io/px4-dev-simulation:2018-09-28
     tags:
         - docker
     script:
-        - git submodule update --init --recursive
         - make tests
 
-firmware:
+build-firmware:
     stage: firmware
-    allow_failure: true
-    image: px4io/px4-dev-nuttx:2017-06-01
+    image: px4io/px4-dev-nuttx:2018-09-28
     tags:
         - docker
     script:
         - make px4fmu-v4_default
+    artifacts:
+        expire_in: 1 week
+        paths:
+            - /builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4
+
+create-and-deploy-px4-tse:
+    stage: deploy
+    image: px4io/px4-dev-nuttx:2018-09-28
+    tags:
+        - docker
+    only:
+        - dev
+        - test
+        - master
+    script:
+        - .gitlab-scripts/deploy-firmware
+    artifacts:
+        expire_in: 1 week
+        paths:
+            - "TealSEI/*.tse.jsq"
+
+update-teal-software-verison-file:
+    image: tealdrones/teal-software-version-file-manager
+    stage: update-tsvf
+    only:
+        - dev
+        - test
+    tags:
+        - deploy
+    script:
+        - .gitlab-scripts/update-software-version-file
+

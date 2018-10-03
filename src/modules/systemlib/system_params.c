@@ -109,10 +109,10 @@ PARAM_DEFINE_INT32(SYS_RESTART_TYPE, 2);
 PARAM_DEFINE_INT32(SYS_MC_EST_GROUP, 2);
 
 /**
- * TELEM2 as companion computer link
+ * TELEM2 as companion computer link (deprecated)
  *
- * CHANGING THIS VALUE REQUIRES A RESTART. Configures the baud rate of the TELEM2 connector as
- * companion computer interface.
+ * This parameter is deprecated. Do not change it, use the more generic serial
+ * configuration parameters instead.
  *
  * @value 0 Disabled
  * @value 10 FrSky Telemetry
@@ -139,7 +139,7 @@ PARAM_DEFINE_INT32(SYS_MC_EST_GROUP, 2);
  * @reboot_required true
  * @group System
  */
-PARAM_DEFINE_INT32(SYS_COMPANION, 157600);
+PARAM_DEFINE_INT32(SYS_COMPANION, 0);
 
 /**
  * Parameter version
@@ -267,3 +267,25 @@ PARAM_DEFINE_INT32(SYS_HAS_MAG, 1);
  * @group System
  */
 PARAM_DEFINE_INT32(SYS_HAS_BARO, 1);
+
+/**
+ * Bootloader update
+ *
+ * If enabled, update the bootloader on the next boot.
+ *
+ * WARNING: do not cut the power during an update process, otherwise you will
+ * have to recover using some alternative method (e.g. JTAG).
+ *
+ * Instructions:
+ * - Insert an SD card
+ * - Enable this parameter
+ * - Reboot the board (plug the power or send a reboot command)
+ * - Wait until the board comes back up (or at least 2 minutes)
+ * - If it does not come back, check the file bootlog.txt on the SD card
+ *
+ * @boolean
+ * @reboot_required true
+ *
+ * @group System
+ */
+PARAM_DEFINE_INT32(SYS_BL_UPDATE, 0);

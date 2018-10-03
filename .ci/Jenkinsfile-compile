@@ -9,14 +9,14 @@ pipeline {
         script {
           def build_nodes = [:]
           def docker_images = [
-            arch: "px4io/px4-dev-base-archlinux:2018-07-19",
-            armhf: "px4io/px4-dev-armhf:2018-07-19",
-            base: "px4io/px4-dev-base:2018-07-19",
-            clang: "px4io/px4-dev-clang:2018-07-19",
-            nuttx: "px4io/px4-dev-nuttx:2018-07-19",
-            ros: "px4io/px4-dev-ros:2018-07-19",
-            rpi: "px4io/px4-dev-raspi:2018-07-19",
-            snapdragon: "lorenzmeier/px4-dev-snapdragon:2017-12-29"
+            arch: "px4io/px4-dev-base-archlinux:2018-09-11",
+            armhf: "px4io/px4-dev-armhf:2018-09-11",
+            base: "px4io/px4-dev-base:2018-09-11",
+            clang: "px4io/px4-dev-clang:2018-09-11",
+            nuttx: "px4io/px4-dev-nuttx:2018-09-11",
+            ros: "px4io/px4-dev-ros:2018-09-11",
+            rpi: "px4io/px4-dev-raspi:2018-09-11",
+            snapdragon: "lorenzmeier/px4-dev-snapdragon:2018-09-12"
           ]
 
           // MAC OSX posix_sitl_default
@@ -67,31 +67,6 @@ pipeline {
             }
           }
 
-          // Ubuntu 18.04 test posix_sitl_default
-          build_nodes["posix_sitl_default (Ubuntu 18.04)"] = {
-            node {
-              docker.image('px4io/px4-dev-base:2018-08-21').inside('-e CCACHE_BASEDIR=${WORKSPACE} -v ${CCACHE_DIR}:${CCACHE_DIR}:rw') {
-                stage("sitl (Ubuntu 18.04)") {
-                  try {
-                    sh('export')
-                    checkout(scm)
-                    sh('make distclean')
-                    sh('git fetch --tags')
-                    sh('ccache -z')
-                    sh('make posix_sitl_default')
-                    sh('ccache -s')
-                  }
-                  catch (exc) {
-                    throw (exc)
-                  }
-                  finally {
-                    sh('make distclean')
-                  }
-                }
-              }
-            }
-          }
-
           // docker builds:
           def arch_builds = [
             target: ["posix_sitl_default"],
@@ -112,7 +87,7 @@ pipeline {
           ]
 
           def nuttx_builds_archive = [
-            target: ["px4fmu-v2_default", "px4fmu-v3_default", "px4fmu-v4_default", "px4fmu-v4pro_default", "px4fmu-v5_default", "px4fmu-v5_rtps",
+            target: ["px4fmu-v2_default", "px4fmu-v3_default", "px4fmu-v4_default", "px4fmu-v4pro_default", "px4fmu-v5_default", "px4fmu-v5_rtps", "px4fmu-v5_stackcheck",
                      "aerofc-v1_default", "aerocore2_default", "auav-x21_default", "crazyflie_default", "mindpx-v2_default",
                      "nxphlite-v3_default", "tap-v1_default", "omnibus-f4sd_default"],
             image: docker_images.nuttx,
@@ -159,7 +134,7 @@ pipeline {
     // TODO: actually upload artifacts to S3
     stage('S3 Upload') {
       agent {
-        docker { image 'px4io/px4-dev-base:2018-07-19' }
+        docker { image 'px4io/px4-dev-base:2018-09-11' }
       }
       options {
             skipDefaultCheckout()

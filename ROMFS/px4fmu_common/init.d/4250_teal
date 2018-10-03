@@ -52,7 +52,6 @@ then
 	#param set CAL_GYRO_PRIME 2362890 #mpu9250
 
 	#primary Mag
-	#param set CAL_MAG_PRIME 335369 #LIS3MDL
 	#param set CAL_MAG_PRIME 265738 #mpu9250
 
 	# sensor calibration
@@ -90,31 +89,37 @@ then
 	param set GF_ACTION 1
 
 	# land detector
-	param set LNDMC_THR_RANGE 0.35
+	param set LNDMC_THR_RANGE 0.50
 	param set LNDMC_XY_VEL_MAX 1.0
 	param set LNDMC_ROT_MAX 50.0
 
+	# mavlink stream configuration
+	param set MAV_1_CONFIG 102
+	param set MAV_1_RATE 20000
+
 	# mc_att_control
-	param set MC_ACRO_P_MAX 540.0
-	param set MC_ACRO_R_MAX 540.0
+	param set MC_ACRO_P_MAX 360.0
+	param set MC_ACRO_R_MAX 360.0
 	param set MC_ACRO_Y_MAX 360.0
 
 	param set MC_ROLL_P 6.0
 	param set MC_ROLLRATE_P 0.055
 	param set MC_ROLLRATE_I 0.2
 	param set MC_ROLLRATE_D 0.0012
-	param set MC_ROLLRATE_MAX 200.0
+	param set MC_ROLLRATE_MAX 180.0
 
 	param set MC_PITCHRATE_P 0.06
 	param set MC_PITCHRATE_I 0.2
 	param set MC_PITCHRATE_D 0.0012
-	param set MC_PITCHRATE_MAX 200.0
+	param set MC_PITCHRATE_MAX 180.0
 
 	param set MC_YAW_P 1.0
 	param set MC_YAWRATE_P 0.08
 	param set MC_YAWRATE_I 0.08
 	param set MC_YAWRATE_D 0.0
-	param set MC_YAWRATE_MAX 200.0
+	param set MC_YAWRATE_MAX 180.0
+
+	param set MOT_SLEW_MAX 0.15
 
 	# mc_pos_control
 	param set MPC_ACC_DOWN_MAX 10.0
@@ -144,7 +149,7 @@ then
 	param set MPC_TILTMAX_LND 18.0
 
 	param set MPC_Z_VEL_D 0.02
-	param set MPC_Z_VEL_MAX_DN 4.0
+	param set MPC_Z_VEL_MAX_DN 2.5
 	param set MPC_Z_VEL_MAX_UP 6.0
 
 	# navigator
@@ -152,7 +157,6 @@ then
 	param set NAV_RCL_ACT 1
 
 	# pwm control
-	param set MOT_SLEW_MAX 0.15
 	param set PWM_DISARMED 900
 	param set PWM_MAX 1850
 	param set PWM_MIN 1075
@@ -168,8 +172,8 @@ then
 	param set SENS_EN_PGA460 1
 	param set SENS_EN_THERMAL 1
 
-	# system
-	param set SYS_COMPANION 1921600
+	# serial comms
+	param set SER_TEL2_BAUD 921600
 
 	param save
 fi

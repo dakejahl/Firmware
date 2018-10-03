@@ -56,6 +56,10 @@ bool FlightTaskAuto::initializeSubscriptions(SubscriptionArray &subscription_arr
 		return false;
 	}
 
+	if (!subscription_array.get(ORB_ID(vehicle_status), _sub_vehicle_status)) {
+		return false;
+	}
+
 	return true;
 }
 
@@ -193,7 +197,11 @@ bool FlightTaskAuto::_evaluateTriplets()
 	}
 
 	// set heading
-	if (_type == WaypointType::follow_target && _sub_triplet_setpoint->get().current.yawspeed_valid) {
+	if (_ext_yaw_handler != nullptr && _ext_yaw_handler->is_active()) {
+		_yaw_setpoint = _yaw;
+		_yawspeed_setpoint = _ext_yaw_handler->get_weathervane_yawrate();
+
+	} else if (_type == WaypointType::follow_target && _sub_triplet_setpoint->get().current.yawspeed_valid) {
 		_yawspeed_setpoint = _sub_triplet_setpoint->get().current.yawspeed;
 		_yaw_setpoint = NAN;
 
@@ -215,6 +223,10 @@ bool FlightTaskAuto::_evaluateTriplets()
 	if (triplet_update || (_current_state != previous_state)) {
 		_updateInternalWaypoints();
 		_updateAvoidanceWaypoints();
+	}
+
+	if (MPC_OBS_AVOID.get() && _sub_vehicle_status->get().is_rotary_wing) {
+		_checkAvoidanceProgress();
 	}
 
 	return true;
@@ -300,7 +312,47 @@ void FlightTaskAuto::_updateAvoidanceWaypoints()
 	_desired_waypoint.waypoints[vehicle_trajectory_waypoint_s::POINT_2].point_valid = true;
 }
 
-bool FlightTaskAuto::_isFinite(const position_setpoint_s sp)
+void FlightTaskAuto::_checkAvoidanceProgress()
+{
+	position_controller_status_s pos_control_status = {};
+	pos_control_status.timestamp = hrt_absolute_time();
+
+	// vector from previous triplet to current target
+	Vector2f prev_to_target = Vector2f(_triplet_target(0) - _triplet_prev_wp(0), _triplet_target(1) - _triplet_prev_wp(1));
+	// vector from previous triplet to the vehicle projected position on the line previous-target triplet
+	Vector2f prev_to_closest_pt = Vector2f(_closest_pt(0) - _triplet_prev_wp(0), _closest_pt(1) - _triplet_prev_wp(1));
+	// fraction of the previous-tagerget line that has been flown
+	const float prev_curr_travelled = prev_to_closest_pt.length() / prev_to_target.length();
+
+	Vector2f pos_to_target = Vector2f(_triplet_target(0) - _position(0), _triplet_target(1) - _position(1));
+
+	if (prev_curr_travelled > 1.0f) {
+		// if the vehicle projected position on the line previous-target is past the target waypoint,
+		// increase the target acceptance radius such that navigator will update the triplets
+		pos_control_status.acceptance_radius = pos_to_target.length() + 0.5f;
+	}
+
+	const float pos_to_target_z = fabsf(_triplet_target(2) - _position(2));
+
+	if (pos_to_target.length() < NAV_ACC_RAD.get() && pos_to_target_z > NAV_MC_ALT_RAD.get()) {
+		// vehicle above or below the target waypoint
+		pos_control_status.altitude_acceptance = pos_to_target_z + 0.5f;
+	}
+
+	// do not check for waypoints yaw acceptance in navigator
+	pos_control_status.yaw_acceptance = NAN;
+
+	if (_pub_pos_control_status == nullptr) {
+		_pub_pos_control_status = orb_advertise(ORB_ID(position_controller_status), &pos_control_status);
+
+	} else {
+		orb_publish(ORB_ID(position_controller_status), _pub_pos_control_status, &pos_control_status);
+
+	}
+
+}
+
+bool FlightTaskAuto::_isFinite(const position_setpoint_s &sp)
 {
 	return (PX4_ISFINITE(sp.lat) && PX4_ISFINITE(sp.lon) && PX4_ISFINITE(sp.alt));
 }

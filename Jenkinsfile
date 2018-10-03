@@ -8,7 +8,7 @@ pipeline {
 
         stage('Style Check') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-07-19' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
 
           steps {
@@ -19,7 +19,7 @@ pipeline {
         stage('bloaty px4fmu-v2') {
           agent {
             docker {
-              image 'px4io/px4-dev-nuttx:2018-07-19'
+              image 'px4io/px4-dev-nuttx:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -43,7 +43,7 @@ pipeline {
         stage('bloaty px4fmu-v5') {
           agent {
             docker {
-              image 'px4io/px4-dev-nuttx:2018-07-19'
+              image 'px4io/px4-dev-nuttx:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -67,7 +67,7 @@ pipeline {
         stage('clang analyzer') {
           agent {
             docker {
-              image 'px4io/px4-dev-clang:2018-07-19'
+              image 'px4io/px4-dev-clang:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -115,7 +115,7 @@ pipeline {
         stage('cppcheck') {
           agent {
             docker {
-              image 'px4io/px4-dev-base:2018-08-23'
+              image 'px4io/px4-dev-base:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -148,7 +148,7 @@ pipeline {
         stage('check stack') {
           agent {
             docker {
-              image 'px4io/px4-dev-nuttx:2018-07-19'
+              image 'px4io/px4-dev-nuttx:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -163,7 +163,7 @@ pipeline {
         stage('ShellCheck') {
           agent {
             docker {
-              image 'px4io/px4-dev-nuttx:2018-08-23'
+              image 'px4io/px4-dev-nuttx:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -172,6 +172,19 @@ pipeline {
             sh 'make distclean'
             sh 'make shellcheck_all'
             sh 'make distclean'
+          }
+        }
+
+        stage('Module Config Validation') {
+          agent {
+            docker {
+              image 'px4io/px4-dev-base:2018-09-11'
+              args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
+            }
+          }
+          steps {
+            sh 'export'
+            sh 'make validate_module_configs'
           }
         }
 
@@ -184,7 +197,7 @@ pipeline {
 
         stage('airframe') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-07-19' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh 'make distclean'
@@ -199,7 +212,7 @@ pipeline {
 
         stage('parameter') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-07-19' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh 'make distclean'
@@ -214,7 +227,7 @@ pipeline {
 
         stage('module') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-07-19' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh 'make distclean'
@@ -230,7 +243,7 @@ pipeline {
         stage('uorb graphs') {
           agent {
             docker {
-              image 'px4io/px4-dev-nuttx:2018-07-19'
+              image 'px4io/px4-dev-nuttx:2018-09-11'
               args '-e CCACHE_BASEDIR=$WORKSPACE -v ${CCACHE_DIR}:${CCACHE_DIR}:rw'
             }
           }
@@ -255,7 +268,7 @@ pipeline {
 
         stage('Devguide') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-08-05' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh('export')
@@ -268,7 +281,7 @@ pipeline {
               sh('cp parameters.md Devguide/en/advanced/parameter_reference.md')
               sh('cp -R modules/*.md Devguide/en/middleware/')
               sh('cd Devguide; git checkout -B pr-firmware_metadata_update; git status; git add .; git commit -a -m "Update PX4 Firmware metadata `date`" || true')
-              sh('cd Devguide; git push origin pr-firmware_metadata_update || true')
+              sh('cd Devguide; git push --force origin pr-firmware_metadata_update || true')
             }
           }
           when {
@@ -284,7 +297,7 @@ pipeline {
 
         stage('Userguide') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-08-05' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh('export')
@@ -295,7 +308,7 @@ pipeline {
               sh('cp airframes.md px4_user_guide/en/airframes/airframe_reference.md')
               sh('cp parameters.md px4_user_guide/en/advanced_config/parameter_reference.md')
               sh('cd px4_user_guide; git checkout -B pr-firmware_metadata_update; git status; git add .; git commit -a -m "Update PX4 Firmware metadata `date`" || true')
-              sh('cd px4_user_guide; git push origin pr-firmware_metadata_update || true')
+              sh('cd px4_user_guide; git push --force origin pr-firmware_metadata_update || true')
             }
           }
           when {
@@ -311,7 +324,7 @@ pipeline {
 
         stage('QGroundControl') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-08-05' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh('export')
@@ -322,7 +335,7 @@ pipeline {
               sh('cp airframes.xml qgroundcontrol/src/AutoPilotPlugins/PX4/AirframeFactMetaData.xml')
               sh('cp parameters.xml qgroundcontrol/src/FirmwarePlugin/PX4/PX4ParameterFactMetaData.xml')
               sh('cd qgroundcontrol; git checkout -B pr-firmware_metadata_update; git status; git add .; git commit -a -m "Update PX4 Firmware metadata `date`" || true')
-              sh('cd qgroundcontrol; git push origin pr-firmware_metadata_update || true')
+              sh('cd qgroundcontrol; git push --force origin pr-firmware_metadata_update || true')
             }
           }
           when {
@@ -338,7 +351,7 @@ pipeline {
 
         stage('S3') {
           agent {
-            docker { image 'px4io/px4-dev-base:2018-08-05' }
+            docker { image 'px4io/px4-dev-base:2018-09-11' }
           }
           steps {
             sh('export')
