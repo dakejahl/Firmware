@@ -205,7 +205,9 @@ else
 	#tune_control play -m MNT150L64O3C<G>CEG>C<G<G+>CD+G+D+G+>CD+G+D+O2A+>DFA+FA+>DFA+F
 	# starwars
 	#tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
-	tune_control play -t 1
+	#Shawn's tune
+	tune_control play -m MNT150<fga+7>c3
+	#tune_control play -t 1
 
 
 	#
