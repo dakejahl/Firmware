@@ -19,8 +19,7 @@ rsync -aPvz $px4_bin_path $project_root/payload/v${version}.px4 || exit 1
 
 # Generate TSE file.
 cd TealSEI
-# TealSEI/.gitlab-scripts/generate-tse-file payload Teal-PX4-"${version}".tse.jsq || exit 1
-.gitlab-scripts/generate-tse-file $project_root Delete-Me-Teal-PX4-"${version}".tse.jsq || exit 1
+.gitlab-scripts/generate-tse-file $project_root Teal-PX4-"${version}".tse.jsq || exit 1
 
 # Deploy the TSE file.
 .gitlab-scripts/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 $CI_COMMIT_REF_NAME || exit 1
