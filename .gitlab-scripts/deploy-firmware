@@ -1,6 +1,6 @@
 #!/bin/bash
 working_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-project_root="../$working_dir"
+project_root="$(dirname $working_dir)"
 
 # Get version from version file.
 version_file_path="$working_dir/version"

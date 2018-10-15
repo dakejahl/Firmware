@@ -50,7 +50,7 @@ create-and-deploy-px4-tse:
     artifacts:
         expire_in: 1 week
         paths:
-            - "TealSEI/*.tse.jsq"
+            - "*.tse.jsq"
 
 update-teal-software-verison-file:
     stage: update-tsvf
