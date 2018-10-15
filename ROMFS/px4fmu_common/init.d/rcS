@@ -130,7 +130,8 @@ tone_alarm start
 #tune_control play -m MNT150L16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
 #tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
 #tune_control play -m MNT150L4O2BBL8BG+L4>EP64
-tune_control play -m MNT150L4O3CL8C<BBAAL4BDDDP64
+#Shawn's tune
+tune_control play -m MNT150<fga+7>c3
 
 #
 # Try to mount the microSD card.
@@ -183,33 +184,10 @@ fi
 # Look for an init script on the microSD card.
 # Disable autostart if the script found.
 #
-
 if [ -f $FRC ]
 then
 	sh $FRC
 else
-	#
-	# Start the ORB (first app to start).
-	#
-	uorb start
-
-	#
-	# Start the tone_alarm driver.
-	#
-	tone_alarm start
-
-	#
-	# Play the startup tone.
-	#
-	# mario power up
-	#tune_control play -m MNT150L64O3C<G>CEG>C<G<G+>CD+G+D+G+>CD+G+D+O2A+>DFA+FA+>DFA+F
-	# starwars
-	#tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
-	#Shawn's tune
-	tune_control play -m MNT150<fga+7>c3
-	#tune_control play -t 1
-
-
 	#
 	# Waypoint storage.
 	# REBOOTWORK this needs to start in parallel.
