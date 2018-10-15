@@ -172,7 +172,7 @@ fi
 if ! ver hwcmp CRAZYFLIE AEROCORE2
 then
 	# Run no SD alarm.
-	if [ $LOG_FILE == /dev/null ]
+	if [ $LOG_FILE = /dev/null ]
 	then
 		# tune Make FS MBAGP
 		tune_control play -t 2
@@ -374,7 +374,7 @@ else
 	#
 	# If autoconfig parameter was set, reset it and save parameters.
 	#
-	if [ $AUTOCNF == yes ]
+	if [ $AUTOCNF = yes ]
 	then
 		# Run FMU as task on Pixracer and on boards with enough RAM.
 		if ver hwcmp PX4FMU_V4 PX4FMU_V4PRO PX4FMU_V5
@@ -411,8 +411,10 @@ else
 	then
 		# Check for the mini using build with px4io fw file
 		# but not a px4IO
-		if ! ver hwtypecmp V540
+		if ver hwtypecmp V540
 		then
+			param set SYS_USE_IO 0
+		else
 			if px4io checkcrc ${IOFW}
 			then
 				set IO_PRESENT yes
@@ -443,7 +445,7 @@ else
 					fi
 				fi
 
-				if [ $IO_PRESENT == no ]
+				if [ $IO_PRESENT = no ]
 				then
 					echo "PX4IO update failed" >> $LOG_FILE
 					# Error tune.
@@ -461,14 +463,14 @@ else
 		set USE_IO yes
 	fi
 
-	if [ $USE_IO == yes -a $IO_PRESENT == no ]
+	if [ $USE_IO = yes -a $IO_PRESENT = no ]
 	then
 		echo "PX4IO not found" >> $LOG_FILE
 		# Error tune.
 		tune_control play -t 2
 	fi
 
-	if [ $IO_PRESENT == no -o $USE_IO == no ]
+	if [ $IO_PRESENT = no -o $USE_IO = no ]
 	then
 		rc_input start
 	fi
@@ -549,6 +551,15 @@ else
 	# Note: rc.serial is auto-generated from Tools/serial/generate_config.py
 	#
 	sh /etc/init.d/rc.serial
+
+	if ver hwcmp PX4FMU_V4
+	then
+		# Run FrSky Telemetry on Pixracer on the FrSky port if not enabled already
+		if param compare TEL_FRSKY_CONFIG 0
+		then
+			frsky_telemetry start -d /dev/ttyS6 -t 15
+		fi
+	fi
 
 	#
 	# Configure vehicle type specific parameters.

@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2017 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,17 +30,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-
-px4_add_romfs_files(
-	4001_quad_x
-	6001_hexa_x
-	rc.fw_apps
-	rc.fw_defaults
-	rc.interface
-	rc.mc_apps
-	rc.mc_defaults
-	rcS
-	rc.sensors
-	rc.vtol_apps
-	rc.vtol_defaults
-	)
+px4_add_library(drivers_board
+	../common/board_identity.c
+)
