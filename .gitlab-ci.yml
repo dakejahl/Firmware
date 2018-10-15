@@ -53,11 +53,11 @@ create-and-deploy-px4-tse:
             - "TealSEI/*.tse.jsq"
 
 update-teal-software-verison-file:
-    image: tealdrones/teal-software-version-file-manager
     stage: update-tsvf
     only:
         - dev
         - test
+        # - master
     tags:
         - deploy
     script:
