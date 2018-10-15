@@ -17,6 +17,8 @@ export LOG_NAME="/var/log/teal/px4-update-tse.log"
     echo
 
     # Start tealflightd service
+    wait
+    sync
     systemctl start tealflightd
 
     # Wait until all processes are finished and files are sync'd
@@ -24,6 +26,10 @@ export LOG_NAME="/var/log/teal/px4-update-tse.log"
     sync
 
     echo "~ Task: 1 ~ Progress: 1.0 ~"
+    echo "Task Complete: Update PX4."
+    echo
+    echo "Reboot."
+    echo "~ Task: 2147483646 ~ Progress: 1.0 ~" # Schedule reboot.
 ) 2>&1 | tee $LOG_NAME
 
 exit ${PIPESTATUS[0]}
