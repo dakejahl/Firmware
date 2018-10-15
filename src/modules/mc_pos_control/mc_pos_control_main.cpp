@@ -134,8 +134,6 @@ private:
 		(ParamFloat<px4::params::MPC_LAND_SPEED>) _land_speed,
 		(ParamFloat<px4::params::MPC_TKO_SPEED>) _tko_speed,
 		(ParamFloat<px4::params::MPC_LAND_ALT2>) MPC_LAND_ALT2, // altitude at which speed limit downwards reached minimum speed
-		(ParamFloat<px4::params::MPC_LAND_ALT1>)
-		MPC_LAND_ALT1, // First altitude at which downward speed begins being contrained
 		(ParamInt<px4::params::MPC_POS_MODE>) MPC_POS_MODE,
 		(ParamInt<px4::params::MPC_ALT_MODE>) MPC_ALT_MODE,
 		(ParamFloat<px4::params::MPC_IDLE_TKO>) MPC_IDLE_TKO, /**< time constant for smooth takeoff ramp */
@@ -927,6 +925,7 @@ MulticopterPositionControl::start_flight_task()
 
 	// check task failure
 	if (task_failure) {
+
 		// for some reason no flighttask was able to start.
 		// go into failsafe flighttask
 		int error = _flight_tasks.switchTask(FlightTaskIndex::Failsafe);
@@ -1028,6 +1027,7 @@ MulticopterPositionControl::failsafe(vehicle_local_position_setpoint_s &setpoint
 
 	if (!_failsafe_land_hysteresis.get_state() && !force) {
 		// just keep current setpoint and don't do anything.
+
 
 
 	} else {
