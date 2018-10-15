@@ -34,14 +34,13 @@ build-firmware:
     artifacts:
         expire_in: 1 week
         paths:
-            # - /builds/Teal/Flight-Stack/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4
             - ./build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4
 
 create-and-deploy-px4-tse:
     stage: deploy
     image: px4io/px4-dev-nuttx:2018-09-28
     tags:
-        - docker
+        - deploy
     only:
         - dev
         - test
@@ -54,11 +53,11 @@ create-and-deploy-px4-tse:
             - "TealSEI/*.tse.jsq"
 
 update-teal-software-verison-file:
-    image: tealdrones/teal-software-version-file-manager
     stage: update-tsvf
     only:
         - dev
         - test
+        # - master
     tags:
         - deploy
     script:
