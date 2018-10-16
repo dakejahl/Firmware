@@ -31,7 +31,7 @@ fi
 
 ASSET_FILEPATH="${PROJECT_ROOT}/${ASSET_NAME}"
 ASSET_MD5=$(md5sum $ASSET_FILEPATH | awk '{print $1}')
-ASSET_VERSION=$(echo $ASSET_NAME | grep -Eio "[0-9]+.[0-9]+.[0-9]+")
+ASSET_VERSION=$(echo $ASSET_NAME | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
 ASSET_URL="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/${SUBFOLDER}/${ASSET_NAME}"
 # ASSET_REQUIREMENTS="{"Versions":}"
 python3 $SCRIPT_DIR/update-tsv-file $VERSION_FILE_URL $ASSET_FILEPATH $ASSET_MD5 $ASSET_VERSION $ASSET_URL $ASSET_REQUIREMENTS "None" || exit $?
