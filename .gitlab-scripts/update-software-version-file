@@ -23,7 +23,7 @@ fi
 
 VERSION_FILE_URL="http://version.tealdrones.com/tealone/teal-software-versions-${BRANCH}.json/"
 
-ASSET_NAME=$(ls -d $PROJECT_ROOT | grep -e ".*.tse.jsq")
+ASSET_NAME=$(ls $PROJECT_ROOT | grep -e ".*.tse.jsq")
 if [ -z $ASSET_NAME]; then
     echo "No TSE files found in the project root."
     exit 1
