@@ -8,21 +8,21 @@ stages:
 variables:
     GIT_SUBMODULE_STRATEGY: recursive
 
-check_format:
-    stage: check_format
-    image: px4io/px4-dev-nuttx:2018-09-28
-    tags:
-        - docker
-    script:
-        - make check_format
-
-test:
-    stage: tests
-    image: px4io/px4-dev-simulation:2018-09-28
-    tags:
-        - docker
-    script:
-        - make tests
+# check_format:
+#     stage: check_format
+#     image: px4io/px4-dev-nuttx:2018-09-28
+#     tags:
+#         - docker
+#     script:
+#         - make check_format
+#
+# test:
+#     stage: tests
+#     image: px4io/px4-dev-simulation:2018-09-28
+#     tags:
+#         - docker
+#     script:
+#         - make tests
 
 build-firmware:
     stage: firmware
@@ -45,6 +45,7 @@ create-and-deploy-px4-tse:
         - dev
         - test
         - master
+        - ci
     script:
         - .gitlab-scripts/deploy-firmware
     artifacts:
@@ -58,6 +59,7 @@ update-teal-software-verison-file:
         - dev
         - test
         # - master
+        - ci
     tags:
         - deploy
     script:

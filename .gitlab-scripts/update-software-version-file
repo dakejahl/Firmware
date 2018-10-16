@@ -10,11 +10,11 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # Set up parameters for update-tsv-file
 BRANCH="$CI_COMMIT_REF_NAME"
 
-if [[ "$CI_COMMIT_REF_NAME" = "dev" ]]; then
+if [[ "$BRANCH" = "dev" || "$BRANCH" = "ci" ]]; then
     SUBFOLDER="unstable"
-elif [[ "$CI_COMMIT_REF_NAME" = "test" ]]; then
+elif [[ "$BRANCH" = "test" ]]; then
     SUBFOLDER="stable"
-elif [[ "$CI_COMMIT_REF_NAME" = "master" ]]; then
+elif [[ "$BRANCH" = "master" ]]; then
     SUBFOLDER="production"
 else
     echo "Error. Should only run on dev, test, or master branches."
