@@ -61,3 +61,6 @@
 [submodule ".gitlab-scripts/TealSEI"]
 	path = .gitlab-scripts/TealSEI
 	url = ../TealSEI.git
+[submodule ".gitlab-scripts/SharedGitLabUtilities"]
+	path = .gitlab-scripts/SharedGitLabUtilities
+	url = ../SharedGitLabUtilities.git

@@ -42,7 +42,7 @@ headers = {
     "Content-Type": "application/json",
     "{}".format(SECRET_HEADER_KEY): "{}".format(SECRET_HEADER_VALUE),
     "X-Software-Object-Type": "SoftwareVersion",
-    "X-Component-Name": "Teal-Utilities",
+    "X-Component-Name": "TealOne-PX4FMU-Firmware",
     # "X-Component-Version": ""
 }
 payload = {

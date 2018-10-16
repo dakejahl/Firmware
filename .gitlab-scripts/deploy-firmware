@@ -16,10 +16,10 @@ px4_bin_path="${project_root}/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px
 rsync -aPvz $px4_bin_path $working_dir/payload/v${version}.px4 || exit 1
 
 # Generate TSE file.
-$working_dir/TealSEI/.gitlab-scripts/generate-tse-file $working_dir Teal-PX4-"${version}".tse.jsq || exit 1
+$working_dir/TealSEI/generateTSEGitLab $working_dir Teal-PX4-"${version}".tse.jsq || exit 1
 
 # Deploy the TSE file.
-$working_dir/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 $CI_COMMIT_REF_NAME || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 $CI_COMMIT_REF_NAME || exit 1
 
 # Deploy the .px4 file.
-$working_dir/deploy-artifact-to-s3 $(ls *.px4) TealPX4 $CI_COMMIT_REF_NAME || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.px4) TealPX4 $CI_COMMIT_REF_NAME || exit 1
