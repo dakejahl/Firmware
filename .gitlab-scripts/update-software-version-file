@@ -1,9 +1,8 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # @author Darin Stoker
 # @date 8/22/18
 
-# Change the working directory to the directory from which this script is running.
 PROJECT_ROOT="${CI_PROJECT_DIR}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
@@ -11,6 +10,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 BRANCH="$CI_COMMIT_REF_NAME"
 
 if [[ "$BRANCH" = "dev" || "$BRANCH" = "ci" ]]; then
+    BRANCH="dev"
     SUBFOLDER="unstable"
 elif [[ "$BRANCH" = "test" ]]; then
     SUBFOLDER="stable"
@@ -23,7 +23,7 @@ fi
 
 VERSION_FILE_URL="http://version.tealdrones.com/tealone/teal-software-versions-${BRANCH}.json/"
 
-ASSET_NAME=$(ls $PROJECT_ROOT | grep -e "*.tse.jsq")
+ASSET_NAME=$(ls -d $PROJECT_ROOT | grep -e ".*.tse.jsq")
 if [ -z $ASSET_NAME]; then
     echo "No TSE files found in the project root."
     exit 1
