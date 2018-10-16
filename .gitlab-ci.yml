@@ -45,7 +45,7 @@ create-and-deploy-px4-tse:
         - dev
         - test
         - master
-        - ci
+        # - ci
     script:
         - .gitlab-scripts/deploy-firmware
     artifacts:
@@ -59,7 +59,7 @@ update-teal-software-verison-file:
         - dev
         - test
         # - master
-        - ci
+        # - ci
     tags:
         - deploy
     script:
