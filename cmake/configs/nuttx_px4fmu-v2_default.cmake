@@ -27,11 +27,11 @@ set(config_module_list
 	drivers/barometer/ms5611
 	#drivers/blinkm
 	#drivers/bst
-	drivers/camera_trigger
+	#drivers/camera_trigger
 	#drivers/differential_pressure/ets
 	drivers/differential_pressure/ms4525
 	drivers/differential_pressure/ms5525
-	drivers/differential_pressure/sdp3x
+	#drivers/differential_pressure/sdp3x
 	drivers/distance_sensor/ll40ls
 	#drivers/distance_sensor/mb12xx
 	drivers/distance_sensor/sf0x
@@ -51,7 +51,7 @@ set(config_module_list
 	#drivers/iridiumsbd
 	#drivers/irlock
 	drivers/magnetometer/hmc5883
-	drivers/magnetometer/lis3mdl
+	#drivers/magnetometer/lis3mdl
 	#drivers/mb12xx
 	#drivers/mkblctrl
 	#drivers/oreoled

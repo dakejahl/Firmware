@@ -124,15 +124,6 @@ uorb start
 tone_alarm start
 
 #
-# Play the startup tone.
-#
-#tune_control play -t 1
-#tune_control play -m MNT150L16O2GO3CEGO4CEL4GEL16O2A-O3CE-A-O4CE-L4A-E-L16O2B-O3DFB-O4DFL4B-L16B-.B-.B-.O5L2C
-#tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
-#tune_control play -m MNT150L4O2BBL8BG+L4>EP64
-tune_control play -m MNT150L4O3CL8C<BBAAL4BDDDP64
-
-#
 # Try to mount the microSD card.
 #
 # REBOOTWORK this needs to start after the flight control loop.
@@ -148,11 +139,11 @@ then
 		fi
 	else
 		# Play the startup tune.
-		tune_control play -t 1
+		tune_control play -m MNT150<fga+7>c3
 	fi
 else
 	# tune SD_INIT
-	tune_control play -t 16
+	# tune_control play -t 16
 	if mkfatfs /dev/mmcsd0
 	then
 		if mount -t vfat /dev/mmcsd0 /fs/microsd
@@ -172,10 +163,10 @@ fi
 if ! ver hwcmp CRAZYFLIE AEROCORE2
 then
 	# Run no SD alarm.
-	if [ $LOG_FILE == /dev/null ]
+	if [ $LOG_FILE = /dev/null ]
 	then
 		# tune Make FS MBAGP
-		tune_control play -t 2
+		# tune_control play -t 2
 	fi
 fi
 
@@ -183,33 +174,10 @@ fi
 # Look for an init script on the microSD card.
 # Disable autostart if the script found.
 #
-
 if [ -f $FRC ]
 then
 	sh $FRC
 else
-	#
-	# Start the ORB (first app to start).
-	#
-	uorb start
-
-	#
-	# Start the tone_alarm driver.
-	#
-	tone_alarm start
-
-	#
-	# Play the startup tone.
-	#
-	# mario power up
-	#tune_control play -m MNT150L64O3C<G>CEG>C<G<G+>CD+G+D+G+>CD+G+D+O2A+>DFA+FA+>DFA+F
-	# starwars
-	#tune_control play -m MNT150L8O2CP64CP64CP64L4C.G.L8FEDL4>C.<G.L8FEDL4>C.MFO2G.L8FEFL2DP640m
-	#Shawn's tune
-	tune_control play -m MNT150<fga+7>c3
-	#tune_control play -t 1
-
-
 	#
 	# Waypoint storage.
 	# REBOOTWORK this needs to start in parallel.
@@ -374,7 +342,7 @@ else
 	#
 	# If autoconfig parameter was set, reset it and save parameters.
 	#
-	if [ $AUTOCNF == yes ]
+	if [ $AUTOCNF = yes ]
 	then
 		# Run FMU as task on Pixracer and on boards with enough RAM.
 		if ver hwcmp PX4FMU_V4 PX4FMU_V4PRO PX4FMU_V5
@@ -411,8 +379,10 @@ else
 	then
 		# Check for the mini using build with px4io fw file
 		# but not a px4IO
-		if ! ver hwtypecmp V540
+		if ver hwtypecmp V540
 		then
+			param set SYS_USE_IO 0
+		else
 			if px4io checkcrc ${IOFW}
 			then
 				set IO_PRESENT yes
@@ -443,7 +413,7 @@ else
 					fi
 				fi
 
-				if [ $IO_PRESENT == no ]
+				if [ $IO_PRESENT = no ]
 				then
 					echo "PX4IO update failed" >> $LOG_FILE
 					# Error tune.
@@ -461,14 +431,14 @@ else
 		set USE_IO yes
 	fi
 
-	if [ $USE_IO == yes -a $IO_PRESENT == no ]
+	if [ $USE_IO = yes -a $IO_PRESENT = no ]
 	then
 		echo "PX4IO not found" >> $LOG_FILE
 		# Error tune.
 		tune_control play -t 2
 	fi
 
-	if [ $IO_PRESENT == no -o $USE_IO == no ]
+	if [ $IO_PRESENT = no -o $USE_IO = no ]
 	then
 		rc_input start
 	fi
@@ -550,6 +520,16 @@ else
 	#
 	sh /etc/init.d/rc.serial
 
+	if ver hwcmp PX4FMU_V4
+	then
+		# Run FrSky Telemetry on Pixracer on the FrSky port if not enabled already
+		if param compare TEL_FRSKY_CONFIG 0
+		then
+			# Do not start. We use PGA460 on this port.
+			# frsky_telemetry start -d /dev/ttyS6 -t 15
+		fi
+	fi
+
 	#
 	# Configure vehicle type specific parameters.
 	# Note: rc.vehicle_setup is the entry point for rc.interface,
@@ -593,7 +573,7 @@ else
 	#
 	if ver hwcmp PX4FMU_V2 PX4FMU_V4 PX4FMU_V4PRO MINDPX_V2 PX4FMU_V5 OMNIBUS_F4SD
 	then
-		# px4flow start &
+		px4flow start &
 	fi
 
 	#
@@ -613,7 +593,6 @@ fi
 # Unset all script parameters to free RAM.
 #
 unset AUX_MODE
-unset BOARD_FMUV3
 unset DATAMAN_OPT
 unset FAILSAFE
 unset FAILSAFE_AUX

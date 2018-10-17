@@ -171,3 +171,5 @@ batt_smbus -X seal
 usleep 100000
 
 batt_smbus -X resume
+
+echo "Battery settings written!"

@@ -90,7 +90,6 @@
 
 #define TIMEOUT_5HZ 500
 #define RATE_MEASUREMENT_PERIOD 5000000
-#define GPS_WAIT_BEFORE_READ	20		// ms, wait before reading to save read() calls
 
 
 /* struct for dynamic allocation of satellite info data */
@@ -269,6 +268,7 @@ GPS::GPS(const char *path, gps_driver_mode_t mode, GPSHelper::Interface interfac
 	_port[sizeof(_port) - 1] = '\0';
 
 	_report_gps_pos.heading = NAN;
+	_report_gps_pos.heading_offset = NAN;
 
 	/* create satellite info data object if requested */
 	if (enable_sat_info) {
@@ -381,17 +381,21 @@ int GPS::pollOrRead(uint8_t *buf, size_t buf_length, int timeout)
 			 * If we have all requested data available, read it without waiting.
 			 * If more bytes are available, we'll go back to poll() again.
 			 */
+			const unsigned character_count = 32; // minimum bytes that we want to read
+			unsigned baudrate = _baudrate == 0 ? 115200 : _baudrate;
+			const unsigned sleeptime = character_count * 1000000 / (baudrate / 10);
+
 #ifdef __PX4_NUTTX
 			int err = 0;
-			int bytesAvailable = 0;
-			err = ioctl(_serial_fd, FIONREAD, (unsigned long)&bytesAvailable);
+			int bytes_available = 0;
+			err = ioctl(_serial_fd, FIONREAD, (unsigned long)&bytes_available);
 
-			if ((err != 0) || (bytesAvailable < (int)buf_length)) {
-				usleep(GPS_WAIT_BEFORE_READ * 1000);
+			if (err != 0 || bytes_available < (int)character_count) {
+				usleep(sleeptime);
 			}
 
 #else
-			usleep(GPS_WAIT_BEFORE_READ * 1000);
+			usleep(sleeptime);
 #endif
 
 			ret = ::read(_serial_fd, buf, buf_length);
@@ -652,6 +656,7 @@ GPS::run()
 			_report_gps_pos.vel_ned_valid = true;
 			_report_gps_pos.satellites_used = 10;
 			_report_gps_pos.heading = NAN;
+			_report_gps_pos.heading_offset = NAN;
 
 			/* no time and satellite information simulated */
 
@@ -696,6 +701,7 @@ GPS::run()
 				/* reset report */
 				memset(&_report_gps_pos, 0, sizeof(_report_gps_pos));
 				_report_gps_pos.heading = NAN;
+				_report_gps_pos.heading_offset = heading_offset;
 
 				if (_mode == GPS_DRIVER_MODE_UBX) {
 
@@ -962,7 +968,7 @@ int GPS::task_spawn(int argc, char *argv[], Instance instance)
 	}
 
 	int task_id = px4_task_spawn_cmd("gps", SCHED_DEFAULT,
-				   SCHED_PRIORITY_SLOW_DRIVER, 1630,
+				   SCHED_PRIORITY_SLOW_DRIVER, 1530,
 				   entry_point, (char *const *)argv);
 
 	if (task_id < 0) {
