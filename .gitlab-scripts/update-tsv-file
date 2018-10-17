@@ -8,7 +8,7 @@ import json
 import hashlib
 import requests
 
-INSTALL_PRIORITY = 300
+INSTALL_PRIORITY = 700
 # Needs to match definition in softwareversionfile.py in TealSoftwareVersionFileManager
 SECRET_HEADER_KEY = "X-TealSVFMAuthKey"
 # Needs to match definition in softwareversionfile.py in TealSoftwareVersionFileManager
@@ -49,7 +49,7 @@ payload = {
     "Version": "{}".format(version),
     "URL": "{}".format(assetURL),
     "MD5": "{}".format(md5),
-    "Priority": "{}".format(INSTALL_PRIORITY)
+    "Priority": INSTALL_PRIORITY
 }
 
 # Add requirements if they exist.

@@ -1,20 +1,20 @@
-#!/bin/bash -x
+#!/bin/bash
 #
 # @author Darin Stoker
 # @date 8/22/18
 
-# Change the working directory to the directory from which this script is running.
 PROJECT_ROOT="${CI_PROJECT_DIR}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
 # Set up parameters for update-tsv-file
 BRANCH="$CI_COMMIT_REF_NAME"
 
-if [[ "$CI_COMMIT_REF_NAME" = "dev" ]]; then
+if [[ "$BRANCH" = "dev" || "$BRANCH" = "ci" ]]; then
+    BRANCH="dev"
     SUBFOLDER="unstable"
-elif [[ "$CI_COMMIT_REF_NAME" = "test" ]]; then
+elif [[ "$BRANCH" = "test" ]]; then
     SUBFOLDER="stable"
-elif [[ "$CI_COMMIT_REF_NAME" = "master" ]]; then
+elif [[ "$BRANCH" = "master" ]]; then
     SUBFOLDER="production"
 else
     echo "Error. Should only run on dev, test, or master branches."
@@ -23,7 +23,7 @@ fi
 
 VERSION_FILE_URL="http://version.tealdrones.com/tealone/teal-software-versions-${BRANCH}.json/"
 
-ASSET_NAME=$(ls $PROJECT_ROOT | grep -e "*.tse.jsq")
+ASSET_NAME=$(ls $PROJECT_ROOT | grep -e ".*.tse.jsq")
 if [ -z $ASSET_NAME]; then
     echo "No TSE files found in the project root."
     exit 1
@@ -31,7 +31,7 @@ fi
 
 ASSET_FILEPATH="${PROJECT_ROOT}/${ASSET_NAME}"
 ASSET_MD5=$(md5sum $ASSET_FILEPATH | awk '{print $1}')
-ASSET_VERSION=$(echo $ASSET_NAME | grep -Eio "[0-9]+.[0-9]+.[0-9]+")
+ASSET_VERSION=$(echo $ASSET_NAME | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
 ASSET_URL="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/${SUBFOLDER}/${ASSET_NAME}"
 # ASSET_REQUIREMENTS="{"Versions":}"
 python3 $SCRIPT_DIR/update-tsv-file $VERSION_FILE_URL $ASSET_FILEPATH $ASSET_MD5 $ASSET_VERSION $ASSET_URL $ASSET_REQUIREMENTS "None" || exit $?
