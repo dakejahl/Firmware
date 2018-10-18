@@ -3,11 +3,13 @@
 # Startup script for writing battery parameters for BQ40Z50 SMBus smart battery
 # Note that data values for write_flash are signed integers
 #
-usleep 100000
+batt_smbus suspend
+
+usleep 300000
 
 batt_smbus unseal
 
-usleep 50000
+usleep 500000
 
 # "Settings","Configuration","Power Config"
 batt_smbus write_flash 18571 2 1 0
@@ -163,5 +165,8 @@ batt_smbus write_flash 18553 1 2
 usleep 100000
 
 batt_smbus seal
+echo "Wrote smart battery parameters."
 
 usleep 100000
+
+batt_smbus resume

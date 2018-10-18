@@ -105,19 +105,19 @@ int SMBus::block_write(const uint8_t cmd_code, void *data, uint8_t byte_count, b
 	if (use_pec) {
 		uint8_t pec = get_pec(buf, byte_count + 2);
 		buf[byte_count + 2] = pec;
-		byte_count++;
+		//byte_count++;
 	}
 
 	unsigned i = 0;
 	int result = 0;
 
 	// If block_write fails, try up to 10 times.
-	while (i < 10 && (result = transfer((uint8_t *)buf, byte_count + 2, nullptr, 0)) != PX4_OK) {
+	while (i < 10 && ((result = transfer((uint8_t *)buf, byte_count + 2, nullptr, 0)) != PX4_OK)) {
 		i++;
 	}
 
-	if (i == 10) {
-		PX4_WARN("Block_write failed 10 times");
+	if (i == 10 || result) {
+		PX4_WARN("Block_write failed %d times", i);
 		result = -EINVAL;
 	}
 

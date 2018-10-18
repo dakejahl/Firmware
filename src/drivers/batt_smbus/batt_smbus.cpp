@@ -357,7 +357,7 @@ int BATT_SMBUS::dataflash_read(uint16_t &address, void *data)
 	uint8_t code = BATT_SMBUS_MANUFACTURER_BLOCK_ACCESS;
 
 	// address is 2 bytes
-	int result = _interface->block_write(code, &address, 2, false);
+	int result = _interface->block_write(code, &address, 2, true);
 
 	if (result != PX4_OK) {
 		return result;
@@ -384,7 +384,7 @@ int BATT_SMBUS::dataflash_write(uint16_t &address, void *data, const unsigned le
 	memcpy(&tx_buf[2], data, length);
 
 	// code (1), byte_count (1), addr(2), data(32) + pec
-	int result = _interface->block_write(code, tx_buf, length + 2, false);
+	int result = _interface->block_write(code, tx_buf, length + 2, true);
 
 	return result;
 }
@@ -521,7 +521,7 @@ int BATT_SMBUS::manufacturer_read(const uint16_t cmd_code, void *data, const uns
 	address[0] = ((uint8_t *)&cmd_code)[0];
 	address[1] = ((uint8_t *)&cmd_code)[1];
 
-	int result = _interface->block_write(code, address, 2, false);
+	int result = _interface->block_write(code, address, 2, true);
 
 	if (result != PX4_OK) {
 		return result;
@@ -559,7 +559,10 @@ int BATT_SMBUS::unseal()
 	// See pg95 of bq40z50 technical reference.
 	uint16_t keys[2] = {0x0414, 0x3672};
 
-	return manufacturer_write(keys[0], &keys[1], 2);
+	int ret = manufacturer_write(keys[0], nullptr, 0);
+	ret |= manufacturer_write(keys[1], nullptr, 0);
+
+	return ret;
 }
 
 int BATT_SMBUS::seal()
