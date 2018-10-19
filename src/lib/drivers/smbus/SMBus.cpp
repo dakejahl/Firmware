@@ -81,10 +81,6 @@ int SMBus::write_word(const uint8_t cmd_code, void *data)
 		PX4_INFO("ww: %d", buf[i]);
 	}
 
-	// uint8_t addr = (get_device_address() << 1) | 0x10;
-	// uint8_t test_buf[4] = {addr, buf[1], buf[2], buf[3]};
-	// PX4_INFO("Test pec3: %d", get_pec(test_buf, 4));
-
 	int result = transfer(&buf[1], 4, nullptr, 0);
 
 	return result;

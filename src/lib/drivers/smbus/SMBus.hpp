@@ -69,6 +69,12 @@ public:
 	 */
 	int read_word(const uint8_t cmd_code, void *data);
 
+	/**
+	 * @brief Sends a write word command.
+	 * @param cmd_code The command code.
+	 * @param data The 2 bytes of data to be transfered.
+	 * @return Returns PX4_OK on success, PX4_ERROR on failure.
+	 */
 	int write_word(const uint8_t cmd_code, void *data);
 
 	/**
