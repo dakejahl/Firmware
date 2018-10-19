@@ -66,6 +66,30 @@ int SMBus::read_word(const uint8_t cmd_code, void *data)
 	return result;
 }
 
+int SMBus::write_word(const uint8_t cmd_code, void *data)
+{
+	// 2 data bytes + pec byte
+	uint8_t buf[5] = {};
+	buf[0] = (get_device_address() << 1) | 0x10;
+	buf[1] = cmd_code;
+	buf[2] = ((uint8_t *)data)[0];
+	buf[3] = ((uint8_t *)data)[1];
+
+	buf[4] = get_pec(buf, 4);
+
+	for (unsigned i = 1; i < 5; i++) {
+		PX4_INFO("ww: %d", buf[i]);
+	}
+
+	// uint8_t addr = (get_device_address() << 1) | 0x10;
+	// uint8_t test_buf[4] = {addr, buf[1], buf[2], buf[3]};
+	// PX4_INFO("Test pec3: %d", get_pec(test_buf, 4));
+
+	int result = transfer(&buf[1], 4, nullptr, 0);
+
+	return result;
+}
+
 int SMBus::block_read(const uint8_t cmd_code, void *data, const uint8_t length, bool use_pec)
 {
 	unsigned byte_count = 0;

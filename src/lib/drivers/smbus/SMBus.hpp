@@ -69,6 +69,8 @@ public:
 	 */
 	int read_word(const uint8_t cmd_code, void *data);
 
+	int write_word(const uint8_t cmd_code, void *data);
+
 	/**
 	 * @brief Calculates the PEC from the data.
 	 * @param buffer The buffer that stores the data to perform the CRC over.

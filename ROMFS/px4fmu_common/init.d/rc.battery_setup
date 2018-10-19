@@ -5,9 +5,9 @@
 #
 batt_smbus suspend
 
-usleep 300000
+usleep 500000
 
-batt_smbus unseal
+# batt_smbus unseal
 
 usleep 500000
 
