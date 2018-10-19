@@ -123,6 +123,9 @@ uorb start
 #
 tone_alarm start
 
+# Play the startup tune.
+tune_control play -m MNT150<fga+7>c3
+
 #
 # Try to mount the microSD card.
 #
@@ -138,8 +141,8 @@ then
 			hardfault_log reset
 		fi
 	else
-		# Play the startup tune.
-		tune_control play -m MNT150<fga+7>c3
+		# # Play the startup tune.
+		# tune_control play -m MNT150<fga+7>c3
 	fi
 else
 	# tune SD_INIT
