@@ -460,21 +460,6 @@ int BATT_SMBUS::get_startup_info()
 		PX4_WARN("Failed to flush lifetime data");
 	}
 
-	if (lifetime_data_flush() == PX4_OK) {
-		if (lifetime_read_block_one() == PX4_OK) {
-			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
-				PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
-					 (double)_lifetime_max_delta_cell_voltage);
-			}
-
-		} else {
-			PX4_WARN("Failed to read lifetime block 1");
-		}
-
-	} else {
-		PX4_WARN("Failed to flush lifetime data");
-	}
-
 	// Read battery threshold params on startup.
 	param_get(param_find("BAT_CRIT_THR"), &_crit_thr);
 	param_get(param_find("BAT_LOW_THR"), &_low_thr);
