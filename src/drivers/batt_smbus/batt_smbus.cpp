@@ -336,7 +336,7 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 
 			unseal();
 
-			if (write_flash(address, &protections_a_tmp, 1) == PX4_OK) {
+			if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 				_cell_undervoltage_protection_status = 0;
 				PX4_WARN("Disabled CUV");
 			}
@@ -353,7 +353,7 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 
 				unseal();
 
-				if (write_flash(address, &protections_a_tmp, 1) == PX4_OK) {
+				if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 					_cell_undervoltage_protection_status = 1;
 					PX4_WARN("Enabled CUV");
 
