@@ -199,7 +199,7 @@ void BATT_SMBUS::cycle()
 	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f);
 
 	new_report.average_current_a = average_current;
-PX4_INFO("current: %2.2f", (double)average_current);
+	PX4_INFO("current: %2.2f", (double)average_current);
 
 	// If current is high, turn under voltage protection off. This is neccessary to prevent
 	// a battery from cutting off while flying with high current near the end of the packs capacity.
@@ -215,10 +215,6 @@ PX4_INFO("current: %2.2f", (double)average_current);
 
 	// Read remaining capacity.
 	ret |= _interface->read_word(BATT_SMBUS_REMAINING_CAPACITY, &result);
-
-	if (result > _batt_capacity) {
-		_batt_capacity = result;
-	}
 
 	// Calculate remaining capacity percent with complementary filter.
 	new_report.remaining = 0.8f * _last_report.remaining + 0.2f * (1.0f - (float)((float)(_batt_capacity - result) /
@@ -339,16 +335,13 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 			uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED;
 			uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
-			// unseal();
-
 			if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 				_cell_undervoltage_protection_status = 0;
 				PX4_WARN("Disabled CUV");
+
 			} else {
 				PX4_WARN("Failed to disable CUV");
 			}
-
-			// seal();
 		}
 
 	} else {
@@ -358,16 +351,13 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 				uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT;
 				uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
-				// unseal();
-
 				if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 					_cell_undervoltage_protection_status = 1;
 					PX4_WARN("Enabled CUV");
+
 				} else {
 					PX4_WARN("Failed to enable CUV");
 				}
-
-				// seal();
 			}
 		}
 	}
