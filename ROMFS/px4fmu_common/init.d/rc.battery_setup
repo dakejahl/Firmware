@@ -5,7 +5,10 @@
 #
 batt_smbus suspend
 
-usleep 500000
+# I added unseal() to the constructor of batt_smbus. I had to do this due to a failure condition which
+# stems from the fact we are not utilitizing the stm32f4 SMBus mode on the i2c controller. The problem is
+# the master does not ACK data from the slave, which causes the slave (bq40z50) to enter a weird state after
+# a read_word() causing a subsequent write_word() to fail quietly.
 
 # batt_smbus unseal
 

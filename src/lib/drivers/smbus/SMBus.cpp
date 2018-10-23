@@ -31,6 +31,18 @@
  *
  ****************************************************************************/
 
+/**
+ * @file SMBus.cpp
+ * SMBus v2.0 protocol implementation.
+ *
+ * @author Jacob Dahl <dahl.jakejacob@gmail.com>
+ *
+ * TODO
+ *  - Enable SMBus mode at the NuttX level. This may be tricky sharing the bus with i2c.
+ *  	i.e STM32f4 see platforms/nuttx/Nuttx/nuttx/arch/arm/src/stm32/stm32f40xxx_i2c.c
+ *  - Add remaining SMBus protocol messages as needed
+ */
+
 #include "SMBus.hpp"
 
 SMBus::SMBus(int bus_num, uint16_t address) :
@@ -77,10 +89,6 @@ int SMBus::write_word(const uint8_t cmd_code, void *data)
 
 	buf[4] = get_pec(buf, 4);
 
-	for (unsigned i = 1; i < 5; i++) {
-		PX4_INFO("ww: %d", buf[i]);
-	}
-
 	int result = transfer(&buf[1], 4, nullptr, 0);
 
 	return result;
@@ -115,8 +123,8 @@ int SMBus::block_read(const uint8_t cmd_code, void *data, const uint8_t length, 
 
 int SMBus::block_write(const uint8_t cmd_code, void *data, uint8_t byte_count, bool use_pec)
 {
-	// cmd code, byte count, data[byte_count], pec (optional)
-	uint8_t buf[32 + 3];
+	// cmd code[1], byte count[1], data[byte_count] (32max), pec[1] (optional)
+	uint8_t buf[32 + 2];
 
 	buf[0] = cmd_code;
 	buf[1] = (uint8_t)byte_count;
@@ -125,7 +133,7 @@ int SMBus::block_write(const uint8_t cmd_code, void *data, uint8_t byte_count, b
 	if (use_pec) {
 		uint8_t pec = get_pec(buf, byte_count + 2);
 		buf[byte_count + 2] = pec;
-		//byte_count++;
+		byte_count++;
 	}
 
 	unsigned i = 0;

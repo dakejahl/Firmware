@@ -70,6 +70,10 @@ BATT_SMBUS::BATT_SMBUS(SMBus *interface, const char *path) :
 	param_set(param_find("BAT_SOURCE"), &battsource);
 
 	_interface->init();
+	// unseal() here to allow an external config script to write to protected flash.
+	// This is neccessary to avoid bus errors due to using standard i2c mode instead of SMbus mode.
+	// The external config script should then seal() the device.
+	unseal();
 }
 
 BATT_SMBUS::~BATT_SMBUS()
@@ -399,7 +403,7 @@ int BATT_SMBUS::dataflash_write(uint16_t &address, void *data, const unsigned le
 	memcpy(&tx_buf[2], data, length);
 
 	// code (1), byte_count (1), addr(2), data(32) + pec
-	int result = _interface->block_write(code, tx_buf, length + 2, true);
+	int result = _interface->block_write(code, tx_buf, length + 2, false);
 
 	return result;
 }
@@ -446,14 +450,13 @@ int BATT_SMBUS::get_startup_info()
 	}
 
 	if (lifetime_data_flush() == PX4_OK) {
+		// Flush needs time to complete, otherwise device is busy. 100ms not enough, 200ms works.
+		usleep(200000);
 		if (lifetime_read_block_one() == PX4_OK) {
 			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
 				PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
 					 (double)_lifetime_max_delta_cell_voltage);
 			}
-
-		} else {
-			PX4_WARN("Failed to read lifetime block 1");
 		}
 
 	} else {
@@ -521,7 +524,7 @@ int BATT_SMBUS::manufacturer_read(const uint16_t cmd_code, void *data, const uns
 	address[0] = ((uint8_t *)&cmd_code)[0];
 	address[1] = ((uint8_t *)&cmd_code)[1];
 
-	int result = _interface->block_write(code, address, 2, true);
+	int result = _interface->block_write(code, address, 2, false);
 
 	if (result != PX4_OK) {
 		return result;
@@ -560,7 +563,7 @@ int BATT_SMBUS::unseal()
 	uint16_t keys[2] = {0x0414, 0x3672};
 
 	int ret = _interface->write_word(BATT_SMBUS_MANUFACTURER_ACCESS, &keys[0]);
-	usleep(2000000);
+
 	ret |= _interface->write_word(BATT_SMBUS_MANUFACTURER_ACCESS, &keys[1]);
 
 	return ret;

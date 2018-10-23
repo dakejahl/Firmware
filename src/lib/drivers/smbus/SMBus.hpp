@@ -31,6 +31,13 @@
  *
  ****************************************************************************/
 
+/**
+ * @file SMBus.hpp
+ * SMBus v2.0 protocol implementation.
+ *
+ * @author Jacob Dahl <dahl.jakejacob@gmail.com>
+ */
+
 #include <drivers/device/i2c.h>
 
 #include <string.h>
