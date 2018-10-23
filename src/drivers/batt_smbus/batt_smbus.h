@@ -58,7 +58,7 @@
 #define BATT_CELL_VOLTAGE_THRESHOLD_RTL                 0.5f                    ///< Threshold in volts to RTL if cells are imbalanced
 #define BATT_CELL_VOLTAGE_THRESHOLD_FAILED              1.5f                    ///< Threshold in volts to Land if cells are imbalanced
 
-#define BATT_CURRENT_UNDERVOLTAGE_THRESHOLD             1.0f                    ///< Threshold in amps to disable undervoltage protection
+#define BATT_CURRENT_UNDERVOLTAGE_THRESHOLD             5.0f                    ///< Threshold in amps to disable undervoltage protection
 #define BATT_VOLTAGE_UNDERVOLTAGE_THRESHOLD             3.4f                    ///< Threshold in volts to re-enable undervoltage protection
 
 #define BATT_SMBUS_CURRENT                              0x0A                    ///< current register
