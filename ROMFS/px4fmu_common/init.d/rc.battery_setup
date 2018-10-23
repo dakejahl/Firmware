@@ -167,7 +167,7 @@ batt_smbus write_flash 18553 1 2
 
 usleep 100000
 
-batt_smbus seal
+# batt_smbus seal
 echo "Wrote smart battery parameters."
 
 usleep 100000

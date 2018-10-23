@@ -199,6 +199,7 @@ void BATT_SMBUS::cycle()
 	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f);
 
 	new_report.average_current_a = average_current;
+PX4_INFO("current: %2.2f", (double)average_current);
 
 	// If current is high, turn under voltage protection off. This is neccessary to prevent
 	// a battery from cutting off while flying with high current near the end of the packs capacity.
@@ -338,14 +339,16 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 			uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_CUV_DISABLED;
 			uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
-			unseal();
+			// unseal();
 
 			if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 				_cell_undervoltage_protection_status = 0;
 				PX4_WARN("Disabled CUV");
+			} else {
+				PX4_WARN("Failed to disable CUV");
 			}
 
-			seal();
+			// seal();
 		}
 
 	} else {
@@ -355,15 +358,16 @@ void BATT_SMBUS::set_undervoltage_protection(float average_current)
 				uint8_t protections_a_tmp = BATT_SMBUS_ENABLED_PROTECTIONS_A_DEFAULT;
 				uint16_t address = BATT_SMBUS_ENABLED_PROTECTIONS_A_ADDRESS;
 
-				unseal();
+				// unseal();
 
 				if (dataflash_write(address, &protections_a_tmp, 1) == PX4_OK) {
 					_cell_undervoltage_protection_status = 1;
 					PX4_WARN("Enabled CUV");
-
+				} else {
+					PX4_WARN("Failed to enable CUV");
 				}
 
-				seal();
+				// seal();
 			}
 		}
 	}
@@ -452,6 +456,7 @@ int BATT_SMBUS::get_startup_info()
 	if (lifetime_data_flush() == PX4_OK) {
 		// Flush needs time to complete, otherwise device is busy. 100ms not enough, 200ms works.
 		usleep(200000);
+
 		if (lifetime_read_block_one() == PX4_OK) {
 			if (_lifetime_max_delta_cell_voltage > BATT_CELL_VOLTAGE_THRESHOLD_FAILED) {
 				PX4_WARN("Battery Damaged Will Not Fly. Lifetime max voltage difference: %4.2f",
