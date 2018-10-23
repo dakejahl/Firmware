@@ -199,7 +199,6 @@ void BATT_SMBUS::cycle()
 	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f);
 
 	new_report.average_current_a = average_current;
-	PX4_INFO("current: %2.2f", (double)average_current);
 
 	// If current is high, turn under voltage protection off. This is neccessary to prevent
 	// a battery from cutting off while flying with high current near the end of the packs capacity.
