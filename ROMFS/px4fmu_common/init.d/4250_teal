@@ -5,17 +5,15 @@
 # @type Quadrotor x
 # @class Copter
 #
+# @board px4fmu-v2 exclude
+# @board px4fmu-v3 exclude
+# @board px4fmu-v4pro exclude
+# @board px4fmu-v5 exclude
+#
 # @output MAIN1 motor 1
 # @output MAIN2 motor 2
 # @output MAIN3 motor 3
 # @output MAIN4 motor 4
-# @output MAIN5 feed-through of RC AUX1 channel
-# @output MAIN6 feed-through of RC AUX2 channel
-#
-# @output AUX1 feed-through of RC AUX1 channel
-# @output AUX2 feed-through of RC AUX2 channel
-# @output AUX3 feed-through of RC AUX3 channel
-# @output AUX4 feed-through of RC FLAPS channel
 #
 # @maintainer Jacob Dahl <jacob.dahl@tealdrones.com>
 # @maintainer Alex Klimaj <alex.klimaj@tealdrones.com>
@@ -23,12 +21,10 @@
 
 echo "Executing 4250_teal script."
 
-set VEHICLE_TYPE mc
-set MIXER quad_x
+sh /etc/init.d/4001_quad_x
 set MIXER_AUX none
-set PWM_OUT 1234
 
-if [ $AUTOCNF == yes ]
+if [ $AUTOCNF = yes ]
 then
 	# battery
 	param set BAT_CAPACITY 2750
@@ -89,7 +85,6 @@ then
 	param set GF_ACTION 1
 
 	# land detector
-	param set LNDMC_THR_RANGE 0.50
 	param set LNDMC_XY_VEL_MAX 1.0
 	param set LNDMC_ROT_MAX 50.0
 
@@ -175,5 +170,4 @@ then
 	# serial comms
 	param set SER_TEL2_BAUD 921600
 
-	param save
 fi
