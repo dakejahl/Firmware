@@ -221,7 +221,7 @@ def createTestNode(Map test_def) {
           }
 
           unstash('px4_sitl_package')
-          sh('tar -xjpvf build/posix_sitl_default/px4-posix_sitl_default*.bz2')            
+          sh('tar -xjpvf build/posix_sitl_default/px4-posix_sitl_default*.bz2')
 
           // run test
           try {
