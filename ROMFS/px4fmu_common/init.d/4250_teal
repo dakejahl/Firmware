@@ -62,6 +62,7 @@ then
 	param set CBRK_USB_CHK 197848
 
 	# commander
+	param set COM_DISARM_LAND 1
 	param set COM_LOW_BAT_ACT 3
 	param set COM_LOSS_LTR_T 20
 
@@ -170,7 +171,7 @@ then
 	# testing stuff
 	param set MPC_Z_VEL_P 0.25 # default 0.2
 	param set MPC_Z_P 0.85 # default 1.0
-	param set MPC_Z_VEL_D 0.0 # default 0.0
+	param set MPC_Z_VEL_D 0.02
 	param set MPC_Z_VEL_I 0.085 # default 0.02
 	param set COM_DISARM_LAND 0.1 # default -1 (disabled)
 
