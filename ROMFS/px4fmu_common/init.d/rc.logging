@@ -5,7 +5,7 @@
 #
 
 set LOGGER_ARGS ""
-set LOGGER_BUF  18
+set LOGGER_BUF  14
 
 if param greater UAVCAN_ENABLE 1
 then

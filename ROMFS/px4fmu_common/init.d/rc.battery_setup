@@ -3,173 +3,173 @@
 # Startup script for writing battery parameters for BQ40Z50 SMBus smart battery
 # Note that data values for write_flash are signed integers
 #
-usleep 100000
+batt_smbus suspend
 
-batt_smbus -X suspend
+# I added unseal() to the constructor of batt_smbus. I had to do this due to a failure condition which
+# stems from the fact we are not utilitizing the stm32f4 SMBus mode on the i2c controller. The problem is
+# the master does not ACK data from the slave, which causes the slave (bq40z50) to enter a weird state after
+# a read_word() causing a subsequent write_word() to fail quietly.
 
-usleep 100000
+# batt_smbus unseal
 
-batt_smbus -X unseal
-
-usleep 50000
+usleep 500000
 
 # "Settings","Configuration","Power Config"
-batt_smbus -X write_flash 18571 2 1 0
+batt_smbus write_flash 18571 2 1 0
 #echo "Wrote smart battery param - Power Config"
 # "Settings","Configuration","DA Configuration"
-batt_smbus -X write_flash 19069 2 19 0
+batt_smbus write_flash 19069 2 19 0
 #echo "Wrote smart battery param - DA Configuration"
 # "Settings","Configuration","IT Gauging Configuration"
-batt_smbus -X write_flash 18711 2 222 208
+batt_smbus write_flash 18711 2 222 208
 #echo "Wrote smart battery param - IT Gauging Configuration"
 
 # "Settings","Protection","Enabled Protections A"
-batt_smbus -X write_flash 18744 1 207
+batt_smbus write_flash 18744 1 207
 # "Settings","Protection","Enabled Protections B"
-batt_smbus -X write_flash 18745 1 63
+batt_smbus write_flash 18745 1 63
 # "Settings","Protection","Enabled Protections C"
-batt_smbus -X write_flash 18746 1 0
+batt_smbus write_flash 18746 1 0
 # "Settings","Protection","Enabled Protections D"
-batt_smbus -X write_flash 18747 1 15
+batt_smbus write_flash 18747 1 15
 
 # "Settings","AFE","AFE Protection Control"
-batt_smbus -X write_flash 19072 1 115
+batt_smbus write_flash 19072 1 115
 #echo "Wrote smart battery param - AFE Protection Control"
 # "Settings","Manufacturing","Mfg Status init"
-batt_smbus -X write_flash 17920 2 48 2
+batt_smbus write_flash 17920 2 48 2
 #echo "Wrote smart battery param - Mfg Status init"
 
 
 # "Power","Sleep","Bus Timeout"
-batt_smbus -X write_flash 18597 1 255
+batt_smbus write_flash 18597 1 255
 #echo "Wrote smart battery param - Bus Timeout"
 # "Power","Ship","Auto Ship Time"
-batt_smbus -X write_flash 18607 2 255 255
+batt_smbus write_flash 18607 2 255 255
 #echo "Wrote smart battery param - Auto Ship Time"
 
 
 # "SBS Configuration","Data","Specification Information"
-batt_smbus -X write_flash 18642 2 54 0
+batt_smbus write_flash 18642 2 54 0
 #echo "Wrote smart battery param - Specification Information"
 
 
 # "Protections","CUV","Threshold"
-batt_smbus -X write_flash 18748 2 128 12
+batt_smbus write_flash 18748 2 128 12
 #echo "Wrote smart battery param - CUV Threshold"
 # "Protections","CUV","Delay"
-batt_smbus -X write_flash 18750 1 6
+batt_smbus write_flash 18750 1 6
 #echo "Wrote smart battery param - CUV Delay"
 # "Protections","CUV","Recovery"
-batt_smbus -X write_flash 18751 2 72 13
+batt_smbus write_flash 18751 2 72 13
 #echo "Wrote smart battery param - CUV Recovery"
 
 # "Protections","CUVC","Threshold"
-batt_smbus -X write_flash 18753 2 96 9
+batt_smbus write_flash 18753 2 96 9
 #echo "Wrote smart battery param - CUV Threshold"
 # "Protections","CUVC","Delay"
-batt_smbus -X write_flash 18755 1 2
+batt_smbus write_flash 18755 1 2
 #echo "Wrote smart battery param - CUV Delay"
 # "Protections","CUVC","Recovery"
-batt_smbus -X write_flash 18756 2 184 11
+batt_smbus write_flash 18756 2 184 11
 #echo "Wrote smart battery param - CUV Recovery"
 
 # "Protections","COV","Threshold Low Temp"
-batt_smbus -X write_flash 18758 2 204 16
+batt_smbus write_flash 18758 2 204 16
 #echo "Wrote smart battery param - COV Threshold Low Temp"
 # "Protections","COV","Threshold Standard Temp Low"
-batt_smbus -X write_flash 18760 2 204 16
+batt_smbus write_flash 18760 2 204 16
 #echo "Wrote smart battery param - COV Threshold Standard Temp Low"
 # "Protections","COV","Threshold Standard Temp High"
-batt_smbus -X write_flash 18762 2 204 16
+batt_smbus write_flash 18762 2 204 16
 #echo "Wrote smart battery param - COV Threshold Standard Temp High"
 # "Protections","COV","Threshold High Temp"
-batt_smbus -X write_flash 18764 2 204 16
+batt_smbus write_flash 18764 2 204 16
 #echo "Wrote smart battery param - COV Threshold High Temp"
 # "Protections","COV","Threshold Rec Temp"
-batt_smbus -X write_flash 18766 2 204 16
+batt_smbus write_flash 18766 2 204 16
 #echo "Wrote smart battery param - COV Threshold Rec Temp"
 
 # "Protections","AOLD","Latch Limit"
-batt_smbus -X write_flash 18803 1 100
+batt_smbus write_flash 18803 1 100
 #echo "Wrote smart battery param - Latch Limit"
 # "Protections","AOLD","Counter Dec Delay"
-batt_smbus -X write_flash 18804 1 1
+batt_smbus write_flash 18804 1 1
 #echo "Wrote smart battery param - Counter Dec Delay"
 # "Protections","AOLD","Recovery"
-batt_smbus -X write_flash 18805 1 15
+batt_smbus write_flash 18805 1 15
 #echo "Wrote smart battery param - AOLD Recovery"
 # "Protections","AOLD","Reset"
-batt_smbus -X write_flash 18806 1 15
+batt_smbus write_flash 18806 1 15
 #echo "Wrote smart battery param - AOLD Reset"
 # "Protections","AOLD","Threshold"
-batt_smbus -X write_flash 19073 1 207
+batt_smbus write_flash 19073 1 207
 #echo "Wrote smart battery param - AOLD Threshold"
 
 # "Protections","ASCD","Latch Limit"
-batt_smbus -X write_flash 18811 1 10
+batt_smbus write_flash 18811 1 10
 #echo "Wrote smart battery param - ASCD Latch Limit"
 # "Protections","ASCD","Counter Dec Delay"
-batt_smbus -X write_flash 18812 1 1
+batt_smbus write_flash 18812 1 1
 #echo "Wrote smart battery param - ASCD Counter Dec Delay"
 # "Protections","ASCD","Recovery"
-batt_smbus -X write_flash 18813 1 15
+batt_smbus write_flash 18813 1 15
 #echo "Wrote smart battery param - ASCD Recovery"
 # "Protections","ASCD","Reset"
-batt_smbus -X write_flash 18814 1 15
+batt_smbus write_flash 18814 1 15
 #echo "Wrote smart battery param - ASCD Reset"
 
 # "Protections","ASCD","Threshold 1"
-batt_smbus -X write_flash 19075 1 52
+batt_smbus write_flash 19075 1 52
 #echo "Wrote smart battery param - ASCD Threshold 1"
 # "Protections","ASCD","Threshold 2"
-batt_smbus -X write_flash 19076 1 21
+batt_smbus write_flash 19076 1 21
 #echo "Wrote smart battery param - ASCD Threshold 2"
 
 # "Protections","OTD","Threshold"
-batt_smbus -X write_flash 18820 2 48 14
+batt_smbus write_flash 18820 2 48 14
 #echo "Wrote smart battery param - OTD Threshold"
 # "Protections","OTD","Delay"
-batt_smbus -X write_flash 18822 1 2
+batt_smbus write_flash 18822 1 2
 #echo "Wrote smart battery param - OTD Delay"
 # "Protections","OTD","Recovery"
-batt_smbus -X write_flash 18823 2 254 13
+batt_smbus write_flash 18823 2 254 13
 #echo "Wrote smart battery param - OTD Recovery"
 
 
 # "Gas Gauging","IT Cfg","Term Min Cell V"
-batt_smbus -X write_flash 18511 2 240 10
+batt_smbus write_flash 18511 2 240 10
 #echo "Wrote smart battery param - Term Min Cell V"
 # "Gas Gauging","IT Cfg","Term Voltage"
-batt_smbus -X write_flash 18506 2 0 50
+batt_smbus write_flash 18506 2 0 50
 #echo "Wrote smart battery param - Term Voltage"
 # "Gas Gauging","IT Cfg","Term Voltage Delta"
-batt_smbus -X write_flash 18509 2 100 0
+batt_smbus write_flash 18509 2 100 0
 #echo "Wrote smart battery param - Term Voltage Delta"
 # "Gas Gauging","IT Cfg","Reference Grid"
-batt_smbus -X write_flash 18451 1 4
+batt_smbus write_flash 18451 1 4
 #echo "Wrote smart battery param - Reference Grid"
 # "Gas Gauging","IT Cfg","Reserve Cap-mAh"
-batt_smbus -X write_flash 18724 2 150 0
+batt_smbus write_flash 18724 2 150 0
 #echo "Wrote smart battery param - Reserve Cap-mAh"
 # "Gas Gauging","IT Cfg","Load Select"
-batt_smbus -X write_flash 18717 1 1
+batt_smbus write_flash 18717 1 1
 #echo "Wrote smart battery param - Load Select"
 # "Gas Gauging","IT Cfg","Fast Scale Load Select"
-batt_smbus -X write_flash 18718 1 1
+batt_smbus write_flash 18718 1 1
 #echo "Wrote smart battery param - Fast Scale Load Select"
 # "Gas Gauging","Current Thresholds","Chg Current Threshold"
-batt_smbus -X write_flash 19083 2 44 1
+batt_smbus write_flash 19083 2 44 1
 #echo "Wrote smart battery param - Chg Current Threshold"
 # "Gas Gauging","SOH","SOH Load Rate"
-batt_smbus -X write_flash 18553 1 2
+batt_smbus write_flash 18553 1 2
 #echo "Wrote smart battery param - SOH Load Rate"
 
 usleep 100000
 
-batt_smbus -X seal
+# batt_smbus seal
+echo "Wrote smart battery parameters."
 
 usleep 100000
 
-batt_smbus -X resume
-
-echo "Battery settings written!"
+batt_smbus resume
