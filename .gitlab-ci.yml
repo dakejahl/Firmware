@@ -53,14 +53,14 @@ create-and-deploy-px4-tse:
         paths:
             - "*.tse.jsq"
 
-update-teal-software-verison-file:
-    stage: update-tsvf
-    only:
-        - dev
-        - test
-        # - master
-        # - ci
-    tags:
-        - deploy
-    script:
-        - .gitlab-scripts/update-software-version-file
+# update-teal-software-verison-file:
+#     stage: update-tsvf
+#     only:
+#         - dev
+#         - test
+#         # - master
+#         # - ci
+#     tags:
+#         - deploy
+#     script:
+#         - .gitlab-scripts/update-software-version-file
