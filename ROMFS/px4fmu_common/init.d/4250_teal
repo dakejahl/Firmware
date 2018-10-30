@@ -174,4 +174,7 @@ then
 	param set SENS_EN_PGA460 1
 	param set SENS_EN_THERMAL 1
 
+	# testing mag type settings
+	param set EKF2_MAG_TYPE 1
+
 fi
