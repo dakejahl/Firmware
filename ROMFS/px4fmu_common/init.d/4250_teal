@@ -62,6 +62,7 @@ then
 
 	# ekf2
 	param set EKF2_AID_MASK 1
+	param set EKF2_MAG_TYPE 1
 	param set EKF2_GPS_CHECK 511
 	param set EKF2_GPS_POS_X -0.04
 	param set EKF2_IMU_POS_X -0.06
@@ -173,8 +174,5 @@ then
 	# sensors
 	param set SENS_EN_PGA460 1
 	param set SENS_EN_THERMAL 1
-
-	# testing mag type settings
-	param set EKF2_MAG_TYPE 1
 
 fi
