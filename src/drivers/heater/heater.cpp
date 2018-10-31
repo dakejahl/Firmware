@@ -150,7 +150,7 @@ void Heater::cycle()
 		return;
 	}
 
-	int _controller_time_on_usec = 0;
+	int controller_time_on_usec = 0;
 
 	if (_heater_on) {
 		// Turn the heater off.
@@ -167,6 +167,8 @@ void Heater::cycle()
 	} else {
 		update_params(false);
 
+		//	PX4_INFO("wtf");
+
 		orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel);
 
 		// Obtain the current IMU sensor temperature.
@@ -182,14 +184,14 @@ void Heater::cycle()
 		// Constrain the integrator value to no more than 25% of the duty cycle.
 		_integrator_value = math::constrain(_integrator_value, -0.25f, 0.25f);
 
-		_controller_time_on_usec = (int)((_p_feed_forward_value.get() + _proportional_value +
-						  _integrator_value) * (float)_controller_period_usec);
-
-		// Constrain the heater time within the allowable duty cycle.
-		_controller_time_on_usec = math::constrain(_controller_period_usec, 0, _controller_time_on_usec);
+		controller_time_on_usec = (int)((_p_feed_forward_value.get() + _proportional_value +
+						 _integrator_value) * (float)_controller_period_usec);
 
 		// Filter the duty cycle value over a ~2 second time constant.
-		_duty_cycle = (0.05f * ((float)_controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
+		_duty_cycle = (0.05f * ((float)controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
+
+		// Constrain the heater time within the allowable duty cycle.
+		controller_time_on_usec = math::constrain(controller_time_on_usec, 0, _controller_period_usec);
 
 		// Turn the heater on.
 		_heater_on = true;
@@ -197,15 +199,16 @@ void Heater::cycle()
 		px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 1);
 	}
 
+	//PX4_INFO("scheduling for %d", controller_time_on_usec);
 
 	// Schedule the next cycle.
 	if (_heater_on) {
 		work_queue(LPWORK, &_work, (worker_t)&Heater::cycle_trampoline, this,
-			   USEC2TICK(_controller_time_on_usec));
+			   USEC2TICK(controller_time_on_usec));
 
 	} else {
 		work_queue(LPWORK, &_work, (worker_t)&Heater::cycle_trampoline, this,
-			   USEC2TICK(_controller_period_usec - _controller_time_on_usec));
+			   USEC2TICK(_controller_period_usec - controller_time_on_usec));
 	}
 }
 
