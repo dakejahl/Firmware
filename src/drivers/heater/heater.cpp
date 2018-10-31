@@ -167,8 +167,6 @@ void Heater::cycle()
 	} else {
 		update_params(false);
 
-		//	PX4_INFO("wtf");
-
 		orb_update(ORB_ID(sensor_accel), _sensor_accel_sub, &_sensor_accel);
 
 		// Obtain the current IMU sensor temperature.
@@ -187,19 +185,17 @@ void Heater::cycle()
 		controller_time_on_usec = (int)((_p_feed_forward_value.get() + _proportional_value +
 						 _integrator_value) * (float)_controller_period_usec);
 
-		// Filter the duty cycle value over a ~2 second time constant.
-		_duty_cycle = (0.05f * ((float)controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
-
 		// Constrain the heater time within the allowable duty cycle.
 		controller_time_on_usec = math::constrain(controller_time_on_usec, 0, _controller_period_usec);
+
+		// Filter the duty cycle value over a ~2 second time constant.
+		_duty_cycle = (0.05f * ((float)controller_time_on_usec / (float)_controller_period_usec)) + (0.95f * _duty_cycle);
 
 		// Turn the heater on.
 		_heater_on = true;
 
 		px4_arch_gpiowrite(GPIO_HEATER_OUTPUT, 1);
 	}
-
-	//PX4_INFO("scheduling for %d", controller_time_on_usec);
 
 	// Schedule the next cycle.
 	if (_heater_on) {
