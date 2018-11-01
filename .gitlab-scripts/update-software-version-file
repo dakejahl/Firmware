@@ -16,13 +16,25 @@ if [ -z $asset_name]; then
     exit 1
 fi
 
+# Get tag name.
+tag="$CI_COMMIT_TAG"
+if [[ -z $tag ]]; then
+    echo "Error. No tag found."
+    exit 1
+else
+    echo "Tag found: $tag"
+fi
+
+# Populate the update-tsv-file arguments.
 asset_filepath="${project_root}/${asset_name}"
 asset_md5=$(md5sum $asset_filepath | awk '{print $1}')
-asset_version=$(echo $asset_name | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
+asset_version=$(echo $tag | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
 asset_url_dev="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/unstable/${asset_name}"
 asset_url_test="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/stable/${asset_name}"
 asset_url_master="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/production/${asset_name}"
 # asset_requirements="{"Versions":}"
+
+# Perform the TSVF updates.
 python3 $working_dir/update-tsv-file $version_file_url_dev $asset_filepath $asset_md5 $asset_version $asset_url_dev "None" || exit $?
 python3 $working_dir/update-tsv-file $version_file_url_test $asset_filepath $asset_md5 $asset_version $asset_url_test "None" || exit $?
 python3 $working_dir/update-tsv-file $version_file_url_master $asset_filepath $asset_md5 $asset_version $asset_url_master "None" || exit $?

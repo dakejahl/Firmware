@@ -2,14 +2,16 @@
 project_root="${CI_PROJECT_DIR}"
 working_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-# Get version from version file.
-version_file_path="$working_dir/version"
-if [ -f "$version_file_path" ]; then
-    version=$(cat $version_file_path)
-else
-    echo "Could not read version file at $working_dir/version."
+# Get the version from the tag name.
+tag="$CI_COMMIT_TAG"
+if [[ -z $tag ]]; then
+    echo "Error. No tag found."
     exit 1
+else
+    echo "Tag found: $tag"
 fi
+
+version=$(echo $tag | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
 
 # Add (and rename) the px4 binary to the payload directory.
 px4_bin_path="${project_root}/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4"
