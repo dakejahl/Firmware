@@ -53,7 +53,7 @@ payload = {
 }
 
 # Add requirements if they exist.
-if(requirements == None):
+if(requirements != None):
     payload['Requirements'] = [requirements]
 
 # Send the post request.

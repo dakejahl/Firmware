@@ -11,8 +11,6 @@ else
     exit 1
 fi
 
-branch="$CI_COMMIT_REF_NAME"
-
 # Add (and rename) the px4 binary to the payload directory.
 px4_bin_path="${project_root}/build/nuttx_px4fmu-v4_default/px4fmu-v4_default.px4"
 rsync -aPvz $px4_bin_path $working_dir/payload/v${version}.px4 || exit 1
@@ -20,8 +18,12 @@ rsync -aPvz $px4_bin_path $working_dir/payload/v${version}.px4 || exit 1
 # Generate TSE file.
 $working_dir/TealSEI/generateTSEGitLab $working_dir/payload Teal-PX4-"${version}" || exit 1
 
-# Deploy the TSE file.
-$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 $branch || exit 1
+# Deploy the TSE file to dev, test, and master S3 bucket.
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 dev || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 test || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $(ls *.tse.jsq) TealPX4 master || exit 1
 
-# Deploy the .px4 file.
-$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $working_dir/payload/v${version}.px4 TealPX4 $branch || exit 1
+# Deploy the .px4 file to dev, test, and master S3 bucket.
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $working_dir/payload/v${version}.px4 TealPX4 dev || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $working_dir/payload/v${version}.px4 TealPX4 test || exit 1
+$working_dir/SharedGitLabUtilities/deploy-artifact-to-s3 $working_dir/payload/v${version}.px4 TealPX4 master || exit 1
