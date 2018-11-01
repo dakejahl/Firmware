@@ -11,7 +11,7 @@ version_file_url_test="http://version.tealdrones.com/tealone/teal-software-versi
 version_file_url_master="http://version.tealdrones.com/tealone/teal-software-versions-pre-master.json/"
 
 asset_name=$(ls $project_root | grep -e ".*.tse.jsq")
-if [ -z $asset_name]; then
+if [[ -z $asset_name ]]; then
     echo "No TSE files found in the project root."
     exit 1
 fi

@@ -33,7 +33,7 @@ print("assetURL: {}".format(assetURL))
 
 # Setting a requirement is optional
 requirements = sys.argv[6]
-if(requirements == None or requirements == ""):
+if(requirements == "None" or requirements == ""):
     requirements = None
 print("requirements: {}".format(requirements))
 
@@ -63,3 +63,6 @@ print("<===== RESPONSE =====>")
 print("Response History: {}".format(str(response.history)))
 print("Response Status Code: {}".format(str(response.status_code)))
 print("Response: {}".format(str(response.text)))
+
+if(response.status_code != 200):
+    exit(response.status_code)
