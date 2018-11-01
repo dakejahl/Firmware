@@ -151,7 +151,7 @@ then
 	param set MPC_Z_VEL_P 0.25 # default 0.2
 	param set MPC_Z_VEL_I 0.085 # default 0.02
 	param set MPC_Z_VEL_D 0.02 # default 0.0
-	param set MPC_Z_VEL_MAX_UP 20.0 # Documentation says limit is 8.0, but does not seem to be enforced in code. Set high for "Blast Off".
+	param set MPC_Z_VEL_MAX_UP 20.0 # Documentation says limit is 8.0, but does not seem to be enforced in code. Set high for Blast Off.
 	param set MPC_Z_VEL_MAX_DN 2.5 # Probably could go lower than 2.5.
 	#### CONTROLLER ### 
 
