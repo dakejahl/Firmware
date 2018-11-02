@@ -3,35 +3,38 @@
 # @author Darin Stoker
 # @date 8/22/18
 
-PROJECT_ROOT="${CI_PROJECT_DIR}"
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+project_root="${CI_PROJECT_DIR}"
+working_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 
-# Set up parameters for update-tsv-file
-BRANCH="$CI_COMMIT_REF_NAME"
+version_file_url_dev="http://version.tealdrones.com/tealone/teal-software-versions-dev.json/"
+version_file_url_test="http://version.tealdrones.com/tealone/teal-software-versions-test.json/"
+version_file_url_master="http://version.tealdrones.com/tealone/teal-software-versions-pre-master.json/"
 
-if [[ "$BRANCH" = "dev" || "$BRANCH" = "ci" ]]; then
-    BRANCH="dev"
-    SUBFOLDER="unstable"
-elif [[ "$BRANCH" = "test" ]]; then
-    SUBFOLDER="stable"
-elif [[ "$BRANCH" = "master" ]]; then
-    SUBFOLDER="production"
-else
-    echo "Error. Should only run on dev, test, or master branches."
-    exit 1
-fi
-
-VERSION_FILE_URL="http://version.tealdrones.com/tealone/teal-software-versions-${BRANCH}.json/"
-
-ASSET_NAME=$(ls $PROJECT_ROOT | grep -e ".*.tse.jsq")
-if [ -z $ASSET_NAME]; then
+asset_name=$(ls $project_root | grep -e ".*.tse.jsq")
+if [[ -z $asset_name ]]; then
     echo "No TSE files found in the project root."
     exit 1
 fi
 
-ASSET_FILEPATH="${PROJECT_ROOT}/${ASSET_NAME}"
-ASSET_MD5=$(md5sum $ASSET_FILEPATH | awk '{print $1}')
-ASSET_VERSION=$(echo $ASSET_NAME | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
-ASSET_URL="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/${SUBFOLDER}/${ASSET_NAME}"
-# ASSET_REQUIREMENTS="{"Versions":}"
-python3 $SCRIPT_DIR/update-tsv-file $VERSION_FILE_URL $ASSET_FILEPATH $ASSET_MD5 $ASSET_VERSION $ASSET_URL $ASSET_REQUIREMENTS "None" || exit $?
+# Get the version from the tag name.
+tag="$CI_COMMIT_TAG"
+if [[ -z $tag ]]; then
+    echo "Error. No tag found."
+    exit 1
+else
+    echo "Tag found: $tag"
+fi
+
+# Populate the update-tsv-file arguments.
+asset_filepath="${project_root}/${asset_name}"
+asset_md5=$(md5sum $asset_filepath | awk '{print $1}')
+asset_version=$(echo $tag | grep -Eio "[0-9]+\.[0-9]+\.[0-9]+")
+asset_url_dev="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/unstable/${asset_name}"
+asset_url_test="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/stable/${asset_name}"
+asset_url_master="https://s3.amazonaws.com/version.tealdrones.com/TealPX4/production/${asset_name}"
+# asset_requirements="{"Versions":}"
+
+# Perform the TSVF updates.
+python3 $working_dir/update-tsv-file $version_file_url_dev $asset_filepath $asset_md5 $asset_version $asset_url_dev "None" || exit $?
+python3 $working_dir/update-tsv-file $version_file_url_test $asset_filepath $asset_md5 $asset_version $asset_url_test "None" || exit $?
+python3 $working_dir/update-tsv-file $version_file_url_master $asset_filepath $asset_md5 $asset_version $asset_url_master "None" || exit $?
