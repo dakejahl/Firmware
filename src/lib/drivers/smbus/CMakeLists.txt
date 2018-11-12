@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,14 +30,5 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-px4_add_module(
-	MODULE drivers__batt_smbus
-	MAIN batt_smbus
-	STACK_MAIN 1100
-	COMPILE_FLAGS
-	SRCS
-		batt_smbus.cpp
 
-	DEPENDS
-		drivers__smbus
-	)
+px4_add_library(drivers__smbus SMBus.cpp)
