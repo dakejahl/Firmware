@@ -914,11 +914,25 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 		/* yawrate ignore flag mapps to ignore_bodyrate */
 		offboard_control_mode.ignore_bodyrate = (bool)(set_position_target_local_ned.type_mask & 0x800);
 
+		// area17:
+		//  The handling of the type_mask has a collision that makes loiter override takeoff and land.
+		//  Consequently in the logic below, since loiter mode is the first check and is true for any
+		//  message with type_mask 0x1000, 0x2000 or 0x3000, the setpoint type can not enter takeoff or
+		//  land from within this mode.
+		//  A comment in https://github.com/PX4/Firmware/issues/9273 suggested checking if the leading
+		//  four bits are exactly identical.
 
-		bool is_takeoff_sp = (bool)(set_position_target_local_ned.type_mask & 0x1000);
-		bool is_land_sp = (bool)(set_position_target_local_ned.type_mask & 0x2000);
-		bool is_loiter_sp = (bool)(set_position_target_local_ned.type_mask & 0x3000);
-		bool is_idle_sp = (bool)(set_position_target_local_ned.type_mask & 0x4000);
+		// v1.8.0 logic
+		// bool is_takeoff_sp = (bool)(set_position_target_local_ned.type_mask & 0x1000);
+		// bool is_land_sp = (bool)(set_position_target_local_ned.type_mask & 0x2000);
+		// bool is_loiter_sp = (bool)(set_position_target_local_ned.type_mask & 0x3000);
+		// bool is_idle_sp = (bool)(set_position_target_local_ned.type_mask & 0x4000);
+
+		// area17 logic (explicit check from https://github.com/PX4/Firmware/issues/9273)
+		bool is_takeoff_sp = !(bool)((set_position_target_local_ned.type_mask & 0xf000)^0x1000);
+		bool is_land_sp = !(bool)((set_position_target_local_ned.type_mask & 0xf000)^0x2000);
+		bool is_loiter_sp = !(bool)((set_position_target_local_ned.type_mask & 0xf000)^0x3000);
+		bool is_idle_sp = !(bool)((set_position_target_local_ned.type_mask & 0xf000)^0x4000);
 
 		offboard_control_mode.timestamp = hrt_absolute_time();
 

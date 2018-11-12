@@ -878,9 +878,22 @@ MulticopterPositionControl::in_auto_takeoff()
 	/*
 	 * in auto mode, check if we do a takeoff
 	 */
-	return (_pos_sp_triplet.current.valid &&
-		_pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) ||
-	       _control_mode.flag_control_offboard_enabled;
+	// area17: The current landing logic depends on this function returning false in order to reduce
+	//         thrust to a point where the landing detector can see a low thrust event. Area17
+	//         operates in offboard mode at all times for automated flight, meaning this function
+	//         without modification will always return true. This manifests itself in the drone
+	//         reaching the ground, but being stuck in ground effect and never disarming. A bug has
+	//         been open on px4 https://github.com/PX4/Firmware/issues/7980 and is mentioned in
+	//         https://github.com/PX4/Firmware/issues/9273
+	// v1.8.0 logic
+	// return (_pos_sp_triplet.current.valid &&
+	//      _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) ||
+	//        _control_mode.flag_control_offboard_enabled;
+	// area17 logic (return false if in offboard and setpoint type is land)
+  return (_pos_sp_triplet.current.valid &&
+       _pos_sp_triplet.current.type == position_setpoint_s::SETPOINT_TYPE_TAKEOFF) ||
+       (_control_mode.flag_control_offboard_enabled && _pos_sp_triplet.current.valid &&
+			 _pos_sp_triplet.current.type != position_setpoint_s::SETPOINT_TYPE_LAND);
 }
 
 float
