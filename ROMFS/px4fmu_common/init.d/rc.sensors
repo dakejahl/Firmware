@@ -229,6 +229,9 @@ then
 		# BMI160 internal SPI bus
 		bmi160 start
 	fi
+
+	heater start
+	batt_smbus start
 fi
 
 if ver hwcmp MINDPX_V2
