@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,46 +30,37 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
+
 /**
- * @file pipe_protocol.cpp
- *
- * @author Julian Oes <julian@oes.ch>
- * @author Beat Küng <beat-kueng@gmx.net>
+ * @file FlightTaskTranstion.cpp
  */
 
-#include <stdint.h>
-#include <stdio.h>
-#include <inttypes.h>
+#include "FlightTaskTransition.hpp"
 
-#include "pipe_protocol.h"
-
-static const char CLIENT_SEND_PIPE_PATH[] = "/tmp/px4_client_send_pipe-";
-static const char CLIENT_RECV_PIPE_PATH[] = "/tmp/px4_client_recv_pipe";
-
-
-namespace px4_daemon
+bool FlightTaskTransition::updateInitialize()
 {
-
-
-unsigned get_client_send_packet_length(const client_send_packet_s *packet)
-{
-	return sizeof(client_send_packet_s) - sizeof(packet->payload) + packet->header.payload_length;
+	return FlightTask::updateInitialize();
 }
 
-unsigned get_client_recv_packet_length(const client_recv_packet_s *packet)
+bool FlightTaskTransition::activate()
 {
-	return sizeof(client_recv_packet_s) - sizeof(packet->payload) + packet->header.payload_length;
+	// transition at the current altitude and current yaw at the time of activation
+	// it would be better to use the last setpoint from the previous running flighttask but that interface
+	// is not available
+	_transition_altitude = _position(2);
+	_transition_yaw = _yaw;
+	return FlightTask::activate();
 }
 
-int get_client_recv_pipe_path(const uint64_t uuid, char *path, const size_t path_len)
+bool FlightTaskTransition::update()
 {
-	return snprintf(path, path_len, "%s-%016" PRIx64, CLIENT_RECV_PIPE_PATH, uuid);
+	// level wings during the transition, altitude should be controlled
+	_thrust_setpoint(0) = _thrust_setpoint(1) = 0.0f;
+	_thrust_setpoint(2) = NAN;
+	_position_setpoint *= NAN;
+	_velocity_setpoint *= NAN;
+	_position_setpoint(2) = _transition_altitude;
+
+	_yaw_setpoint = _transition_yaw;
+	return true;
 }
-
-std::string get_client_send_pipe_path(int instance_id)
-{
-	return std::string(CLIENT_SEND_PIPE_PATH) + std::to_string(instance_id);
-}
-
-} // namespace px4_daemon
-

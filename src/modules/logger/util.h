@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2016 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,70 +30,60 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-/**
- * @file pipe_protocol.h
- *
- * @author Julian Oes <julian@oes.ch>
- * @author Beat Küng <beat-kueng@gmx.net>
- */
+
 #pragma once
 
 #include <stdint.h>
-#include <string>
+#include <time.h>
 
-namespace px4_daemon
+#include <uORB/uORB.h>
+
+#ifdef __PX4_NUTTX
+#define LOG_DIR_LEN 64
+#else
+#define LOG_DIR_LEN 256
+#endif
+
+namespace px4
+{
+namespace logger
+{
+namespace util
 {
 
-static const unsigned RECV_PIPE_PATH_LEN = 64;
+/**
+ * Recursively remove a directory
+ * @return 0 on success, <0 otherwise
+ */
+int remove_directory(const char *dir);
 
-// The packet size is no more than 512 bytes, because that is the minimum guaranteed size
-// for a pipe to avoid interleaving of messages when multiple clients write at the same time
-// (atomic writes).
-struct client_send_packet_s {
-	struct message_header_s {
-		uint64_t client_uuid;
-		enum class e_msg_id : int {
-			EXECUTE,
-			KILL
-		} msg_id;
-		unsigned payload_length;
-	} header;
+/**
+ * check if a file exists
+ */
+bool file_exist(const char *filename);
 
-	union {
-		struct execute_msg_s {
-			uint8_t is_atty;
-			uint8_t cmd[512 - sizeof(message_header_s) - sizeof(uint8_t)];
-		} execute_msg;
-		struct kill_msg_s {
-			int cmd_id;
-		} kill_msg;
-	} payload;
-};
+/**
+ * Check if there is enough free space left on the SD Card.
+ * It will remove old log files if there is not enough space,
+ * and if that fails return 1, and send a user message
+ * @param log_root_dir log root directory: it's expected to contain directories in the form of sess%i or %d-%d-%d (year, month, day)
+ * @param max_log_dirs_to_keep maximum log directories to keep (set to 0 for unlimited)
+ * @param mavlink_log_pub
+ * @param sess_dir_index output argument: will be set to the next free directory sess%i index.
+ * @return 0 on success, 1 if not enough space, <0 on error
+ */
+int check_free_space(const char *log_root_dir, int32_t max_log_dirs_to_keep, orb_advert_t &mavlink_log_pub,
+		     int &sess_dir_index);
 
-// We have per client receiver a pipe with the uuid in its file path.
-struct client_recv_packet_s {
-	struct message_header_s {
-		enum class e_msg_id : int {
-			RETVAL,
-			STDOUT
-		} msg_id;
-		unsigned payload_length;
-	} header;
+/**
+ * Get the time for log file name
+ * @param tt returned time
+ * @param utc_offset_sec UTC time offset [s]
+ * @param boot_time use time when booted instead of current time
+ * @return true on success, false otherwise (eg. if no gps)
+ */
+bool get_log_time(struct tm *tt, int utc_offset_sec = 0, bool boot_time = false);
 
-	union {
-		struct retval_msg_s {
-			int retval;
-		} retval_msg;
-		struct stdout_msg_s {
-			uint8_t text[512 - sizeof(message_header_s)]; ///< null-terminated string (payload_length includes the null)
-		} stdout_msg;
-	} payload;
-};
-
-unsigned get_client_send_packet_length(const client_send_packet_s *packet);
-unsigned get_client_recv_packet_length(const client_recv_packet_s *packet);
-int get_client_recv_pipe_path(const uint64_t uuid, char *path, const size_t path_len);
-std::string get_client_send_pipe_path(int instance_id);
-
-} // namespace px4_daemon
-
+} //namespace util
+} //namespace logger
+} //namespace px4

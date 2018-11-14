@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (C) 2013 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2018 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,31 +30,22 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
-
 /**
- * @file PX4Flow driver interface.
- */
-
-#ifndef _DRV_PX4FLOW_H
-#define _DRV_PX4FLOW_H
-
-#include <stdint.h>
-#include <sys/ioctl.h>
-
-#include "drv_sensor.h"
-#include "drv_orb_dev.h"
-
-#define PX4FLOW0_DEVICE_PATH	"/dev/px4flow0"
-
-/*
- * ioctl() definitions
+ * @file sock_protocol.cpp
  *
- * px4flow drivers also implement the generic sensor driver
- * interfaces from drv_sensor.h
+ * @author Mara Bos <m-ou.se@m-ou.se>
  */
 
-#define _PX4FLOWIOCBASE			(0x7700)
-#define __PX4FLOWIOC(_n)		(_IOC(_PX4FLOWIOCBASE, _n))
+#include "sock_protocol.h"
 
+namespace px4_daemon
+{
 
-#endif /* _DRV_PX4FLOW_H */
+std::string get_socket_path(int instance_id)
+{
+	// TODO: Use /var/run/px4/$instance/sock (or /var/run/user/$UID/... for non-root).
+	return "/tmp/px4-sock-" + std::to_string(instance_id);
+}
+
+} // namespace px4_daemon
+
