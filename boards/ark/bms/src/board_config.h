@@ -154,6 +154,7 @@
 #endif /* CONFIG_STM32_SPI4 */
 
 /* I2C busses. */
+#define PX4_NUMBER_I2C_BUSES		 1
 #define PX4_I2C_BUS_EXPANSION        1
 #define PX4_I2C_BUS_LED              PX4_I2C_BUS_EXPANSION
 

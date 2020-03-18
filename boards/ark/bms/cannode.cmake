@@ -34,6 +34,7 @@ px4_add_board(
 		adc
 		barometer/ms5611
 		bootloaders
+		differential_pressure
 		gps
 		imu/mpu9250
 		uavcannode
