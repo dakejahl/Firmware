@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,20 +31,27 @@
  *
  ****************************************************************************/
 
-#include "flow.hpp"
+/**
+ * @author Jacob Crabill <jacob@flyvoly.com>
+ */
 
+#include "airspeed.hpp"
+
+#include <drivers/drv_airspeed.h>
 #include <drivers/drv_hrt.h>
+#include <lib/ecl/geo/geo.h>
+#include <systemlib/err.h>
 
-const char *const UavcanFlowBridge::NAME = "flow";
+const char *const UavcanAirspeedBridge::NAME = "airspeed";
 
-UavcanFlowBridge::UavcanFlowBridge(uavcan::INode &node) :
-	UavcanCDevSensorBridgeBase("uavcan_flow", "/dev/uavcan/flow", "/dev/flow", ORB_ID(optical_flow)),
-	_sub_flow(node)
+UavcanAirspeedBridge::UavcanAirspeedBridge(uavcan::INode &node) :
+	UavcanCDevSensorBridgeBase("uavcan_airspeed", "/dev/uavcan/airspeed", AIRSPEED_BASE_DEVICE_PATH,
+				   ORB_ID(differential_pressure)),
+	_sub_air(node)
 {
 }
 
-int
-UavcanFlowBridge::init()
+int UavcanAirspeedBridge::init()
 {
 	int res = device::CDev::init();
 
@@ -52,7 +59,7 @@ UavcanFlowBridge::init()
 		return res;
 	}
 
-	res = _sub_flow.start(FlowCbBinder(this, &UavcanFlowBridge::flow_sub_cb));
+	res = _sub_air.start(AirCbBinder(this, &UavcanAirspeedBridge::air_sub_cb));
 
 	if (res < 0) {
 		DEVICE_LOG("failed to start uavcan sub: %d", res);
@@ -62,26 +69,40 @@ UavcanFlowBridge::init()
 	return 0;
 }
 
-void
-UavcanFlowBridge::flow_sub_cb(const uavcan::ReceivedDataStructure<com::hex::equipment::flow::Measurement> &msg)
+int UavcanAirspeedBridge::ioctl(struct file *filp, int cmd, unsigned long arg)
 {
-	optical_flow_s flow{};
+	switch (cmd) {
 
-	// We're only given an 8 bit field for sensor ID; just use the UAVCAN node ID
-	flow.sensor_id = (uint8_t)(msg.getSrcNodeID().get() & 0xFF);
+	case AIRSPEEDIOCSSCALE: {
+			struct airspeed_scale *s = (struct airspeed_scale *)arg;
+			_diff_pres_offset = s->offset_pa;
+			return PX4_OK;
+		}
 
-	flow.timestamp = hrt_absolute_time();
-	flow.integration_timespan = 1.e6f * msg.integration_interval; // s -> micros
-	flow.pixel_flow_x_integral = msg.flow_integral[0];
-	flow.pixel_flow_y_integral = msg.flow_integral[1];
+	default: {
+			return CDev::ioctl(filp, cmd, arg);
+		}
+	}
+}
 
-	flow.gyro_x_rate_integral = msg.rate_gyro_integral[0];
-	flow.gyro_y_rate_integral = msg.rate_gyro_integral[1];
+void UavcanAirspeedBridge::air_sub_cb(const
+				      uavcan::ReceivedDataStructure<uavcan::equipment::air_data::RawAirData>
+				      &msg)
+{
+	_device_id.devid_s.devtype = DRV_DIFF_PRESS_DEVTYPE_UAVCAN;
+	_device_id.devid_s.address = msg.getSrcNodeID().get() & 0xFF;
 
-	flow.quality = msg.quality;
-	flow.max_flow_rate = 5.0f;       // Datasheet: 7.4 rad/s
-	flow.min_ground_distance = 0.1f; // Datasheet: 80mm
-	flow.max_ground_distance = 30.0f; // Datasheet: infinity
+	float diff_press_pa = msg.differential_pressure;
+	float temperature_c = msg.static_air_temperature + CONSTANTS_ABSOLUTE_NULL_CELSIUS;
 
-	publish(msg.getSrcNodeID().get(), &flow);
+	differential_pressure_s report = {
+		.timestamp = hrt_absolute_time(),
+		.error_count = 0,
+		.differential_pressure_raw_pa = diff_press_pa - _diff_pres_offset,
+		.differential_pressure_filtered_pa = _filter.apply(diff_press_pa) - _diff_pres_offset, /// TODO: Create filter
+		.temperature = temperature_c,
+		.device_id = _device_id.devid
+	};
+
+	publish(msg.getSrcNodeID().get(), &report);
 }

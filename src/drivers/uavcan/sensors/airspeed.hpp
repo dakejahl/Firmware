@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2018 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,50 +31,44 @@
  *
  ****************************************************************************/
 
+/**
+ * @author Jacob Crabill <jacob@flyvoly.com>
+ */
+
 #pragma once
 
-#include <drivers/drv_mag.h>
-#include <drivers/drv_hrt.h>
-#include <lib/cdev/CDev.hpp>
-#include <lib/conversion/rotation.h>
 #include <uORB/uORB.h>
-#include <uORB/PublicationMulti.hpp>
-#include <uORB/topics/sensor_mag.h>
+#include <uORB/topics/differential_pressure.h>
+#include <mathlib/math/filter/LowPassFilter2p.hpp>
 
-class PX4Magnetometer : public cdev::CDev
+#include "sensor_bridge.hpp"
+
+#include <uavcan/equipment/air_data/RawAirData.hpp>
+
+class UavcanAirspeedBridge : public UavcanCDevSensorBridgeBase
 {
-
 public:
-	PX4Magnetometer(uint32_t device_id, uint8_t priority = ORB_PRIO_DEFAULT, enum Rotation rotation = ROTATION_NONE);
-	~PX4Magnetometer() override;
+	static const char *const NAME;
 
-	int	ioctl(cdev::file_t *filp, int cmd, unsigned long arg) override;
+	UavcanAirspeedBridge(uavcan::INode &node);
 
-	void set_device_type(uint8_t devtype);
-	void set_error_count(uint64_t error_count) { _sensor_mag_pub.get().error_count = error_count; }
-	void increase_error_count() { _sensor_mag_pub.get().error_count++; }
-	void set_scale(float scale) { _sensor_mag_pub.get().scaling = scale; }
-	void set_temperature(float temperature) { _sensor_mag_pub.get().temperature = temperature; }
-	void set_external(bool external) { _sensor_mag_pub.get().is_external = external; }
-	void set_sensitivity(float x, float y, float z) { _sensitivity = matrix::Vector3f{x, y, z}; }
+	const char *get_name() const override { return NAME; }
 
-	void update(hrt_abstime timestamp_sample, float x, float y, float z);
-
-	int get_class_instance() { return _class_device_instance; };
-
-	void print_status();
+	int init() override;
 
 private:
+	float _diff_pres_offset {0.0f};
 
-	uORB::PublicationMultiData<sensor_mag_s>	_sensor_mag_pub;
+	math::LowPassFilter2p _filter{10.f, 1.1f}; /// Adapted from MS5525 driver
 
-	const enum Rotation	_rotation;
+	int ioctl(struct file *filp, int cmd, unsigned long arg) override;
 
-	matrix::Vector3f	_calibration_scale{1.0f, 1.0f, 1.0f};
-	matrix::Vector3f	_calibration_offset{0.0f, 0.0f, 0.0f};
+	void air_sub_cb(const uavcan::ReceivedDataStructure<uavcan::equipment::air_data::RawAirData> &msg);
 
-	matrix::Vector3f	_sensitivity{1.0f, 1.0f, 1.0f};
+	typedef uavcan::MethodBinder < UavcanAirspeedBridge *,
+		void (UavcanAirspeedBridge::*)
+		(const uavcan::ReceivedDataStructure<uavcan::equipment::air_data::RawAirData> &) >
+		AirCbBinder;
 
-	int			_class_device_instance{-1};
-
+	uavcan::Subscriber<uavcan::equipment::air_data::RawAirData, AirCbBinder> _sub_air;
 };
