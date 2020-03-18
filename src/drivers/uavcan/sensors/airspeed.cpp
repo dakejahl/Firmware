@@ -40,6 +40,7 @@
 #include <drivers/drv_airspeed.h>
 #include <drivers/drv_hrt.h>
 #include <lib/ecl/geo/geo.h>
+#include <parameters/param.h>
 #include <systemlib/err.h>
 
 const char *const UavcanAirspeedBridge::NAME = "airspeed";
@@ -58,6 +59,9 @@ int UavcanAirspeedBridge::init()
 	if (res < 0) {
 		return res;
 	}
+
+	// Initialize the calibration offset
+	param_get(param_find("SENS_DPRES_OFF"), &_diff_pres_offset);
 
 	res = _sub_air.start(AirCbBinder(this, &UavcanAirspeedBridge::air_sub_cb));
 
