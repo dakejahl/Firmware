@@ -398,6 +398,7 @@ void UavcanNode::Run()
 			fix2.ned_velocity[0] = gps.vel_n_m_s;
 			fix2.ned_velocity[1] = gps.vel_e_m_s;
 			fix2.ned_velocity[2] = gps.vel_d_m_s;
+			fix2.sats_used = gps.satellites_used;
 
 			_gnss_fix2_publisher.broadcast(fix2);
 		}
