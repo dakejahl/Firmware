@@ -390,7 +390,7 @@ void UavcanNode::Run()
 			uavcan::equipment::gnss::Fix2 fix2{};
 
 			fix2.gnss_time_standard = fix2.GNSS_TIME_STANDARD_UTC;
-			fix2.gnss_timestamp = uavcan::UtcTime::fromUSec(gps.time_utc_usec);
+			fix2.gnss_timestamp.usec = gps.time_utc_usec;
 			fix2.latitude_deg_1e8 = gps.lat * 10;
 			fix2.longitude_deg_1e8 = gps.lon * 10;
 			fix2.height_msl_mm = gps.alt;
@@ -404,13 +404,13 @@ void UavcanNode::Run()
 
 			// Diagonal matrix
 			// position variances -- Xx, Yy, Zz
-			fix2.covariance[0] = gps.eph;
-			fix2.covariance[1] = gps.eph;
-			fix2.covariance[2] = gps.epv;
+			fix2.covariance.push_back(gps.eph);
+			fix2.covariance.push_back(gps.eph);
+			fix2.covariance.push_back(gps.eph);
 			// velocity variance -- Vxx, Vyy, Vzz
-			fix2.covariance[3] = gps.s_variance_m_s;
-			fix2.covariance[4] = gps.s_variance_m_s;
-			fix2.covariance[5] = gps.s_variance_m_s;
+			fix2.covariance.push_back(gps.s_variance_m_s);
+			fix2.covariance.push_back(gps.s_variance_m_s);
+			fix2.covariance.push_back(gps.s_variance_m_s);
 
 			_gnss_fix2_publisher.broadcast(fix2);
 		}
