@@ -52,7 +52,7 @@ BQ4050::BQ4050(I2CSPIBusOption bus_option, const int bus, SMBus *interface) :
 	// unseal() here to allow an external config script to write to protected flash.
 	// This is neccessary to avoid bus errors due to using standard i2c mode instead of SMbus mode.
 	// The external config script should then seal() the device.
-	// unseal();
+	unseal();
 }
 
 BQ4050::~BQ4050()
@@ -94,12 +94,7 @@ void BQ4050::RunImpl()
 
 	int ret = _interface->read_word(BATT_SMBUS_VOLTAGE, result);
 
-	// PX4_DEBUG("ret: %d", ret);
-	// PX4_DEBUG("voltage: %d", result);
-
 	ret |= get_cell_voltages();
-	// PX4_DEBUG("get_cell_voltages ret: %d", ret);
-
 
 	// Convert millivolts to volts.
 	new_report.voltage_v = ((float)result) / 1000.0f;
@@ -108,16 +103,11 @@ void BQ4050::RunImpl()
 	// Read current.
 	ret |= _interface->read_word(BATT_SMBUS_CURRENT, result);
 
-	// PX4_DEBUG("BATT_SMBUS_CURRENT ret: %d", ret);
-
-
 	new_report.current_a = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _c_mult;
 	new_report.current_filtered_a = new_report.current_a;
 
 	// Read average current.
 	ret |= _interface->read_word(BATT_SMBUS_AVERAGE_CURRENT, result);
-	// PX4_DEBUG("BATT_SMBUS_AVERAGE_CURRENT ret: %d", ret);
-
 
 	float average_current = (-1.0f * ((float)(*(int16_t *)&result)) / 1000.0f) * _c_mult;
 
@@ -129,26 +119,22 @@ void BQ4050::RunImpl()
 
 	// Read run time to empty (minutes).
 	ret |= _interface->read_word(BATT_SMBUS_RUN_TIME_TO_EMPTY, result);
-	// PX4_DEBUG("BATT_SMBUS_RUN_TIME_TO_EMPTY ret: %d", ret);
 
 	new_report.run_time_to_empty = result;
 
 	// Read average time to empty (minutes).
 	ret |= _interface->read_word(BATT_SMBUS_AVERAGE_TIME_TO_EMPTY, result);
-	// PX4_DEBUG("BATT_SMBUS_AVERAGE_TIME_TO_EMPTY ret: %d", ret);
 
 	new_report.average_time_to_empty = result;
 
 	// Read remaining capacity.
 	ret |= _interface->read_word(BATT_SMBUS_REMAINING_CAPACITY, result);
-	// PX4_DEBUG("BATT_SMBUS_REMAINING_CAPACITY ret: %d", ret);
 
 	// Calculate total discharged amount in mah.
 	new_report.discharged_mah = _batt_capacity - (float)result * _c_mult;
 
 	// Read Relative SOC.
 	ret |= _interface->read_word(BATT_SMBUS_RELATIVE_SOC, result);
-	// PX4_DEBUG("BATT_SMBUS_RELATIVE_SOC ret: %d", ret);
 
 	// Normalize 0.0 to 1.0
 	new_report.remaining = (float)result / 100.0f;
@@ -156,13 +142,11 @@ void BQ4050::RunImpl()
 	// Read SOH
 	// TODO(hyonlim): this value can be used for battery_status.warning mavlink message.
 	ret |= _interface->read_word(BATT_SMBUS_STATE_OF_HEALTH, result);
-	// PX4_DEBUG("BATT_SMBUS_STATE_OF_HEALTH ret: %d", ret);
 
 	new_report.state_of_health = result;
 
 	// Read Max Error
 	ret |= _interface->read_word(BATT_SMBUS_MAX_ERROR, result);
-	// PX4_DEBUG("BATT_SMBUS_MAX_ERROR ret: %d", ret);
 
 	new_report.max_error = result;
 
@@ -185,7 +169,6 @@ void BQ4050::RunImpl()
 
 	// Read battery temperature and covert to Celsius.
 	ret |= _interface->read_word(BATT_SMBUS_TEMP, result);
-	// PX4_DEBUG("BATT_SMBUS_TEMP ret: %d", ret);
 
 	new_report.temperature = ((float)result / 10.0f) + CONSTANTS_ABSOLUTE_NULL_CELSIUS;
 
@@ -201,8 +184,6 @@ void BQ4050::RunImpl()
 
 	// Only publish if no errors.
 	if (!ret) {
-		// PX4_DEBUG("publishing");
-		// orb_publish(ORB_ID(battery_status), _batt_topic, &new_report);
 		_battery_status_pub.publish(new_report);
 
 		_last_report = new_report;
@@ -336,7 +317,7 @@ int BQ4050::get_startup_info()
 	int result = 0;
 
 	// The name field is 21 characters, add one for null terminator.
-	const unsigned name_length = 22;
+	// const unsigned name_length = 22;
 
 	// Read battery threshold params on startup.
 	param_get(param_find("BAT_CRIT_THR"), &_crit_thr);
@@ -345,17 +326,17 @@ int BQ4050::get_startup_info()
 	param_get(param_find("BAT_C_MULT"), &_c_mult);
 
 	// Try and get battery SBS info.
-	if (_manufacturer_name == nullptr) {
-		char man_name[name_length] = {};
-		result = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
+	// if (_manufacturer_name == nullptr) {
+	// 	char man_name[name_length] = {};
+	// 	result = manufacturer_name((uint8_t *)man_name, sizeof(man_name));
 
-		if (result != PX4_OK) {
-			PX4_DEBUG("Failed to get manufacturer name");
-			return PX4_ERROR;
-		}
+	// 	if (result != PX4_OK) {
+	// 		PX4_DEBUG("Failed to get manufacturer name");
+	// 		return PX4_ERROR;
+	// 	}
 
-		_manufacturer_name = new char[sizeof(man_name)];
-	}
+	// 	_manufacturer_name = new char[sizeof(man_name)];
+	// }
 
 	uint16_t serial_num;
 	result = _interface->read_word(BATT_SMBUS_SERIAL_NUMBER, serial_num);
