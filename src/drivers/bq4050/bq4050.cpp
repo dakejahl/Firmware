@@ -38,7 +38,7 @@
 extern "C" __EXPORT int bq4050_main(int argc, char *argv[]);
 
 BQ4050::BQ4050(I2CSPIBusOption bus_option, const int bus, SMBus *interface) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus),
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus, BATT_SMBUS_ADDR),
 	_interface(interface),
 	_battery_status_pub{ORB_ID(battery_status)}
 {
@@ -369,7 +369,7 @@ int BQ4050::get_startup_info()
 		}
 
 	} else {
-		PX4_WARN("Failed to flush lifetime data");
+		PX4_WARN("Failed to flush lifetime data -- is lifetime data collection enabled?");
 	}
 
 	return result;
