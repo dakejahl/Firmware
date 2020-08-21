@@ -36,9 +36,9 @@
 #include <nuttx/spi/spi.h>
 
 constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
-	initSPIBus(1SPI::Bus::SPI1, {
+	initSPIBus(SPI::Bus::SPI1, {
 		initSPIDevice(DRV_IMU_DEVTYPE_ICM20602, SPI::CS{GPIO::PortC, GPIO::Pin15}, SPI::DRDY{GPIO::PortC, GPIO::Pin14}),
-		initSPIDevice(DRV_IMU_DEVTYPE_ICM20948, SPI::CS{GPIO::PortC, GPIO::Pin15}, SPI::DRDY{GPIO::PortC, GPIO::Pin2}),
+		initSPIDevice(DRV_IMU_DEVTYPE_ICM20948, SPI::CS{GPIO::PortC, GPIO::Pin2}, SPI::DRDY{GPIO::PortD, GPIO::Pin15}),
 		// initSPIDevice(DRV_MAG_DEVTYPE_LIS3MDL, SPI::CS{GPIO::PortE, GPIO::Pin15}, SPI::DRDY{GPIO::PortE, GPIO::Pin12}), // not populated
 	}, {GPIO::PortE, GPIO::Pin3} ),
 	initSPIBus(SPI::Bus::SPI2, {
@@ -52,22 +52,22 @@ constexpr px4_spi_bus_t px4_spi_buses[SPI_BUS_MAX_BUS_ITEMS] = {
 
 static constexpr bool unused = validateSPIConfig(px4_spi_buses);
 
-__EXPORT bool board_has_bus(enum board_bus_types type, uint32_t bus)
-{
-	bool rv = true;
+// __EXPORT bool board_has_bus(enum board_bus_types type, uint32_t bus)
+// {
+// 	bool rv = true;
 
-	switch (type) {
-	case BOARD_SPI_BUS:
-#ifdef CONFIG_STM32_SPI4
-		rv = bus != 4 || (stm32_gpioread(GPIO_8266_GPIO2) == 0);
-#endif /* CONFIG_STM32_SPI4 */
-		break;
+// 	switch (type) {
+// 	case BOARD_SPI_BUS:
+// #ifdef CONFIG_STM32_SPI4
+// 		rv = bus != 4 || (stm32_gpioread(GPIO_8266_GPIO2) == 0);
+// #endif /* CONFIG_STM32_SPI4 */
+// 		break;
 
-	case BOARD_I2C_BUS:
-		break;
+// 	case BOARD_I2C_BUS:
+// 		break;
 
-	default: break;
-	}
+// 	default: break;
+// 	}
 
-	return rv;
-}
+// 	return rv;
+// }

@@ -1,7 +1,7 @@
 
 px4_add_board(
 	PLATFORM nuttx
-	VENDOR px4
+	VENDOR ants
 	MODEL fmu-v4
 	LABEL default
 	TOOLCHAIN arm-none-eabi
@@ -17,6 +17,7 @@ px4_add_board(
 		adc
 		barometer # all available barometer drivers
 		batt_smbus
+		bq4050
 		camera_capture
 		camera_trigger
 		differential_pressure # all available differential pressure drivers
@@ -30,6 +31,7 @@ px4_add_board(
 		imu/adis16497
 		imu/invensense/icm20602
 		imu/invensense/icm20608g
+		imu/invensense/icm20948
 		imu/invensense/icm40609d
 		imu/invensense/mpu6500
 		imu/invensense/mpu9250

@@ -47,6 +47,7 @@ namespace Infineon_DPS310
 {
 
 static constexpr uint8_t REV_AND_PROD_ID = 0x10;
+// static constexpr uint8_t REV_AND_PROD_ID = 0x1;
 
 enum class
 Register : uint8_t {
